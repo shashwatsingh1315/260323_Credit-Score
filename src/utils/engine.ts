@@ -175,7 +175,7 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
   // 1. Get case scenario to filter subject types
   const { data: caseData } = await supabase
     .from('credit_cases')
-    .select('case_scenario')
+    .select('case_scenario, history_classification')
     .eq('id', caseId)
     .single();
 
@@ -202,19 +202,43 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
 
   if (!params || params.length === 0) return;
 
-  // 4. Create tasks
-  const tasks = params.map(p => ({
-    review_cycle_id: cycleId,
-    stage: stage,
-    task_type: 'scoring',
-    parameter_id: p.id,
-    description: p.name,
-    is_required: p.is_required,
-    status: 'Pending',
-  }));
+  // 4. Evaluate conditional logic (Doc 06)
+  const finalTasks = [];
+  for (const p of params) {
+    let isApplicable = true;
+    let isRequired = p.is_required;
 
-  const { error } = await supabase.from('stage_tasks').insert(tasks);
-  if (error) console.error('Error generating stage tasks:', error.message);
+    if (p.conditional_rules) {
+      // Evaluate basic JSON conditional rules (scenarios, history_classification)
+      if (p.conditional_rules.scenarios && Array.isArray(p.conditional_rules.scenarios)) {
+        if (!p.conditional_rules.scenarios.includes(caseData.case_scenario)) {
+          isApplicable = false;
+        }
+      }
+      if (p.conditional_rules.history && caseData.history_classification) {
+        if (p.conditional_rules.history !== caseData.history_classification) {
+          isApplicable = false;
+        }
+      }
+    }
+
+    if (isApplicable) {
+      finalTasks.push({
+        review_cycle_id: cycleId,
+        stage: stage,
+        task_type: 'scoring',
+        parameter_id: p.id,
+        description: p.name,
+        is_required: isRequired,
+        status: 'Pending',
+      });
+    }
+  }
+
+  if (finalTasks.length > 0) {
+    const { error } = await supabase.from('stage_tasks').insert(finalTasks);
+    if (error) console.error('Error generating stage tasks:', error.message);
+  }
 }
 
 /**

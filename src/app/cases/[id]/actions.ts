@@ -23,6 +23,31 @@ export async function fetchCaseDetail(caseId: string) {
 
   if (!caseData) return null;
 
+  // Fetch history and exposure
+  if (caseData.customer_party_id) {
+    const [{ data: cExp }, { data: cHist }] = await Promise.all([
+      supabase.from('party_exposure').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
+      supabase.from('party_history').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single()
+    ]);
+    caseData.customer_exposure = cExp;
+    caseData.customer_history = cHist;
+  }
+
+  if (caseData.contractor_party_id) {
+    const [{ data: cExp }, { data: cHist }] = await Promise.all([
+      supabase.from('party_exposure').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
+      supabase.from('party_history').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).single()
+    ]);
+    caseData.contractor_exposure = cExp;
+    caseData.contractor_history = cHist;
+  }
+
+  // Fetch outcomes if closed
+  if (caseData.status === 'Closed') {
+    const { data: outcome } = await supabase.from('realized_outcomes').select('*').eq('case_id', caseId).single();
+    caseData.outcome = outcome;
+  }
+
   const { data: cycle } = await supabase
     .from('review_cycles')
     .select('*')
@@ -109,6 +134,104 @@ export async function handleCompleteTask(formData: FormData) {
   revalidatePath(`/cases/${caseId}`);
 }
 
+export async function handleForceReadyStage(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const caseId = formData.get('caseId') as string;
+  const cycleId = formData.get('cycleId') as string;
+  const currentStage = parseInt(formData.get('currentStage') as string);
+  const reason = formData.get('reason') as string;
+
+  // Find missing required items
+  const { data: missingTasks } = await supabase
+    .from('stage_tasks')
+    .select('description')
+    .eq('review_cycle_id', cycleId)
+    .eq('stage', currentStage)
+    .eq('is_required', true)
+    .neq('status', 'Completed')
+    .neq('is_waived', true);
+
+  const missingItems = missingTasks ? missingTasks.map((t: any) => t.description) : [];
+
+  await supabase.from('stage_readiness').insert({
+    review_cycle_id: cycleId,
+    stage: currentStage,
+    is_ready: true,
+    is_force_readied: true,
+    force_ready_reason: reason,
+    missing_items: missingItems,
+    readied_by: user.id,
+    readied_at: new Date().toISOString()
+  });
+
+  // Makes case ambiguity-prone per docs
+  await supabase.from('review_cycles').update({ is_ambiguous: true }).eq('id', cycleId);
+
+  await logAuditEvent({
+    case_id: caseId,
+    review_cycle_id: cycleId,
+    event_type: 'stage_force_ready',
+    actor_id: user.id,
+    description: `Stage ${currentStage} force-readied by KAM. Reason: ${reason}. Missing: ${missingItems.length} items. Case marked ambiguous.`,
+    metadata: { missing_items: missingItems }
+  });
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function handleToggleWaiting(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const caseId = formData.get('caseId') as string;
+  const isWaiting = formData.get('isWaiting') === 'true';
+  const reason = formData.get('reason') as string;
+
+  if (isWaiting) {
+    // Stop waiting
+    await supabase.from('credit_cases').update({
+      status: 'In Review',
+      substatus: null
+    }).eq('id', caseId);
+
+    await logAuditEvent({ case_id: caseId, event_type: 'waiting_ended', actor_id: user.id, description: 'Case waiting period ended. SLA clock resumed.' });
+  } else {
+    // Start waiting
+    await setWaiting({ type: 'case', id: caseId, reason, actorId: user.id, caseId });
+  }
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function handleChangePersona(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const caseId = formData.get('caseId') as string;
+  const cycleId = formData.get('cycleId') as string;
+
+  const customerPersonaId = formData.get('customerPersonaId') as string || null;
+  const contractorPersonaId = formData.get('contractorPersonaId') as string || null;
+  const domCategoryId = formData.get('dominanceCategoryId') as string || null;
+
+  await supabase.from('review_cycles').update({
+    customer_persona_id: customerPersonaId,
+    contractor_persona_id: contractorPersonaId,
+    dominance_category_id: domCategoryId
+  }).eq('id', cycleId);
+
+  await logAuditEvent({
+    case_id: caseId,
+    review_cycle_id: cycleId,
+    event_type: 'persona_changed',
+    actor_id: user.id,
+    description: `Personas/Dominance updated for active cycle.`
+  });
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
 export async function handleCreateApprovalRound(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -154,6 +277,37 @@ export async function handleApprovalDecision(formData: FormData) {
   revalidatePath(`/cases/${caseId}`);
 }
 
+export async function handleSaveOutcome(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const caseId = formData.get('caseId') as string;
+  const dealHappened = formData.get('dealHappened') === 'true';
+  const paymentOnTime = formData.get('paymentOnTime') === 'true';
+  const delayDays = parseInt(formData.get('realizedDelayDays') as string) || 0;
+  const realizedExposure = parseFloat(formData.get('realizedExposure') as string) || 0;
+  const notes = formData.get('notes') as string || '';
+
+  await supabase.from('realized_outcomes').upsert({
+    case_id: caseId,
+    deal_happened: dealHappened,
+    payment_on_time: paymentOnTime,
+    realized_delay_days: delayDays,
+    realized_exposure: realizedExposure,
+    notes,
+    recorded_by: user.id
+  }, { onConflict: 'case_id' });
+
+  await logAuditEvent({
+    case_id: caseId,
+    event_type: 'outcome_recorded',
+    actor_id: user.id,
+    description: `Realized outcome recorded.`
+  });
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
 export async function handleAddComment(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -165,5 +319,61 @@ export async function handleAddComment(formData: FormData) {
 
   await supabase.from('case_comments').insert({ case_id: caseId, author_id: user.id, content: content.trim() });
   await logAuditEvent({ case_id: caseId, event_type: 'comment_added', actor_id: user.id, description: 'Comment added.' });
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function handleSelectiveUnlock(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const caseId = formData.get('caseId') as string;
+  const section = formData.get('section') as string;
+  const reason = formData.get('reason') as string;
+
+  await logAuditEvent({
+    case_id: caseId,
+    event_type: 'selective_unlock',
+    actor_id: user.id,
+    description: `Unlocked ${section} for editing. Reason: ${reason}`
+  });
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function handleCounterOffer(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const caseId = formData.get('caseId') as string;
+  const cycleId = formData.get('cycleId') as string;
+  const compositeDays = parseFloat(formData.get('compositeDays') as string);
+  const outcome = formData.get('outcome') as string;
+
+  if (outcome === 'accepted') {
+    await supabase.from('credit_cases').update({
+      final_composite_credit_days: compositeDays,
+      final_review_cycle_id: cycleId,
+      status: 'Accepted'
+    }).eq('id', caseId);
+
+    await logAuditEvent({
+      case_id: caseId,
+      event_type: 'counter_offer_accepted',
+      actor_id: user.id,
+      description: `Counter-offer accepted. Composite days: ${compositeDays}.`
+    });
+  } else if (outcome === 'dropped') {
+    await supabase.from('credit_cases').update({
+      status: 'Closed',
+      closure_reason: 'Customer Declined'
+    }).eq('id', caseId);
+
+    await logAuditEvent({
+      case_id: caseId,
+      event_type: 'counter_offer_dropped',
+      actor_id: user.id,
+      description: `Counter-offer declined by customer.`
+    });
+  }
+
   revalidatePath(`/cases/${caseId}`);
 }

@@ -13,9 +13,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   handleProgressStage, handleCompleteTask, handleWithdraw,
-  handleCreateApprovalRound, handleApprovalDecision, handleAddComment
+  handleCreateApprovalRound, handleApprovalDecision, handleAddComment, handleForceReadyStage, handleToggleWaiting,
+  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleSaveOutcome
 } from './actions';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +50,19 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
     return st.filter((t: any) => t.is_required).every((t: any) => t.status === 'Completed' || t.is_waived);
   };
 
+  const [showCounterOffer, setShowCounterOffer] = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [showPersonaChange, setShowPersonaChange] = useState(false);
+  const isApproved = c.status === 'Approved';
+
+  const [showForceReady, setShowForceReady] = useState<number | null>(null);
+  const [showWaitReason, setShowWaitReason] = useState(false);
+  const isAwaitingInput = c.status === 'Awaiting Input';
+
+  // Calculate SLA display
+  const submittedAt = c.submitted_at ? new Date(c.submitted_at) : null;
+  const daysInReview = submittedAt ? Math.floor((Date.now() - submittedAt.getTime()) / (1000 * 3600 * 24)) : 0;
+
   // Live scoring: derive from completed scoring tasks
   const stageScore = (stage: number) => {
     const scoringTasks = stageTasks(stage).filter((t: any) => t.task_type === 'scoring' && t.status === 'Completed' && t.grade_value != null);
@@ -79,12 +94,43 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
           {c.substatus && <Badge variant="secondary">{c.substatus}</Badge>}
           <Badge variant={STATUS_VARIANT[c.status] || 'secondary'}>{c.status}</Badge>
           {c.status !== 'Closed' && c.status !== 'Expired' && c.status !== 'Withdrawn' && c.status !== 'Rejected' && (
-            <form action={handleWithdraw} className="print:hidden">
-              <input type="hidden" name="caseId" value={c.id} />
-              <input type="hidden" name="reason" value="Withdrawn by user" />
-              <input type="hidden" name="note" value="Manual withdrawal" />
-              <Button type="submit" variant="outline" size="sm" className="border-destructive text-destructive hover:bg-destructive/10">Withdraw</Button>
-            </form>
+            <div className="flex gap-2 print:hidden">
+              <form action={handleWithdraw} className="print:hidden">
+                <input type="hidden" name="caseId" value={c.id} />
+                <input type="hidden" name="reason" value="Withdrawn by user" />
+                <input type="hidden" name="note" value="Manual withdrawal" />
+                <Button type="submit" variant="outline" size="sm" className="border-destructive text-destructive hover:bg-destructive/10">Withdraw</Button>
+              </form>
+
+              {isApproved && (
+                <Button
+                  onClick={() => setShowCounterOffer(true)}
+                  variant="default"
+                  size="sm"
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Negotiate Terms
+                </Button>
+              )}
+
+              <Button
+                onClick={() => setShowUnlock(true)}
+                variant="outline"
+                size="sm"
+              >
+                Unlock/Reopen
+              </Button>
+
+              {cycle && cycle.is_active && (
+                 <Button
+                   onClick={() => setShowPersonaChange(true)}
+                   variant="outline"
+                   size="sm"
+                 >
+                   Change Personas
+                 </Button>
+              )}
+            </div>
           )}
 
           {c.status === 'Rejected' && (
@@ -157,6 +203,79 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
 
         {/* Overview Tab */}
         <TabsContent value="overview">
+
+          {showPersonaChange && cycle && (
+            <Card className="mb-4 bg-muted/20 border-indigo-200 print:hidden">
+              <CardContent className="p-4">
+                <form action={handleChangePersona} className="space-y-3" onSubmit={() => setShowPersonaChange(false)}>
+                  <input type="hidden" name="caseId" value={c.id} />
+                  <input type="hidden" name="cycleId" value={cycle.id} />
+                  <h3 className="font-semibold text-sm">Change Personas & Dominance</h3>
+                  <p className="text-xs text-muted-foreground mb-2">Update the evaluation models for this active cycle. Changes affect live scoring.</p>
+
+                  <div className="flex gap-2 mb-2">
+                    <Input name="customerPersonaId" placeholder="Customer Persona ID" defaultValue={cycle.customer_persona_id || ''} className="h-9 w-[200px]" />
+                    <Input name="contractorPersonaId" placeholder="Contractor Persona ID" defaultValue={cycle.contractor_persona_id || ''} className="h-9 w-[200px]" />
+                    <Input name="dominanceCategoryId" placeholder="Dominance Category ID" defaultValue={cycle.dominance_category_id || ''} className="h-9 flex-1" />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" variant="default">Update Configuration</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowPersonaChange(false)}>Cancel</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {showUnlock && (
+            <Card className="mb-4 bg-muted/20 border-warning print:hidden">
+              <CardContent className="p-4">
+                <form action={handleSelectiveUnlock} className="space-y-3" onSubmit={() => setShowUnlock(false)}>
+                  <input type="hidden" name="caseId" value={c.id} />
+                  <h3 className="font-semibold text-sm">Selective Unlock</h3>
+                  <p className="text-xs text-muted-foreground mb-2">Unlocking a section allows editing but requires a manual re-review if changes are material.</p>
+                  <div className="flex gap-2 mb-2">
+                    <select name="section" className="flex h-9 w-[200px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                      <option value="commercial">Commercial Section</option>
+                      <option value="parties">Parties</option>
+                      <option value="history">History Classification</option>
+                    </select>
+                    <Input name="reason" placeholder="Reason for unlock" className="h-9 flex-1" required />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" variant="default">Unlock Section</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowUnlock(false)}>Cancel</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {showCounterOffer && isApproved && (
+            <Card className="mb-4 bg-indigo-50 border-indigo-200 print:hidden">
+              <CardContent className="p-4">
+                <form action={handleCounterOffer} className="space-y-3" onSubmit={() => setShowCounterOffer(false)}>
+                  <input type="hidden" name="caseId" value={c.id} />
+                  <input type="hidden" name="cycleId" value={cycle?.id} />
+                  <h3 className="font-semibold text-sm text-indigo-900">Counter-Offer / Negotiate Terms</h3>
+                  <p className="text-xs text-indigo-700 mb-2">Approved Limit: <strong className="font-bold">{cycle?.approved_credit_days} days</strong>. You may restructure tranches to fit within this limit without requiring a new review.</p>
+
+                  <div className="flex items-center gap-2 mb-2">
+                    <Input type="number" name="compositeDays" placeholder="New Composite Days" className="h-9 w-[200px]" required max={cycle?.approved_credit_days} />
+                    <span className="text-xs text-muted-foreground">(Must be ≤ {cycle?.approved_credit_days})</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button type="submit" name="outcome" value="accepted" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">Accept New Terms</Button>
+                    <Button type="submit" name="outcome" value="dropped" size="sm" variant="outline" className="border-destructive text-destructive hover:bg-destructive/10">Customer Declined</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowCounterOffer(false)}>Cancel</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-base">Commercial Details</CardTitle></CardHeader>
@@ -225,6 +344,145 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                 </CardContent>
               </Card>
             )}
+
+            <Card className="col-span-2 border-indigo-100">
+              <CardHeader className="pb-3 bg-indigo-50/50"><CardTitle className="text-base text-indigo-900">Party History & Exposure</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-6 pt-4">
+                <div>
+                  <h4 className="text-sm font-semibold mb-3 border-b pb-1">Customer: {c.customer?.legal_name || 'N/A'}</h4>
+                  {c.customer_exposure ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Outstanding</span>
+                        <span className="font-semibold">₹{(c.customer_exposure.outstanding_amount || 0).toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Overdue</span>
+                        <span className={c.customer_exposure.overdue_amount > 0 ? "text-destructive font-bold" : "font-semibold"}>₹{(c.customer_exposure.overdue_amount || 0).toLocaleString('en-IN')} ({c.customer_exposure.overdue_days} days)</span>
+                      </div>
+                      {c.customer_history && (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Orders</span>
+                            <span className="font-semibold">{c.customer_history.order_count || 0}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Avg Delay</span>
+                            <span className="font-semibold">{c.customer_history.average_delay_days || 0} days</span>
+                          </div>
+                        </>
+                      )}
+                      <p className="text-[10px] text-muted-foreground pt-1">Data as of: {new Date(c.customer_exposure.data_as_of).toLocaleDateString()}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No historical exposure found.</p>
+                  )}
+                </div>
+
+                {c.contractor && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 border-b pb-1">Contractor: {c.contractor.legal_name}</h4>
+                    {c.contractor_exposure ? (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Outstanding</span>
+                          <span className="font-semibold">₹{(c.contractor_exposure.outstanding_amount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Overdue</span>
+                          <span className={c.contractor_exposure.overdue_amount > 0 ? "text-destructive font-bold" : "font-semibold"}>₹{(c.contractor_exposure.overdue_amount || 0).toLocaleString('en-IN')} ({c.contractor_exposure.overdue_days} days)</span>
+                        </div>
+                        {c.contractor_history && (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Orders</span>
+                              <span className="font-semibold">{c.contractor_history.order_count || 0}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Avg Delay</span>
+                              <span className="font-semibold">{c.contractor_history.average_delay_days || 0} days</span>
+                            </div>
+                          </>
+                        )}
+                        <p className="text-[10px] text-muted-foreground pt-1">Data as of: {new Date(c.contractor_exposure.data_as_of).toLocaleDateString()}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">No historical exposure found.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {c.status === 'Closed' && (
+              <Card className="col-span-2 bg-slate-50 border-slate-200 print:hidden">
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <CardTitle className="text-base">Realized Outcome</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {c.outcome ? (
+                    <div className="grid grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Deal Happened</p>
+                        <p className="font-semibold">{c.outcome.deal_happened ? 'Yes' : 'No'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Paid On Time</p>
+                        <p className="font-semibold">{c.outcome.payment_on_time ? 'Yes' : 'No'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Realized Delay</p>
+                        <p className="font-semibold">{c.outcome.realized_delay_days || 0} days</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Realized Exposure</p>
+                        <p className="font-semibold">₹{(c.outcome.realized_exposure || 0).toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="col-span-4 mt-2">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Outcome Notes</p>
+                        <p className="text-sm">{c.outcome.notes || 'None'}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <form action={handleSaveOutcome} className="space-y-4">
+                      <input type="hidden" name="caseId" value={c.id} />
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                          <Label>Deal Happened?</Label>
+                          <select name="dealHappened" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" required>
+                            <option value="">Select...</option>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Paid On Time?</Label>
+                          <select name="paymentOnTime" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" required>
+                            <option value="">Select...</option>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Delay (Days)</Label>
+                          <Input type="number" name="realizedDelayDays" defaultValue={0} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Realized Exposure (₹)</Label>
+                          <Input type="number" name="realizedExposure" defaultValue={0} />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Outcome Notes</Label>
+                        <Textarea name="notes" placeholder="Details about how the deal performed..." rows={2} />
+                      </div>
+                      <Button type="submit" size="sm">Save Realized Outcome</Button>
+                    </form>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
           </div>
         </TabsContent>
 

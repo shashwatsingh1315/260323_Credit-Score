@@ -12,8 +12,14 @@ export default async function PolicyPage() {
   const subPages = [
     { href: '/policy/parameters', label: 'Scoring Parameters', icon: Sliders, desc: 'Define and weight parameters used in scoring assessments' },
     { href: '/policy/grades', label: 'Grade Scales', icon: BarChart3, desc: 'Configure grade labels, ranges, and numeric values' },
-    { href: '/policy/personas', label: 'Personas', icon: GitBranch, desc: 'Manage persona models and dominance categories' },
+    { href: '/policy/personas', label: 'Personas', icon: GitBranch, desc: 'Manage persona models and default configurations' },
     { href: '/policy/bands', label: 'Score Bands', icon: CircleDot, desc: 'Map score ranges to approved credit day buckets' },
+    { href: '/policy/dominance', label: 'Dominance Categories', icon: GitBranch, desc: 'Configure how customer and contractor scores are blended together' },
+    { href: '/policy/weights', label: 'Weight Matrices', icon: BarChart3, desc: 'Assign specific parameter weights mapped to personas' },
+    { href: '/policy/routing', label: 'Routing Thresholds', icon: Sliders, desc: 'JSON-based context rules for automatically routing deeper stages' },
+    { href: '/policy/validity', label: 'Validity Rules', icon: CheckCircle2, desc: 'Configure dynamic approval-validity windows (e.g. 90 days)' },
+    { href: '/policy/stages', label: 'Stage Max Totals', icon: CircleDot, desc: 'Define score max totals for normalization per stage' },
+    { href: '/policy/simulation', label: 'Policy Simulation', icon: Sliders, desc: 'Test score results and credit-day mapping before publishing policy' },
   ];
 
   const getVersionStatus = (v: any) => {
