@@ -7,6 +7,7 @@ import {
   Bell, Search, UserCircle, PlusCircle, ChevronRight, Check
 } from 'lucide-react';
 import { fetchMyNotifications, markNotificationRead } from './actions';
+import { switchImpersonationRole, getImpersonationRole } from '@/utils/auth-actions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -42,8 +43,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [activeRole, setActiveRole] = useState<string>('founder_admin');
 
   useEffect(() => {
+    getImpersonationRole().then(r => {
+      if (r) setActiveRole(r);
+    });
     fetchMyNotifications().then(setNotifications);
   }, [pathname]);
 
@@ -109,11 +114,32 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         <Separator />
         {/* User Footer */}
-        <div className="px-4 py-4 flex items-center gap-3">
-          <UserCircle size={32} className="text-muted-foreground shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">Operator</p>
-            <p className="text-xs text-muted-foreground">System User</p>
+        <div className="px-4 py-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <UserCircle size={32} className="text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">Operator</p>
+              <p className="text-xs text-muted-foreground">System User</p>
+            </div>
+          </div>
+          <div className="mt-2 text-xs">
+            <p className="text-muted-foreground font-semibold mb-1">Impersonate Role:</p>
+            <select
+              value={activeRole}
+              onChange={async (e) => {
+                setActiveRole(e.target.value);
+                await switchImpersonationRole(e.target.value);
+              }}
+              className="w-full bg-muted border border-border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="rm">RM</option>
+              <option value="kam">KAM</option>
+              <option value="accounts">Accounts</option>
+              <option value="bdo">BDO</option>
+              <option value="ordinary_approver">Ordinary Approver</option>
+              <option value="board_member">Board Member</option>
+              <option value="founder_admin">Founder / Admin</option>
+            </select>
           </div>
         </div>
       </aside>

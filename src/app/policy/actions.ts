@@ -207,3 +207,161 @@ export async function upsertPersona(formData: FormData) {
   }
   revalidatePath('/policy/personas');
 }
+
+// ── Dominance Categories ─────────────────────────────────────────────────────
+
+export async function fetchDominanceCategories() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('dominance_categories').select('*').order('name');
+  return data || [];
+}
+
+export async function upsertDominanceCategory(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const id = formData.get('id') as string || undefined;
+  const payload: any = {
+    name: formData.get('name') as string,
+    customer_weight: parseFloat(formData.get('customer_weight') as string) || 0.5,
+    contractor_weight: parseFloat(formData.get('contractor_weight') as string) || 0.5,
+    combination_method: formData.get('combination_method') as string || 'weighted',
+    exponent: parseFloat(formData.get('exponent') as string) || 1.0,
+    policy_version_id: formData.get('policy_version_id') as string || null,
+  };
+
+  if (id) {
+    await supabase.from('dominance_categories').update(payload).eq('id', id);
+  } else {
+    await supabase.from('dominance_categories').insert(payload);
+  }
+  revalidatePath('/policy/dominance');
+}
+
+export async function deleteDominanceCategory(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  await supabase.from('dominance_categories').delete().eq('id', formData.get('id') as string);
+  revalidatePath('/policy/dominance');
+}
+
+// ── Routing & Validity Rules ────────────────────────────────────────────────
+
+export async function fetchRoutingRules() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('routing_thresholds').select('*').order('created_at', { ascending: false });
+  return data || [];
+}
+
+export async function upsertRoutingRule(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const id = formData.get('id') as string || undefined;
+  const context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  const target_stage = parseInt(formData.get('target_stage') as string) || 1;
+  const policy_version_id = formData.get('policy_version_id') as string || null;
+
+  if (id) {
+    await supabase.from('routing_thresholds').update({ context_rule, target_stage }).eq('id', id);
+  } else {
+    await supabase.from('routing_thresholds').insert({ context_rule, target_stage, policy_version_id });
+  }
+  revalidatePath('/policy/routing');
+}
+
+export async function deleteRoutingRule(formData: FormData) {
+  const supabase = await createClient();
+  await supabase.from('routing_thresholds').delete().eq('id', formData.get('id') as string);
+  revalidatePath('/policy/routing');
+}
+
+export async function fetchValidityRules() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('validity_rules').select('*').order('created_at', { ascending: false });
+  return data || [];
+}
+
+export async function upsertValidityRule(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const id = formData.get('id') as string || undefined;
+  const context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  const validity_days = parseInt(formData.get('validity_days') as string) || 90;
+  const policy_version_id = formData.get('policy_version_id') as string || null;
+
+  if (id) {
+    await supabase.from('validity_rules').update({ context_rule, validity_days }).eq('id', id);
+  } else {
+    await supabase.from('validity_rules').insert({ context_rule, validity_days, policy_version_id });
+  }
+  revalidatePath('/policy/validity');
+}
+
+export async function deleteValidityRule(formData: FormData) {
+  const supabase = await createClient();
+  await supabase.from('validity_rules').delete().eq('id', formData.get('id') as string);
+  revalidatePath('/policy/validity');
+}
+
+// ── Stage Max Totals ────────────────────────────────────────────────────────
+
+export async function fetchStageMaxTotals() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('stage_max_totals').select('*').order('stage');
+  return data || [];
+}
+
+export async function upsertStageMaxTotal(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const id = formData.get('id') as string || undefined;
+  const stage = parseInt(formData.get('stage') as string);
+  const max_total = parseFloat(formData.get('max_total') as string);
+  const policy_version_id = formData.get('policy_version_id') as string || null;
+
+  if (id) {
+    await supabase.from('stage_max_totals').update({ max_total }).eq('id', id);
+  } else {
+    await supabase.from('stage_max_totals').insert({ stage, max_total, policy_version_id });
+  }
+  revalidatePath('/policy/stages');
+}
+
+// ── Weight Matrices ─────────────────────────────────────────────────────────
+
+export async function fetchWeightMatrices() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('weight_matrices').select(`
+    *,
+    persona:personas(name),
+    parameter:parameter_definitions(name, stage)
+  `);
+  return data || [];
+}
+
+export async function upsertWeightMatrix(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+  const id = formData.get('id') as string || undefined;
+  const persona_id = formData.get('persona_id') as string;
+  const parameter_id = formData.get('parameter_id') as string;
+  const weight = parseFloat(formData.get('weight') as string) || 1.0;
+
+  if (id) {
+    await supabase.from('weight_matrices').update({ weight }).eq('id', id);
+  } else {
+    await supabase.from('weight_matrices').insert({ persona_id, parameter_id, weight });
+  }
+  revalidatePath('/policy/weights');
+}
+
+export async function deleteWeightMatrix(formData: FormData) {
+  const supabase = await createClient();
+  await supabase.from('weight_matrices').delete().eq('id', formData.get('id') as string);
+  revalidatePath('/policy/weights');
+}

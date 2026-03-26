@@ -34,11 +34,22 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
       </div>
 
       <Tabs defaultValue="parties">
-        <TabsList>
-          <TabsTrigger value="parties"><Building2 size={15} /> Party Master</TabsTrigger>
-          <TabsTrigger value="users"><UserCog size={15} /> Users & Roles</TabsTrigger>
-          <TabsTrigger value="audit"><History size={15} /> Global Audit Log</TabsTrigger>
-        </TabsList>
+        <div className="flex justify-between items-center w-full">
+          <TabsList>
+            <TabsTrigger value="parties"><Building2 size={15} /> Party Master</TabsTrigger>
+            <TabsTrigger value="users"><UserCog size={15} /> Users & Roles</TabsTrigger>
+            <TabsTrigger value="audit"><History size={15} /> Global Audit Log</TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-2 pr-4">
+             <Button variant="outline" size="sm" asChild>
+               <a href="/admin/imports">Go to Data Imports</a>
+             </Button>
+             <Button variant="outline" size="sm" asChild>
+               <a href="/admin/aliases">Party Merge & Aliases</a>
+             </Button>
+          </div>
+        </div>
 
         {/* ─── Party Master ─── */}
         <TabsContent value="parties" className="space-y-4">

@@ -5,8 +5,42 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
+import { getImpersonationRole } from '@/utils/auth-actions';
+import { getCurrentUser } from '@/utils/auth';
+
 export default async function DashboardPage() {
   const supabase = await createClient();
+  const user = await getCurrentUser();
+  const role = await getImpersonationRole();
+
+  let queryCases = supabase.from('credit_cases').select('*', { count: 'exact', head: true });
+  let queryInReview = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'In Review');
+  let queryAwaiting = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Awaiting Approval');
+  let queryApproved = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
+  let queryDrafts = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Draft');
+
+  // Role-tailored dashboard filtering (Doc 10)
+  if (role === 'rm' && user) {
+    queryCases = queryCases.eq('rm_user_id', user.id);
+    queryInReview = queryInReview.eq('rm_user_id', user.id);
+    queryAwaiting = queryAwaiting.eq('rm_user_id', user.id);
+    queryApproved = queryApproved.eq('rm_user_id', user.id);
+    queryDrafts = queryDrafts.eq('rm_user_id', user.id);
+  } else if (role === 'kam' && user) {
+    queryCases = queryCases.eq('kam_user_id', user.id);
+    queryInReview = queryInReview.eq('kam_user_id', user.id);
+    queryAwaiting = queryAwaiting.eq('kam_user_id', user.id);
+    queryApproved = queryApproved.eq('kam_user_id', user.id);
+    queryDrafts = queryDrafts.eq('kam_user_id', user.id);
+  }
+
+  let queryRecent = supabase.from('credit_cases')
+    .select('id, case_number, status, case_scenario, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (role === 'rm' && user) queryRecent = queryRecent.eq('rm_user_id', user.id);
+  if (role === 'kam' && user) queryRecent = queryRecent.eq('kam_user_id', user.id);
 
   const [
     { count: totalCases },
@@ -17,16 +51,13 @@ export default async function DashboardPage() {
     { count: totalParties },
     { data: recentCases },
   ] = await Promise.all([
-    supabase.from('credit_cases').select('*', { count: 'exact', head: true }),
-    supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'In Review'),
-    supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Awaiting Approval'),
-    supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Approved'),
-    supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Draft'),
+    queryCases,
+    queryInReview,
+    queryAwaiting,
+    queryApproved,
+    queryDrafts,
     supabase.from('parties').select('*', { count: 'exact', head: true }),
-    supabase.from('credit_cases')
-      .select('id, case_number, status, case_scenario, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
-      .order('created_at', { ascending: false })
-      .limit(5),
+    queryRecent,
   ]);
 
   const stats = [
