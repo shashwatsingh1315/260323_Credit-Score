@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { upsertParty, deactivateParty, assignRole, revokeRole, importPartiesCsv } from './actions';
-import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload } from 'lucide-react';
+import { upsertParty, deactivateParty, assignRole, revokeRole, importPartiesCsv, createUserAccount, deleteUserAccount } from './actions';
+import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, UserPlus } from 'lucide-react';
 
 const ROLES = ['founder_admin', 'system_admin', 'rm', 'kam', 'reviewer', 'approver', 'board_member'];
 
@@ -22,9 +22,11 @@ interface AdminClientProps {
 
 export default function AdminClient({ users, parties, auditLog }: AdminClientProps) {
   const [partyOpen, setPartyOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -113,10 +115,16 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
 
         {/* ─── Users & Roles ─── */}
         <TabsContent value="users" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">{users.length} users registered</p>
+            <Button size="sm" onClick={() => setUserOpen(true)}>
+              <UserPlus size={15} className="mr-2" /> Add User
+            </Button>
+          </div>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <ShieldCheck size={16} className="text-primary" /> User Role Management
+                <ShieldCheck size={16} className="text-primary" /> User Management
               </CardTitle>
             </CardHeader>
             <Table>
@@ -126,11 +134,12 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                   <TableHead>Email</TableHead>
                   <TableHead>Current Roles</TableHead>
                   <TableHead>Assign Role</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No users yet. Users appear here after they sign up.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users yet.</TableCell></TableRow>
                 )}
                 {users.map((u) => (
                   <TableRow key={u.id}>
@@ -159,6 +168,22 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                         <Button type="submit" size="sm" variant="outline">Assign</Button>
+                      </form>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <form action={async (formData) => {
+                        if (confirm('Are you sure you want to delete this user? This cannot be undone.')) {
+                          try {
+                            await deleteUserAccount(formData);
+                          } catch (e: any) {
+                            alert(e.message);
+                          }
+                        }
+                      }}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <Button type="submit" variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                          <Trash2 size={15} />
+                        </Button>
                       </form>
                     </TableCell>
                   </TableRow>
@@ -278,6 +303,46 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setImportOpen(false)} disabled={isImporting}>Cancel</Button>
               <Button type="submit" disabled={isImporting}>{isImporting ? 'Importing...' : 'Upload & Import'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Form Dialog */}
+      <Dialog open={userOpen} onOpenChange={setUserOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Add New User</DialogTitle></DialogHeader>
+          <form
+            action={async (formData) => {
+              setIsCreatingUser(true);
+              try {
+                await createUserAccount(formData);
+                setUserOpen(false);
+              } catch (e: any) {
+                alert(`Failed to create user: ${e.message}`);
+              } finally {
+                setIsCreatingUser(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input id="full_name" name="full_name" placeholder="John Doe" required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" name="email" type="email" placeholder="john@company.com" required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="password">Temporary Password</Label>
+                <Input id="password" name="password" type="password" required minLength={6} placeholder="••••••••" />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setUserOpen(false)} disabled={isCreatingUser}>Cancel</Button>
+              <Button type="submit" disabled={isCreatingUser}>{isCreatingUser ? 'Creating...' : 'Create User'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

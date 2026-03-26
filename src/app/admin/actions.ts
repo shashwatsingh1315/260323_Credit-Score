@@ -1,6 +1,7 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser, logAuditEvent } from '@/utils/auth';
+import { createAdminClient } from '@/utils/supabase/admin';
+import { getCurrentUser, logAuditEvent, isAdmin } from '@/utils/auth';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -54,6 +55,78 @@ export async function fetchAllUsers() {
     .select('*, roles:user_roles(role)')
     .order('full_name');
   return data || [];
+}
+
+export async function createUserAccount(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) throw new Error("Unauthorized");
+
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const fullName = formData.get('full_name') as string;
+
+  if (!email || !password) {
+    throw new Error('Email and password are required.');
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // Create auth user
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // Ensure profile is updated with the provided full name if it exists
+  if (data?.user && fullName) {
+    await supabaseAdmin
+      .from('profiles')
+      .update({ full_name: fullName })
+      .eq('id', data.user.id);
+  }
+
+  await logAuditEvent({
+    event_type: 'user_created',
+    actor_id: user.id,
+    description: `Created new user ${email}.`,
+  });
+
+  revalidatePath('/admin');
+}
+
+export async function deleteUserAccount(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) throw new Error("Unauthorized");
+
+  const userId = formData.get('userId') as string;
+  if (!userId) throw new Error("User ID is required");
+
+  // Prevent self-deletion
+  if (userId === user.id) {
+    throw new Error("You cannot delete your own account.");
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // Delete auth user (cascades to profiles and roles due to DB constraints)
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await logAuditEvent({
+    event_type: 'user_deleted',
+    actor_id: user.id,
+    description: `Deleted user ${userId}.`,
+  });
+
+  revalidatePath('/admin');
 }
 
 export async function assignRole(formData: FormData) {
