@@ -11,6 +11,10 @@ export async function handleNewCase(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
+  if (!hasAnyRole(user, ['rm', 'founder_admin'])) {
+    throw new Error('Only RM or Admin can create cases');
+  }
+
   const caseScenario = formData.get('caseScenario') as string;
   const customerPartyId = formData.get('customerPartyId') as string || undefined;
   const contractorPartyId = formData.get('contractorPartyId') as string || undefined;

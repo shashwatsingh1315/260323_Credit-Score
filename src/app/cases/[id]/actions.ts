@@ -1,6 +1,6 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser, logAuditEvent } from '@/utils/auth';
+import { getCurrentUser, logAuditEvent, hasAnyRole, isAdmin as checkIsAdmin } from '@/utils/auth';
 import { progressStage, setWaiting, withdrawCase } from '@/utils/engine';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -95,6 +95,11 @@ export async function fetchCaseDetail(caseId: string) {
 export async function handleProgressStage(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can progress stages');
+  }
+
   const cycleId = formData.get('cycleId') as string;
   const currentStage = parseInt(formData.get('currentStage') as string);
   const caseId = formData.get('caseId') as string;
@@ -105,6 +110,11 @@ export async function handleProgressStage(formData: FormData) {
 export async function handleWithdraw(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) {
+    throw new Error('Unauthorized to withdraw case');
+  }
+
   const caseId = formData.get('caseId') as string;
   const reason = formData.get('reason') as string;
   const note = formData.get('note') as string;
@@ -118,6 +128,23 @@ export async function handleCompleteTask(formData: FormData) {
   const supabase = await createClient();
   const taskId = formData.get('taskId') as string;
   const caseId = formData.get('caseId') as string;
+
+  // RBAC Audit for task completion
+  const { data: task } = await supabase
+    .from('stage_tasks')
+    .select('*, param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role)')
+    .eq('id', taskId)
+    .single();
+
+  if (!task) throw new Error('Task not found');
+
+  const isAdmin = checkIsAdmin(user);
+  const hasCorrectRole = !task.param?.default_owning_role || user.roles.includes(task.param.default_owning_role);
+
+  if (!isAdmin && !hasCorrectRole) {
+    throw new Error(`Unauthorized. This task requires the ${task.param?.default_owning_role?.toUpperCase()} role.`);
+  }
+
   const gradeValue = formData.get('gradeValue') ? parseInt(formData.get('gradeValue') as string) : null;
   const reason = formData.get('reason') as string || null;
   const rawInput = formData.get('rawInput') as string || null;
@@ -134,7 +161,6 @@ export async function handleCompleteTask(formData: FormData) {
   await logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}` });
   
   if (gradeValue != null) {
-    const { data: task } = await supabase.from('stage_tasks').select('review_cycle_id').eq('id', taskId).single();
     if (task?.review_cycle_id) {
       await updateCycleScore(task.review_cycle_id);
     }
@@ -146,6 +172,11 @@ export async function handleCompleteTask(formData: FormData) {
 export async function handleForceReadyStage(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can force ready a stage');
+  }
+
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const cycleId = formData.get('cycleId') as string;
@@ -193,6 +224,11 @@ export async function handleForceReadyStage(formData: FormData) {
 export async function handleToggleWaiting(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can toggle waiting state');
+  }
+
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const isWaiting = formData.get('isWaiting') === 'true';
@@ -216,6 +252,11 @@ export async function handleToggleWaiting(formData: FormData) {
 export async function handleChangePersona(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can change personas');
+  }
+
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const cycleId = formData.get('cycleId') as string;
@@ -260,11 +301,20 @@ export async function handleChangePersona(formData: FormData) {
 export async function handleCreateApprovalRound(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  const roundType = formData.get('roundType') as string || 'ordinary';
+
+  if (roundType === 'ordinary' && !hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can request ordinary approval');
+  }
+  if (roundType === 'appeal' && !hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) {
+    throw new Error('Only RM, KAM or Admin can initiate appeal');
+  }
+
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const cycleId = formData.get('cycleId') as string;
   const stage = parseInt(formData.get('stage') as string);
-  const roundType = formData.get('roundType') as string || 'ordinary';
 
   await supabase.from('approval_rounds').insert({ review_cycle_id: cycleId, stage, round_type: roundType, status: 'open' });
   await supabase.from('credit_cases').update({ status: roundType === 'appeal' ? 'Appealed' : 'Awaiting Approval' }).eq('id', caseId);
@@ -275,11 +325,19 @@ export async function handleCreateApprovalRound(formData: FormData) {
 export async function handleApprovalDecision(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['ordinary_approver', 'board_member', 'founder_admin'])) {
+    throw new Error('Unauthorized to make approval decisions');
+  }
+
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const roundId = formData.get('roundId') as string;
   const decision = formData.get('decision') as string;
   const comment = formData.get('comment') as string || '';
+
+  // Further check: board member role required for board/appeal rounds if we want to be strict
+  // For now, union of roles is allowed per doc
 
   await supabase.from('approval_decisions').insert({ approval_round_id: roundId, approver_id: user.id, decision, comment });
 
@@ -305,6 +363,11 @@ export async function handleApprovalDecision(formData: FormData) {
 export async function handleSaveOutcome(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can record realized outcomes');
+  }
+
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const dealHappened = formData.get('dealHappened') === 'true';
@@ -358,6 +421,11 @@ export async function handleAddComment(formData: FormData) {
 export async function handleSelectiveUnlock(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['ordinary_approver', 'board_member', 'founder_admin'])) {
+    throw new Error('Only authorized approvers or Admin can unlock sections');
+  }
+
   const caseId = formData.get('caseId') as string;
   const section = formData.get('section') as string;
   const reason = formData.get('reason') as string;

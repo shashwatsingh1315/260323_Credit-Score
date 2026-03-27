@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { upsertParameter, deleteParameter } from '../actions';
-import { Pencil, Trash2, Plus, ChevronLeft } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
 
 interface Parameter {
@@ -34,8 +34,27 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Parameter | null>(null);
   const [subjectFilter, setSubjectFilter] = useState('all');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Parameter, direction: 'asc' | 'desc' } | null>(null);
 
-  const filtered = subjectFilter === 'all' ? params : params.filter(p => p.subject_type === subjectFilter);
+  const handleSort = (key: keyof Parameter) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const filtered = params
+    .filter(p => subjectFilter === 'all' || p.subject_type === subjectFilter)
+    .filter(p => stageFilter === 'all' || p.stage.toString() === stageFilter)
+    .sort((a, b) => {
+      if (!sortConfig) return 0;
+      const { key, direction } = sortConfig;
+      if (a[key] < b[key]) return direction === 'asc' ? -1 : 1;
+      if (a[key] > b[key]) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   const openNew = () => { setEditing(null); setOpen(true); };
   const openEdit = (p: Parameter) => { setEditing(p); setOpen(true); };
@@ -51,24 +70,43 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
         <Button size="sm" onClick={openNew}><Plus size={15} /> Add Parameter</Button>
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-2 flex-wrap">
-        {['all', 'customer', 'contractor'].map(s => (
-          <Button key={s} size="sm" variant={subjectFilter === s ? 'default' : 'outline'} onClick={() => setSubjectFilter(s)} className="capitalize">
-            {s}
-          </Button>
-        ))}
+      {/* Filters */}
+      <div className="flex gap-4 flex-wrap">
+        <div className="flex gap-2 items-center">
+          <span className="text-xs font-medium text-muted-foreground uppercase">Subject:</span>
+          {['all', 'customer', 'contractor'].map(s => (
+            <Button key={s} size="sm" variant={subjectFilter === s ? 'default' : 'outline'} onClick={() => setSubjectFilter(s)} className="capitalize h-8">
+              {s}
+            </Button>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center">
+          <span className="text-xs font-medium text-muted-foreground uppercase">Stage:</span>
+          {['all', '1', '2', '3'].map(s => (
+            <Button key={s} size="sm" variant={stageFilter === s ? 'default' : 'outline'} onClick={() => setStageFilter(s)} className="h-8">
+              {s === 'all' ? 'All' : `Stage ${s}`}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Applies To</TableHead>
+              <TableHead onClick={() => handleSort('name')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-1">Name <ArrowUpDown size={12} /></div>
+              </TableHead>
+              <TableHead onClick={() => handleSort('stage')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-1">Category <ArrowUpDown size={12} /></div>
+              </TableHead>
+              <TableHead onClick={() => handleSort('subject_type')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-1">Applies To <ArrowUpDown size={12} /></div>
+              </TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Weight</TableHead>
+              <TableHead onClick={() => handleSort('weight')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-1">Weight <ArrowUpDown size={12} /></div>
+              </TableHead>
               <TableHead>Flags</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
