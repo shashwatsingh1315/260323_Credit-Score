@@ -118,7 +118,7 @@ export async function deleteParameter(formData: FormData) {
 export async function fetchGradeScales() {
   const supabase = await createClient();
   // Schema now consolidates grades into the grade_scale table
-  const { data } = await supabase.from('grade_scale').select('*').order('min_score', { ascending: false });
+  const { data } = await supabase.from('grade_scale').select('*').order('grade_value', { ascending: false });
   return data || [];
 }
 
@@ -129,10 +129,8 @@ export async function upsertGradeDefinition(formData: FormData) {
   const id = formData.get('id') as string || undefined;
   const payload: any = {
     grade_label: formData.get('grade_label') as string,
-    min_score: parseFloat(formData.get('min_score') as string),
-    max_score: parseFloat(formData.get('max_score') as string),
+    grade_value: parseInt(formData.get('grade_value') as string) || 0,
     description: formData.get('description') as string || '',
-    numeric_value: parseFloat(formData.get('numeric_value') as string) || 0,
     policy_version_id: formData.get('policy_version_id') as string || null,
   };
   if (id) {
@@ -161,7 +159,6 @@ export async function upsertScoreBand(formData: FormData) {
     min_score: parseFloat(formData.get('min_score') as string),
     max_score: parseFloat(formData.get('max_score') as string),
     approved_credit_days: parseInt(formData.get('approved_credit_days') as string),
-    color_hex: formData.get('color_hex') as string || '#6366f1',
     policy_version_id: formData.get('policy_version_id') as string || null,
   };
   if (id) {
