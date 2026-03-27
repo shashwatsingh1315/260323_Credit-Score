@@ -14,8 +14,10 @@ import Link from 'next/link';
 
 interface ScoreBand {
   id: string; band_name: string; min_score: number; max_score: number;
-  approved_credit_days: number; color_hex: string;
+  approved_credit_days: number;
 }
+
+const fallbackColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1'];
 
 export default function BandsClient({ initialBands }: { initialBands: ScoreBand[] }) {
   const [open, setOpen] = useState(false);
@@ -43,15 +45,15 @@ export default function BandsClient({ initialBands }: { initialBands: ScoreBand[
         <Card className="p-4">
           <p className="text-sm font-medium text-muted-foreground mb-3">Score → Credit Days Visual Map</p>
           <div className="space-y-2">
-            {sorted.map((b) => (
+            {sorted.map((b, i) => (
               <div key={b.id} className="flex items-center gap-3">
                 <div className="text-xs text-muted-foreground w-20 shrink-0 text-right">{b.min_score}–{b.max_score}</div>
                 <div className="flex-1 relative h-7 rounded overflow-hidden bg-muted">
                   <div
                     className="h-full rounded flex items-center pl-2.5"
-                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%`, background: b.color_hex + '60', borderLeft: `3px solid ${b.color_hex}` }}
+                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%`, background: fallbackColors[i % fallbackColors.length] + '60', borderLeft: `3px solid ${fallbackColors[i % fallbackColors.length]}` }}
                   >
-                    <span className="text-xs font-semibold" style={{ color: b.color_hex }}>{b.band_name}</span>
+                    <span className="text-xs font-semibold" style={{ color: fallbackColors[i % fallbackColors.length] }}>{b.band_name}</span>
                   </div>
                 </div>
                 <div className="text-xs font-semibold w-14 text-right">{b.approved_credit_days}d</div>
@@ -75,15 +77,15 @@ export default function BandsClient({ initialBands }: { initialBands: ScoreBand[
           <TableBody>
             {sorted.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No bands configured yet.</TableCell></TableRow>
-            ) : sorted.map((b) => (
+            ) : sorted.map((b, i) => (
               <TableRow key={b.id}>
                 <TableCell className="font-medium">{b.band_name}</TableCell>
                 <TableCell>{b.min_score} — {b.max_score}</TableCell>
                 <TableCell><Badge variant="info">{b.approved_credit_days} days</Badge></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded" style={{ background: b.color_hex }} />
-                    <span className="text-xs text-muted-foreground">{b.color_hex}</span>
+                    <span className="w-4 h-4 rounded" style={{ background: fallbackColors[i % fallbackColors.length] }} />
+                    <span className="text-xs text-muted-foreground">{fallbackColors[i % fallbackColors.length]}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
@@ -123,13 +125,6 @@ export default function BandsClient({ initialBands }: { initialBands: ScoreBand[
             <div className="space-y-1">
               <Label>Approved Credit Days</Label>
               <Input name="approved_credit_days" type="number" min="0" defaultValue={editing?.approved_credit_days} required />
-            </div>
-            <div className="space-y-1">
-              <Label>Color</Label>
-              <div className="flex gap-2">
-                <input name="color_hex" type="color" defaultValue={editing?.color_hex || '#6366f1'} className="w-12 h-9 rounded border border-input cursor-pointer" />
-                <Input defaultValue={editing?.color_hex || '#6366f1'} placeholder="#6366f1" className="flex-1" readOnly />
-              </div>
             </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

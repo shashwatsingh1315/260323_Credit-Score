@@ -15,9 +15,7 @@ import Link from 'next/link';
 interface Grade { 
   id: string; 
   grade_label: string; 
-  min_score: number; 
-  max_score: number; 
-  numeric_value: number; 
+  grade_value: number;
   description: string; 
   policy_version_id: string;
 }
@@ -33,7 +31,7 @@ export default function GradesClient({ initialGrades }: { initialGrades: Grade[]
         <Link href="/policy"><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
         <div className="flex-1">
           <h1 className="text-xl font-bold">Grade Scales</h1>
-          <p className="text-sm text-muted-foreground">Manage grade definitions, score ranges, and numeric values</p>
+          <p className="text-sm text-muted-foreground">Manage grade definitions and numeric values</p>
         </div>
       </div>
 
@@ -60,18 +58,16 @@ export default function GradesClient({ initialGrades }: { initialGrades: Grade[]
             <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
-                <TableHead>Score Range</TableHead>
-                <TableHead>Numeric Value</TableHead>
+                <TableHead>Grade Value</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Edit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {grades.sort((a, b) => b.min_score - a.min_score).map((g) => (
+              {grades.sort((a, b) => b.grade_value - a.grade_value).map((g) => (
                 <TableRow key={g.id}>
                   <TableCell><Badge variant="info">{g.grade_label}</Badge></TableCell>
-                  <TableCell>{g.min_score} — {g.max_score}</TableCell>
-                  <TableCell>{g.numeric_value}</TableCell>
+                  <TableCell>{g.grade_value}</TableCell>
                   <TableCell className="text-muted-foreground">{g.description || '-'}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => { setEditing(g); setOpen(true); }}>
@@ -90,22 +86,14 @@ export default function GradesClient({ initialGrades }: { initialGrades: Grade[]
           <DialogHeader><DialogTitle>{editing ? 'Edit Grade' : 'New Grade Definition'}</DialogTitle></DialogHeader>
           <form action={upsertGradeDefinition} onSubmit={() => setOpen(false)} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-1">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-1">
                 <Label>Grade Label</Label>
                 <Input name="grade_label" defaultValue={editing?.grade_label} placeholder="e.g. A, B+, Satisfactory" required />
               </div>
               <div className="space-y-1">
-                <Label>Min Score</Label>
-                <Input name="min_score" type="number" defaultValue={editing?.min_score} required />
-              </div>
-              <div className="space-y-1">
-                <Label>Max Score</Label>
-                <Input name="max_score" type="number" defaultValue={editing?.max_score} required />
-              </div>
-              <div className="space-y-1">
-                <Label>Numeric Value</Label>
-                <Input name="numeric_value" type="number" step="0.01" defaultValue={editing?.numeric_value} required />
+                <Label>Grade Value</Label>
+                <Input name="grade_value" type="number" defaultValue={editing?.grade_value} required />
               </div>
             </div>
             <div className="space-y-1">
