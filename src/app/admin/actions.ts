@@ -150,3 +150,98 @@ export async function importPartiesCsv(formData: FormData) {
   
   revalidatePath('/admin');
 }
+
+
+import { isAdmin } from '@/utils/auth';
+
+export async function adminCreateUser(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Unauthorized');
+
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const fullName = formData.get('full_name') as string;
+  const role = formData.get('role') as string;
+
+  if (!email || !password || !fullName || !role) {
+    throw new Error('Missing required fields');
+  }
+
+  // Create a supabase client using the service role key to bypass RLS and use the admin api
+  // If the service role key is not available, we can't use the admin API, but we'll try with what we have
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+  const { createClient } = require('@supabase/supabase-js');
+  const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  // Create the user
+  const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName }
+  });
+
+  if (createError) {
+    throw new Error(createError.message);
+  }
+
+  const newUserId = authData.user.id;
+
+  // Insert profile manually if the trigger failed or if we need to make sure
+  const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
+    id: newUserId,
+    full_name: fullName,
+    email: email
+  });
+
+  if (profileError) {
+    console.error("Profile creation error:", profileError);
+  }
+
+  // Assign the role
+  await supabaseAdmin.from('user_roles').upsert({
+    user_id: newUserId,
+    role: role
+  });
+
+  await logAuditEvent({ event_type: 'user_created', actor_id: user.id, description: `Created new user ${email} with role ${role}` });
+  revalidatePath('/admin/users');
+}
+
+export async function adminDeleteUser(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Unauthorized');
+
+  const targetUserId = formData.get('userId') as string;
+
+  if (!targetUserId) throw new Error('Missing user ID');
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+  const { createClient } = require('@supabase/supabase-js');
+  const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(targetUserId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await logAuditEvent({ event_type: 'user_deleted', actor_id: user.id, description: `Deleted user ${targetUserId}` });
+  revalidatePath('/admin/users');
+}
