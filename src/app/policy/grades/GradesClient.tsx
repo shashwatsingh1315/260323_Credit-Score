@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { upsertGradeDefinition } from '../actions';
-import { Pencil, Plus, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Pencil, Plus, ChevronLeft, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
 
 interface Grade { 
@@ -24,6 +24,23 @@ export default function GradesClient({ initialGrades }: { initialGrades: Grade[]
   const [grades, setGrades] = useState(initialGrades);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Grade | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Grade, direction: 'asc' | 'desc' } | null>({ key: 'grade_value', direction: 'desc' });
+
+  const handleSort = (key: keyof Grade) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedGrades = [...grades].sort((a, b) => {
+    if (!sortConfig) return 0;
+    const { key, direction } = sortConfig;
+    if (a[key] < b[key]) return direction === 'asc' ? -1 : 1;
+    if (a[key] > b[key]) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="space-y-6">
@@ -57,14 +74,18 @@ export default function GradesClient({ initialGrades }: { initialGrades: Grade[]
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Label</TableHead>
-                <TableHead>Grade Value</TableHead>
+                <TableHead onClick={() => handleSort('grade_label')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-1">Label <ArrowUpDown size={12} /></div>
+                </TableHead>
+                <TableHead onClick={() => handleSort('grade_value')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-1">Grade Value <ArrowUpDown size={12} /></div>
+                </TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Edit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {grades.sort((a, b) => b.grade_value - a.grade_value).map((g) => (
+              {sortedGrades.map((g) => (
                 <TableRow key={g.id}>
                   <TableCell><Badge variant="info">{g.grade_label}</Badge></TableCell>
                   <TableCell>{g.grade_value}</TableCell>

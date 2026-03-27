@@ -5,12 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, Edit } from 'lucide-react';
+import { Trash2, Edit, ArrowUpDown } from 'lucide-react';
 import { upsertWeightMatrix, deleteWeightMatrix } from '../actions';
 
 export default function WeightsClient({ matrices, personas, parameters }: { matrices: any[]; personas: any[]; parameters: any[] }) {
   const [editingMatrix, setEditingMatrix] = useState<any | null>(null);
   const [filterPersona, setFilterPersona] = useState<string>('');
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +30,30 @@ export default function WeightsClient({ matrices, personas, parameters }: { matr
     setEditingMatrix(null);
   };
 
-  const filtered = filterPersona ? matrices.filter(m => m.persona_id === filterPersona) : matrices;
+  const filtered = (filterPersona ? matrices.filter(m => m.persona_id === filterPersona) : matrices)
+    .sort((a, b) => {
+      if (!sortConfig) return 0;
+      const { key, direction } = sortConfig;
+
+      let valA, valB;
+      if (key === 'persona') {
+        valA = a.persona?.name || '';
+        valB = b.persona?.name || '';
+      } else if (key === 'parameter') {
+        valA = a.parameter?.name || '';
+        valB = b.parameter?.name || '';
+      } else if (key === 'stage') {
+        valA = a.parameter?.stage || 0;
+        valB = b.parameter?.stage || 0;
+      } else {
+        valA = a[key];
+        valB = b[key];
+      }
+
+      if (valA < valB) return direction === 'asc' ? -1 : 1;
+      if (valA > valB) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   return (
     <div className="space-y-6">
@@ -84,10 +116,18 @@ export default function WeightsClient({ matrices, personas, parameters }: { matr
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Persona</TableHead>
-                    <TableHead>Parameter</TableHead>
-                    <TableHead>Stage</TableHead>
-                    <TableHead>Weight</TableHead>
+                    <TableHead onClick={() => handleSort('persona')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-1">Persona <ArrowUpDown size={12} /></div>
+                    </TableHead>
+                    <TableHead onClick={() => handleSort('parameter')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-1">Parameter <ArrowUpDown size={12} /></div>
+                    </TableHead>
+                    <TableHead onClick={() => handleSort('stage')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-1">Stage <ArrowUpDown size={12} /></div>
+                    </TableHead>
+                    <TableHead onClick={() => handleSort('weight')} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-1">Weight <ArrowUpDown size={12} /></div>
+                    </TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>

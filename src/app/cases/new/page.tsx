@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
 import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations } from './actions';
+import { PartyDialog } from '@/components/admin/PartyDialog';
 import styles from './page.module.css';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,20 @@ export default function NewCasePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [partyDialogOpen, setPartyDialogOpen] = useState(false);
+  const [partyTypeForDialog, setPartyTypeForDialog] = useState<'customer' | 'contractor'>('customer');
+
+  const refreshParties = async (newParty?: any) => {
+    const p = await fetchParties();
+    setParties(p);
+    if (newParty?.id) {
+      if (partyTypeForDialog === 'customer') {
+        setCustomerPartyId(newParty.id);
+      } else {
+        setContractorPartyId(newParty.id);
+      }
+    }
+  };
 
   // Form state
   const [scenario, setScenario] = useState('customer_name_customer_pays');
@@ -186,7 +201,16 @@ export default function NewCasePage() {
 
               {needsCustomer && (
                 <div className={styles.inputGroup}>
-                  <label>Customer Party *</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="mb-0">Customer Party *</label>
+                    <button
+                      type="button"
+                      onClick={() => { setPartyTypeForDialog('customer'); setPartyDialogOpen(true); }}
+                      className="text-xs flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <UserPlus size={12} /> Add New
+                    </button>
+                  </div>
                   <select value={customerPartyId} onChange={e => setCustomerPartyId(e.target.value)} className={styles.input}>
                     <option value="">-- Select Customer --</option>
                     {parties.map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
@@ -196,7 +220,16 @@ export default function NewCasePage() {
 
               {needsContractor && (
                 <div className={styles.inputGroup}>
-                  <label>Contractor Party *</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="mb-0">Contractor Party *</label>
+                    <button
+                      type="button"
+                      onClick={() => { setPartyTypeForDialog('contractor'); setPartyDialogOpen(true); }}
+                      className="text-xs flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <UserPlus size={12} /> Add New
+                    </button>
+                  </div>
                   <select value={contractorPartyId} onChange={e => setContractorPartyId(e.target.value)} className={styles.input}>
                     <option value="">-- Select Contractor --</option>
                     {parties.map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
@@ -342,6 +375,11 @@ export default function NewCasePage() {
           )}
         </div>
       </div>
+      <PartyDialog
+        open={partyDialogOpen}
+        onOpenChange={setPartyDialogOpen}
+        onSuccess={(newParty) => refreshParties(newParty)}
+      />
     </div>
   );
 }

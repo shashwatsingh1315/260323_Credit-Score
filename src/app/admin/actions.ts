@@ -16,6 +16,9 @@ export async function upsertParty(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+    if (!hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) {
+      return { success: false, error: 'Unauthorized. Only RM, KAM or Admin can manage parties' };
+    }
     const supabase = await createClient();
     const id = formData.get('id') as string || undefined;
     const payload: any = {
@@ -30,7 +33,11 @@ export async function upsertParty(formData: FormData) {
     if (id) {
       await supabase.from('parties').update(payload).eq('id', id);
     } else {
-      await supabase.from('parties').insert(payload);
+      const { data, error } = await supabase.from('parties').insert(payload).select('id, legal_name, customer_code').single();
+      if (error) throw error;
+      await logAuditEvent({ event_type: 'party_upserted', actor_id: user.id, description: `Party '${payload.legal_name}' saved.` });
+      revalidatePath('/admin/parties');
+      return { success: true, party: data };
     }
     await logAuditEvent({ event_type: 'party_upserted', actor_id: user.id, description: `Party '${payload.legal_name}' saved.` });
     revalidatePath('/admin/parties');
@@ -43,6 +50,8 @@ export async function upsertParty(formData: FormData) {
 export async function deactivateParty(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can deactivate parties');
+
   const supabase = await createClient();
   await supabase.from('parties').update({ is_active: false }).eq('id', formData.get('id'));
   await logAuditEvent({ event_type: 'party_deactivated', actor_id: user.id, description: `Party ${formData.get('id')} deactivated.` });
@@ -164,7 +173,7 @@ export async function importPartiesCsv(formData: FormData) {
 }
 
 
-import { isAdmin } from '@/utils/auth';
+import { isAdmin, hasAnyRole } from '@/utils/auth';
 
 export async function adminCreateUser(formData: FormData) {
   try {

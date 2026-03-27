@@ -152,15 +152,15 @@ export async function submitCase(caseId: string, rmUserId: string) {
 
   if (cycleErr) throw cycleErr;
   
-  // Generate tasks for Stage 1
-  await generateStageTasks(cycle.id, 1, activePolicy.id, caseId);
+  // Generate all tasks for Cycle 1
+  await generateAllCycleTasks(cycle.id, activePolicy.id, caseId);
 
   await logAuditEvent({
     case_id: caseId,
     review_cycle_id: cycle.id,
     event_type: 'submission',
     actor_id: rmUserId,
-    description: 'Case submitted for review. Review Cycle 1 opened and tasks generated.',
+    description: 'Case submitted for review. Review Cycle 1 opened and all tasks generated.',
   });
 
   return cycle;
@@ -250,6 +250,15 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
 }
 
 /**
+ * Generate all tasks for a review cycle upfront.
+ */
+export async function generateAllCycleTasks(cycleId: string, policyVersionId: string, caseId: string) {
+  for (let s = 1; s <= 3; s++) {
+    await generateStageTasks(cycleId, s, policyVersionId, caseId);
+  }
+}
+
+/**
  * Progress a case from one stage to the next.
  */
 export async function progressStage(cycleId: string, currentStage: number, actorId: string) {
@@ -273,15 +282,12 @@ export async function progressStage(cycleId: string, currentStage: number, actor
     .update({ active_stage: nextStage })
     .eq('id', cycleId);
 
-  // Generate tasks for next stage
-  await generateStageTasks(cycleId, nextStage, cycle.policy_snapshot_id, cycle.case_id);
-
   await logAuditEvent({
     case_id: cycle.case_id,
     review_cycle_id: cycleId,
     event_type: 'stage_transition',
     actor_id: actorId,
-    description: `Progressed from Stage ${currentStage} to Stage ${nextStage} and tasks generated.`,
+    description: `Progressed from Stage ${currentStage} to Stage ${nextStage}.`,
   });
 }
 

@@ -1,6 +1,6 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser, logAuditEvent } from '@/utils/auth';
+import { getCurrentUser, logAuditEvent, isAdmin } from '@/utils/auth';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -28,6 +28,8 @@ export async function fetchActivePolicy() {
 export async function createNewDraft(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   
   // Calculate next version label based on count
@@ -49,6 +51,8 @@ export async function createNewDraft(formData: FormData) {
 export async function publishDraftPolicy(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const versionId = formData.get('versionId') as string;
   
@@ -79,6 +83,8 @@ export async function fetchParameters() {
 export async function upsertParameter(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const payload: any = {
@@ -106,6 +112,8 @@ export async function upsertParameter(formData: FormData) {
 export async function deleteParameter(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string;
   await supabase.from('parameter_definitions').update({ is_active: false }).eq('id', id);
@@ -125,6 +133,8 @@ export async function fetchGradeScales() {
 export async function upsertGradeDefinition(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const payload: any = {
@@ -152,6 +162,8 @@ export async function fetchScoreBands() {
 export async function upsertScoreBand(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const payload: any = {
@@ -173,6 +185,8 @@ export async function upsertScoreBand(formData: FormData) {
 export async function deleteScoreBand(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   await supabase.from('score_bands').delete().eq('id', formData.get('id') as string);
   revalidatePath('/policy/bands');
@@ -189,6 +203,8 @@ export async function fetchPersonas() {
 export async function upsertPersona(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const payload: any = {
@@ -216,6 +232,8 @@ export async function fetchDominanceCategories() {
 export async function upsertDominanceCategory(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const payload: any = {
@@ -238,6 +256,8 @@ export async function upsertDominanceCategory(formData: FormData) {
 export async function deleteDominanceCategory(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   await supabase.from('dominance_categories').delete().eq('id', formData.get('id') as string);
   revalidatePath('/policy/dominance');
@@ -254,6 +274,8 @@ export async function fetchRoutingRules() {
 export async function upsertRoutingRule(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
@@ -269,6 +291,10 @@ export async function upsertRoutingRule(formData: FormData) {
 }
 
 export async function deleteRoutingRule(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   await supabase.from('routing_thresholds').delete().eq('id', formData.get('id') as string);
   revalidatePath('/policy/routing');
@@ -283,6 +309,8 @@ export async function fetchValidityRules() {
 export async function upsertValidityRule(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
@@ -298,6 +326,10 @@ export async function upsertValidityRule(formData: FormData) {
 }
 
 export async function deleteValidityRule(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   await supabase.from('validity_rules').delete().eq('id', formData.get('id') as string);
   revalidatePath('/policy/validity');
@@ -314,6 +346,8 @@ export async function fetchStageMaxTotals() {
 export async function upsertStageMaxTotal(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const stage = parseInt(formData.get('stage') as string);
@@ -343,6 +377,8 @@ export async function fetchWeightMatrices() {
 export async function upsertWeightMatrix(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
   const persona_id = formData.get('persona_id') as string;
@@ -358,6 +394,10 @@ export async function upsertWeightMatrix(formData: FormData) {
 }
 
 export async function deleteWeightMatrix(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
   const supabase = await createClient();
   await supabase.from('weight_matrices').delete().eq('id', formData.get('id') as string);
   revalidatePath('/policy/weights');
