@@ -206,7 +206,7 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
   const finalTasks = [];
   for (const p of params) {
     let isApplicable = true;
-    let isRequired = p.is_required;
+    const isRequired = p.is_required;
 
     if (p.conditional_rules) {
       // Evaluate basic JSON conditional rules (scenarios, history_classification)

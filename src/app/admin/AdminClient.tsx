@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { upsertParty, deactivateParty, assignRole, revokeRole, importPartiesCsv } from './actions';
+import { upsertParty, deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser } from './actions';
 import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload } from 'lucide-react';
 
 const ROLES = ['founder_admin', 'system_admin', 'rm', 'kam', 'reviewer', 'approver', 'board_member'];
@@ -114,6 +114,38 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
         {/* ─── Users & Roles ─── */}
         <TabsContent value="users" className="space-y-4">
           <Card>
+
+            <Card className="mb-4">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-primary" /> Create New User
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form action={adminCreateUser} className="flex flex-wrap gap-2 items-end">
+                  <div className="space-y-1">
+                    <Label>Full Name</Label>
+                    <Input name="full_name" required placeholder="John Doe" className="w-48" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Email</Label>
+                    <Input name="email" type="email" required placeholder="john@example.com" className="w-48" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Password</Label>
+                    <Input name="password" type="password" required placeholder="Password123" className="w-48" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Initial Role</Label>
+                    <select name="role" required className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-48">
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <Button type="submit">Create User</Button>
+                </form>
+              </CardContent>
+            </Card>
+
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <ShieldCheck size={16} className="text-primary" /> User Role Management
@@ -126,6 +158,7 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                   <TableHead>Email</TableHead>
                   <TableHead>Current Roles</TableHead>
                   <TableHead>Assign Role</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -159,6 +192,14 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                         <Button type="submit" size="sm" variant="outline">Assign</Button>
+                      </form>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <form action={adminDeleteUser}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <Button type="submit" variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                          <Trash2 size={15} />
+                        </Button>
                       </form>
                     </TableCell>
                   </TableRow>
