@@ -59,7 +59,7 @@ export async function fetchCaseDetail(caseId: string) {
   if (cycle) {
     const { data: taskData } = await supabase
       .from('stage_tasks')
-      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name)')
+      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:scoring_parameters!stage_tasks_parameter_id_fkey(allowed_roles)')
       .eq('review_cycle_id', cycle.id)
       .order('stage').order('created_at');
     tasks = taskData || [];

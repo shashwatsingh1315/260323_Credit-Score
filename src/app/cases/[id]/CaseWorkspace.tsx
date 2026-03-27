@@ -1,11 +1,12 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ChevronRight, Clock, CheckCircle, AlertCircle,
   Layers, FileText, History, Shield, MessageSquare,
   BarChart3, TrendingUp, Award, Printer, Scale
 } from 'lucide-react';
+import { getImpersonationRole } from '@/utils/auth-actions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,12 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
   const c = data.case;
   const cycle = data.cycle;
   const tasks = data.tasks;
+
+  const [activeRole, setActiveRole] = useState<string>('');
+
+  useEffect(() => {
+    getImpersonationRole().then(r => setActiveRole(r || 'founder_admin'));
+  }, []);
 
   const stageTasks = (s: number) => tasks.filter((t: any) => t.stage === s);
   const stageComplete = (s: number) => {
@@ -552,7 +559,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                   {task.reason && ` · ${task.reason}`}
                                 </p>
                               </div>
-                              {task.status === 'Pending' && isCurrent && (
+                              {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.allowed_roles || task.param.allowed_roles.includes(activeRole)) && (
                                 <form action={handleCompleteTask} className="flex items-center gap-2 shrink-0">
                                   <input type="hidden" name="taskId" value={task.id} />
                                   <input type="hidden" name="caseId" value={c.id} />
