@@ -1,4 +1,4 @@
-"use server";
+'use server';
 import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser, logAuditEvent } from '@/utils/auth';
 import { redirect } from 'next/navigation';
@@ -13,29 +13,31 @@ export async function fetchParties(search?: string) {
 }
 
 export async function upsertParty(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  const supabase = await createClient();
-  const id = formData.get('id') as string || undefined;
-  const payload: any = {
-    legal_name: formData.get('legal_name') as string,
-    customer_code: formData.get('customer_code') as string,
-    party_type: formData.get('party_type') as string || 'both',
-    gstin: formData.get('gstin') as string || null,
-    pan: formData.get('pan') as string || null,
-    city: formData.get('city') as string || null,
-    state: formData.get('state') as string || null,
-    industry_sector: formData.get('industry_sector') as string || null,
-    credit_limit: parseFloat(formData.get('credit_limit') as string) || null,
-    is_active: true,
-  };
-  if (id) {
-    await supabase.from('parties').update(payload).eq('id', id);
-  } else {
-    await supabase.from('parties').insert(payload);
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+    const supabase = await createClient();
+    const id = formData.get('id') as string || undefined;
+    const payload: any = {
+      legal_name: formData.get('legal_name') as string,
+      customer_code: formData.get('customer_code') as string,
+      gst_number: formData.get('gstin') as string || null,
+      pan_number: formData.get('pan') as string || null,
+      address: [formData.get('city'), formData.get('state')].filter(Boolean).join(', ') || null,
+      industry_category: formData.get('industry_sector') as string || null,
+      is_active: true,
+    };
+    if (id) {
+      await supabase.from('parties').update(payload).eq('id', id);
+    } else {
+      await supabase.from('parties').insert(payload);
+    }
+    await logAuditEvent({ event_type: 'party_upserted', actor_id: user.id, description: `Party '${payload.legal_name}' saved.` });
+    revalidatePath('/admin/parties');
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
   }
-  await logAuditEvent({ event_type: 'party_upserted', actor_id: user.id, description: `Party '${payload.legal_name}' saved.` });
-  revalidatePath('/admin/parties');
 }
 
 export async function deactivateParty(formData: FormData) {
@@ -57,25 +59,35 @@ export async function fetchAllUsers() {
 }
 
 export async function assignRole(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  const supabase = await createClient();
-  const userId = formData.get('userId') as string;
-  const role = formData.get('role') as string;
-  await supabase.from('user_roles').upsert({ user_id: userId, role }, { onConflict: 'user_id,role' });
-  await logAuditEvent({ event_type: 'role_assigned', actor_id: user.id, description: `Role '${role}' assigned to ${userId}.` });
-  revalidatePath('/admin/users');
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+    const supabase = await createClient();
+    const userId = formData.get('userId') as string;
+    const role = formData.get('role') as string;
+    await supabase.from('user_roles').upsert({ user_id: userId, role }, { onConflict: 'user_id,role' });
+    await logAuditEvent({ event_type: 'role_assigned', actor_id: user.id, description: `Role '${role}' assigned to ${userId}.` });
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }
 
 export async function revokeRole(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  const supabase = await createClient();
-  const userId = formData.get('userId') as string;
-  const role = formData.get('role') as string;
-  await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role);
-  await logAuditEvent({ event_type: 'role_revoked', actor_id: user.id, description: `Role '${role}' revoked from ${userId}.` });
-  revalidatePath('/admin/users');
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+    const supabase = await createClient();
+    const userId = formData.get('userId') as string;
+    const role = formData.get('role') as string;
+    await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role);
+    await logAuditEvent({ event_type: 'role_revoked', actor_id: user.id, description: `Role '${role}' revoked from ${userId}.` });
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }
 
 export async function fetchGlobalAuditLog(limit = 100) {
@@ -89,159 +101,156 @@ export async function fetchGlobalAuditLog(limit = 100) {
 }
 
 export async function importPartiesCsv(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  
-  const file = formData.get('file') as File;
-  if (!file) throw new Error('No file provided');
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+    
+    const file = formData.get('file') as File;
+    if (!file) throw new Error('No file provided');
 
-  const text = await file.text();
-  const lines = text.split('\n').filter(l => l.trim() !== '');
-  if (lines.length < 2) throw new Error('CSV is empty or missing headers');
+    const text = await file.text();
+    const lines = text.split('\n').filter(l => l.trim() !== '');
+    if (lines.length < 2) throw new Error('CSV is empty or missing headers');
 
-  // Simple CSV parser for v1 (expects: legal_name, customer_code, party_type)
-  // Example headers: legal_name,customer_code,party_type,gstin,pan,city,credit_limit
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-  
-  const payload = lines.slice(1).map(line => {
-    const values = line.split(',').map(v => v.trim());
-    const obj: any = {};
-    headers.forEach((h, i) => {
-      if (values[i]) obj[h] = values[i];
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    
+    const payload = lines.slice(1).map(line => {
+      const values = line.split(',').map(v => v.trim());
+      const obj: any = {};
+      headers.forEach((h, i) => {
+        if (values[i]) obj[h] = values[i];
+      });
+      return {
+        legal_name: obj.legal_name || 'Unknown',
+        customer_code: obj.customer_code || `CUST-IMP-${Math.floor(Math.random()*10000)}`,
+        gst_number: obj.gstin || null,
+        pan_number: obj.pan || null,
+        address: obj.city || null,
+        is_active: true
+      };
     });
-    return {
-      legal_name: obj.legal_name || 'Unknown',
-      customer_code: obj.customer_code || `CUST-IMP-${Math.floor(Math.random()*10000)}`,
-      party_type: obj.party_type || 'both',
-      gstin: obj.gstin || null,
-      pan: obj.pan || null,
-      city: obj.city || null,
-      credit_limit: parseFloat(obj.credit_limit) || null,
-      is_active: true
-    };
-  });
 
-  const supabase = await createClient();
-  
-  // Create import job record
-  const { data: job } = await supabase.from('import_jobs').insert({
-    imported_by: user.id,
-    import_type: 'party_master',
-    status: 'processing',
-    records_total: payload.length
-  }).select('id').single();
+    const supabase = await createClient();
+    
+    const { data: job } = await supabase.from('import_jobs').insert({
+      imported_by: user.id,
+      import_type: 'party_master',
+      status: 'processing',
+      records_total: payload.length
+    }).select('id').single();
 
-  const { error } = await supabase.from('parties').insert(payload);
+    const { error } = await supabase.from('parties').insert(payload);
 
-  await supabase.from('import_jobs').update({
-    status: error ? 'failed' : 'completed',
-    records_processed: error ? 0 : payload.length,
-    error_details: error ? { message: error.message } : null,
-    completed_at: new Date().toISOString()
-  }).eq('id', job!.id);
+    await supabase.from('import_jobs').update({
+      status: error ? 'failed' : 'completed',
+      records_processed: error ? 0 : payload.length,
+      error_details: error ? { message: error.message } : null,
+      completed_at: new Date().toISOString()
+    }).eq('id', job!.id);
 
-  if (error) throw new Error(error.message);
+    if (error) throw new Error(error.message);
 
-  await logAuditEvent({ 
-    event_type: 'party_csv_import', 
-    actor_id: user.id, 
-    description: `Imported ${payload.length} parties via CSV.` 
-  });
-  
-  revalidatePath('/admin');
+    await logAuditEvent({ 
+      event_type: 'party_csv_import', 
+      actor_id: user.id, 
+      description: `Imported ${payload.length} parties via CSV.` 
+    });
+    
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }
 
 
 import { isAdmin } from '@/utils/auth';
 
 export async function adminCreateUser(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  if (!isAdmin(user)) throw new Error('Unauthorized');
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized' };
 
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  const fullName = formData.get('full_name') as string;
-  const role = formData.get('role') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const fullName = formData.get('full_name') as string;
+    const role = formData.get('role') as string;
 
-  if (!email || !password || !fullName || !role) {
-    throw new Error('Missing required fields');
-  }
-
-  // Create a supabase client using the service role key to bypass RLS and use the admin api
-  // If the service role key is not available, we can't use the admin API, but we'll try with what we have
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-  const { createClient } = require('@supabase/supabase-js');
-  const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+    if (!email || !password || !fullName || !role) {
+      throw new Error('Missing required fields');
     }
-  });
 
-  // Create the user
-  const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: fullName }
-  });
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '';
 
-  if (createError) {
-    throw new Error(createError.message);
+    const { createClient } = require('@supabase/supabase-js');
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName }
+    });
+
+    if (createError) throw new Error(createError.message);
+
+    const newUserId = authData.user.id;
+
+    const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
+      id: newUserId,
+      full_name: fullName,
+      email: email
+    });
+
+    if (profileError) console.error("Profile creation error:", profileError);
+
+    await supabaseAdmin.from('user_roles').upsert({
+      user_id: newUserId,
+      role: role
+    });
+
+    await logAuditEvent({ event_type: 'user_created', actor_id: user.id, description: `Created new user ${email} with role ${role}` });
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
   }
-
-  const newUserId = authData.user.id;
-
-  // Insert profile manually if the trigger failed or if we need to make sure
-  const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
-    id: newUserId,
-    full_name: fullName,
-    email: email
-  });
-
-  if (profileError) {
-    console.error("Profile creation error:", profileError);
-  }
-
-  // Assign the role
-  await supabaseAdmin.from('user_roles').upsert({
-    user_id: newUserId,
-    role: role
-  });
-
-  await logAuditEvent({ event_type: 'user_created', actor_id: user.id, description: `Created new user ${email} with role ${role}` });
-  revalidatePath('/admin/users');
 }
 
 export async function adminDeleteUser(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  if (!isAdmin(user)) throw new Error('Unauthorized');
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized' };
 
-  const targetUserId = formData.get('userId') as string;
+    const targetUserId = formData.get('userId') as string;
+    if (!targetUserId) throw new Error('Missing user ID');
 
-  if (!targetUserId) throw new Error('Missing user ID');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '';
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const { createClient } = require('@supabase/supabase-js');
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
-  const { createClient } = require('@supabase/supabase-js');
-  const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(targetUserId);
+    if (error) throw new Error(error.message);
 
-  const { error } = await supabaseAdmin.auth.admin.deleteUser(targetUserId);
-
-  if (error) {
-    throw new Error(error.message);
+    await logAuditEvent({ event_type: 'user_deleted', actor_id: user.id, description: `Deleted user ${targetUserId}` });
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
   }
-
-  await logAuditEvent({ event_type: 'user_deleted', actor_id: user.id, description: `Deleted user ${targetUserId}` });
-  revalidatePath('/admin/users');
 }

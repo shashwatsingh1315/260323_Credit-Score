@@ -192,14 +192,22 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
   }
 
   // 3. Fetch active parameters for this stage and policy
-  const { data: params } = await supabase
-    .from('parameter_definitions')
-    .select('*')
-    .eq('policy_version_id', policyVersionId)
-    .eq('stage', stage)
-    .eq('is_active', true)
-    .in('subject_type', allowedSubjects);
+  const [{ data: params }, { count: existingCount }] = await Promise.all([
+    supabase
+      .from('parameter_definitions')
+      .select('*')
+      .eq('policy_version_id', policyVersionId)
+      .eq('stage', stage)
+      .eq('is_active', true)
+      .in('subject_type', allowedSubjects),
+    supabase
+      .from('stage_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('review_cycle_id', cycleId)
+      .eq('stage', stage)
+  ]);
 
+  if (existingCount && existingCount > 0) return; // Tasks already generated for this stage
   if (!params || params.length === 0) return;
 
   // 4. Evaluate conditional logic (Doc 06)
@@ -215,8 +223,8 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
           isApplicable = false;
         }
       }
-      if (p.conditional_rules.history && caseData.history_classification) {
-        if (p.conditional_rules.history !== caseData.history_classification) {
+      if (p.conditional_rules.history) {
+        if (!caseData.history_classification || p.conditional_rules.history !== caseData.history_classification) {
           isApplicable = false;
         }
       }

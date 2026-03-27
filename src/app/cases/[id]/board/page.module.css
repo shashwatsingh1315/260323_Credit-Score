@@ -25,8 +25,9 @@
 
 .title {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
@@ -49,14 +50,14 @@
 .voterList {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .voterRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
+  padding: 0.875rem 1rem;
   background-color: var(--bg-tertiary);
   border-radius: 8px;
   border: 1px solid var(--border-color);
@@ -79,7 +80,7 @@
 .tallyBar {
   display: flex;
   width: 100%;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   font-size: 0.75rem;
   font-weight: bold;
@@ -106,6 +107,7 @@
 .inputGroup label {
   font-size: 0.875rem;
   font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .input {
@@ -116,12 +118,18 @@
   border-radius: 8px;
   font-family: inherit;
   resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--accent-primary);
 }
 
 .actionRow {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .voteBtnApprove, .voteBtnReject, .voteBtnAbstain {
@@ -129,31 +137,32 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 1rem;
+  padding: 0.875rem;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   cursor: pointer;
   border: none;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .voteBtnApprove:hover, .voteBtnReject:hover, .voteBtnAbstain:hover {
-  opacity: 0.9;
+  opacity: 0.88;
+  transform: translateY(-1px);
 }
 
 .voteBtnApprove {
   background-color: var(--success);
-  color: white;
+  color: var(--bg-primary);
 }
 
 .voteBtnReject {
   background-color: var(--danger);
-  color: white;
+  color: var(--bg-primary);
 }
 
 .voteBtnAbstain {
   background-color: var(--bg-tertiary);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   border: 1px solid var(--border-color);
 }

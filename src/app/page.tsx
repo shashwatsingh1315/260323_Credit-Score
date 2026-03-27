@@ -15,7 +15,7 @@ export default async function DashboardPage() {
 
   let queryCases = supabase.from('credit_cases').select('*', { count: 'exact', head: true });
   let queryInReview = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'In Review');
-  let queryAwaiting = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Awaiting Approval');
+  let queryAwaiting = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).in('status', ['Awaiting Approval', 'Appealed']);
   let queryApproved = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
   let queryDrafts = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Draft');
 

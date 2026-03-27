@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 import Shell from '@/components/Shell';
+import { Toaster } from 'sonner';
 
 export default function RootLayout({
   children,
@@ -20,6 +21,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.variable} font-sans`}>
         <Shell>{children}</Shell>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

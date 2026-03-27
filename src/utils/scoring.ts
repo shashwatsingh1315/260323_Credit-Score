@@ -15,7 +15,20 @@ export async function calculateSubjectScore(params: {
 }): Promise<number> {
   const supabase = await createClient();
 
-  // Get completed scoring tasks for this subject type at this stage
+  // 1. Get cycle to identify persona and policy
+  const { data: cycle } = await supabase
+    .from('review_cycles')
+    .select('policy_snapshot_id, customer_persona_id, contractor_persona_id')
+    .eq('id', params.reviewCycleId)
+    .single();
+
+  if (!cycle) return 0;
+
+  const personaId = params.subjectType === 'customer' 
+    ? cycle.customer_persona_id 
+    : cycle.contractor_persona_id;
+
+  // 2. Fetch completed scoring tasks for this subject type at this stage
   const { data: tasks } = await supabase
     .from('stage_tasks')
     .select('*, parameter:parameter_definitions(*)')
@@ -26,6 +39,21 @@ export async function calculateSubjectScore(params: {
 
   if (!tasks || tasks.length === 0) return 0;
 
+  // 3. Fetch weight overrides for the persona if applicable
+  let weightsMap: Record<string, number> = {};
+  if (personaId) {
+    const { data: overrides } = await supabase
+      .from('weight_matrices')
+      .select('parameter_id, weight')
+      .eq('persona_id', personaId);
+    
+    if (overrides) {
+      overrides.forEach(o => {
+        weightsMap[o.parameter_id] = parseFloat(o.weight as any);
+      });
+    }
+  }
+
   // Filter to the correct subject type
   const relevantTasks = tasks.filter(
     (t: any) => t.parameter?.subject_type === params.subjectType
@@ -33,31 +61,13 @@ export async function calculateSubjectScore(params: {
 
   let weightedSum = 0;
   for (const task of relevantTasks) {
-    const weight = task.parameter?.weight || 1;
+    const defaultWeight = task.parameter?.weight || 1;
+    const weight = weightsMap[task.parameter_id] ?? defaultWeight;
     const grade = task.grade_value || 0;
     weightedSum += grade * weight;
   }
 
-  // Get stage max total for normalization
-  const { data: cycle } = await supabase
-    .from('review_cycles')
-    .select('policy_snapshot_id')
-    .eq('id', params.reviewCycleId)
-    .single();
-
-  if (!cycle) return 0;
-
-  const { data: maxTotal } = await supabase
-    .from('stage_max_totals')
-    .select('max_total')
-    .eq('policy_version_id', cycle.policy_snapshot_id)
-    .eq('stage', params.stage)
-    .single();
-
-  const maxTotalValue = maxTotal?.max_total || 100;
-  const normalizedScore = (weightedSum / maxTotalValue) * 100;
-
-  return Math.round(normalizedScore * 100) / 100;
+  return weightedSum;
 }
 
 /**
@@ -69,18 +79,39 @@ export async function calculateCumulativeScore(params: {
   subjectType: 'customer' | 'contractor';
   upToStage: number;
 }): Promise<number> {
-  let totalScore = 0;
+  const supabase = await createClient();
 
-  for (let stage = 1; stage <= params.upToStage; stage++) {
-    const stageScore = await calculateSubjectScore({
+  // 1. Get cycle to identify policy
+  const { data: cycle } = await supabase
+    .from('review_cycles')
+    .select('policy_snapshot_id')
+    .eq('id', params.reviewCycleId)
+    .single();
+
+  if (!cycle) return 0;
+
+  let weightedSum = 0;
+  for (let s = 1; s <= params.upToStage; s++) {
+    weightedSum += await calculateSubjectScore({
       reviewCycleId: params.reviewCycleId,
       subjectType: params.subjectType,
-      stage,
+      stage: s,
     });
-    totalScore += stageScore;
   }
 
-  return totalScore;
+  // Fetch max total for the cumulative stage
+  const { data: maxTotal } = await supabase
+    .from('stage_max_totals')
+    .select('max_total')
+    .eq('policy_version_id', cycle.policy_snapshot_id)
+    .eq('stage', params.upToStage)
+    .single();
+
+  const maxTotalValue = maxTotal?.max_total || 100;
+  if (maxTotalValue <= 0) return 0; // Guard against division by zero
+
+  const normalizedScore = (weightedSum / maxTotalValue) * 100;
+  return Math.round(normalizedScore);
 }
 
 /**
@@ -246,4 +277,31 @@ export async function checkAmbiguity(params: {
     isAmbiguous: reasons.length > 0,
     reasons,
   };
+}
+
+/**
+ * Triggered after task completion to keep the review_cycles.current_case_score in sync.
+ */
+export async function updateCycleScore(reviewCycleId: string) {
+  const supabase = await createClient();
+  const { data: cycle } = await supabase
+    .from('review_cycles')
+    .select('*, credit_cases(case_scenario)')
+    .eq('id', reviewCycleId)
+    .single();
+
+  if (!cycle) return;
+
+  const caseScenario = (cycle.credit_cases as any)?.case_scenario || 'customer_name_customer_pays';
+  
+  // Calculate final score up to the furthest stage (3)
+  const result = await calculateFinalCaseScore({
+    reviewCycleId,
+    caseScenario,
+    upToStage: 3,
+  });
+
+  await supabase.from('review_cycles').update({
+    current_case_score: result.finalScore,
+  }).eq('id', reviewCycleId);
 }

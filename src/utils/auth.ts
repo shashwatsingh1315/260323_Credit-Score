@@ -1,6 +1,7 @@
 import { createClient } from './supabase/server';
 
 export type UserRole = 'rm' | 'kam' | 'accounts' | 'bdo' | 'ordinary_approver' | 'board_member' | 'founder_admin';
+export const USER_ROLES: UserRole[] = ['rm', 'kam', 'accounts', 'bdo', 'ordinary_approver', 'board_member', 'founder_admin'];
 
 export interface UserProfile {
   id: string;

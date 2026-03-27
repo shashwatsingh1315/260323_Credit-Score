@@ -53,7 +53,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
   const stageTasks = (s: number) => tasks.filter((t: any) => t.stage === s);
   const stageComplete = (s: number) => {
     const st = stageTasks(s);
-    if (!st.length) return false;
+    if (!st.length) return true; // Allow progression if no tasks for this stage
     return st.filter((t: any) => t.is_required).every((t: any) => t.status === 'Completed' || t.is_waived);
   };
 
@@ -74,13 +74,14 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
   const stageScore = (stage: number) => {
     const scoringTasks = stageTasks(stage).filter((t: any) => t.task_type === 'scoring' && t.status === 'Completed' && t.grade_value != null);
     if (!scoringTasks.length) return null;
-    const totalWeight = scoringTasks.reduce((sum: number, t: any) => sum + (t.weight || 1), 0);
-    const weightedSum = scoringTasks.reduce((sum: number, t: any) => sum + (t.grade_value * (t.weight || 1)), 0);
-    return totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 10) : null;
+    const totalWeight = scoringTasks.reduce((sum: number, t: any) => sum + (t.param?.weight || 1), 0);
+    const weightedSum = scoringTasks.reduce((sum: number, t: any) => sum + (t.grade_value * (t.param?.weight || 1)), 0);
+    return totalWeight > 0 ? Math.round(weightedSum / totalWeight) : null;
   };
 
   const allStageScores = [1, 2, 3].map(s => stageScore(s)).filter(v => v != null) as number[];
-  const liveScore = allStageScores.length ? Math.round(allStageScores.reduce((a, b) => a + b, 0) / allStageScores.length) : null;
+  // Prioritize stored cycle score, fallback to live calculation
+  const liveScore = cycle?.current_case_score ?? (allStageScores.length ? Math.round(allStageScores.reduce((a, b) => a + b, 0) / allStageScores.length) : null);
 
   return (
     <div className="space-y-4">
@@ -559,7 +560,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                   {task.reason && ` · ${task.reason}`}
                                 </p>
                               </div>
-                              {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.allowed_roles || task.param.allowed_roles.includes(activeRole)) && (
+                              {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
                                 <form action={handleCompleteTask} className="flex items-center gap-2 shrink-0">
                                   <input type="hidden" name="taskId" value={task.id} />
                                   <input type="hidden" name="caseId" value={c.id} />
@@ -661,7 +662,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                         <span className="text-sm font-medium">{cm.author?.full_name || 'Unknown'}</span>
                         <span className="text-xs text-muted-foreground">{new Date(cm.created_at).toLocaleString()}</span>
                       </div>
-                      <p className="text-sm">{cm.content}</p>
+                      <p className="text-sm">{cm.body}</p>
                     </CardContent>
                   </Card>
                 ))}

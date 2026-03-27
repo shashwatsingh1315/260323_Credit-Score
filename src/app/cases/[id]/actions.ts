@@ -4,6 +4,7 @@ import { getCurrentUser, logAuditEvent } from '@/utils/auth';
 import { progressStage, setWaiting, withdrawCase } from '@/utils/engine';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { updateCycleScore } from '@/utils/scoring';
 
 export async function fetchCaseDetail(caseId: string) {
   const supabase = await createClient();
@@ -131,6 +132,14 @@ export async function handleCompleteTask(formData: FormData) {
   }).eq('id', taskId);
 
   await logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}` });
+  
+  if (gradeValue != null) {
+    const { data: task } = await supabase.from('stage_tasks').select('review_cycle_id').eq('id', taskId).single();
+    if (task?.review_cycle_id) {
+      await updateCycleScore(task.review_cycle_id);
+    }
+  }
+
   revalidatePath(`/cases/${caseId}`);
 }
 
@@ -215,6 +224,21 @@ export async function handleChangePersona(formData: FormData) {
   const contractorPersonaId = formData.get('contractorPersonaId') as string || null;
   const domCategoryId = formData.get('dominanceCategoryId') as string || null;
 
+  // Validate persona-policy linkage
+  const { data: cycle } = await supabase.from('review_cycles').select('policy_snapshot_id').eq('id', cycleId).single();
+  if (customerPersonaId) {
+    const { data: p } = await supabase.from('personas').select('policy_version_id').eq('id', customerPersonaId).single();
+    if (p && p.policy_version_id !== cycle?.policy_snapshot_id) {
+      throw new Error("Customer Persona does not belong to the current policy snapshot.");
+    }
+  }
+  if (contractorPersonaId) {
+    const { data: p } = await supabase.from('personas').select('policy_version_id').eq('id', contractorPersonaId).single();
+    if (p && p.policy_version_id !== cycle?.policy_snapshot_id) {
+      throw new Error("Contractor Persona does not belong to the current policy snapshot.");
+    }
+  }
+
   await supabase.from('review_cycles').update({
     customer_persona_id: customerPersonaId,
     contractor_persona_id: contractorPersonaId,
@@ -229,6 +253,7 @@ export async function handleChangePersona(formData: FormData) {
     description: `Personas/Dominance updated for active cycle.`
   });
 
+  await updateCycleScore(cycleId);
   revalidatePath(`/cases/${caseId}`);
 }
 
@@ -288,7 +313,9 @@ export async function handleSaveOutcome(formData: FormData) {
   const realizedExposure = parseFloat(formData.get('realizedExposure') as string) || 0;
   const notes = formData.get('notes') as string || '';
 
-  await supabase.from('realized_outcomes').upsert({
+  const { data: existingOutcome } = await supabase.from('realized_outcomes').select('id').eq('case_id', caseId).single();
+
+  const outcomePayload = {
     case_id: caseId,
     deal_happened: dealHappened,
     payment_on_time: paymentOnTime,
@@ -296,7 +323,13 @@ export async function handleSaveOutcome(formData: FormData) {
     realized_exposure: realizedExposure,
     notes,
     recorded_by: user.id
-  }, { onConflict: 'case_id' });
+  };
+
+  if (existingOutcome) {
+    await supabase.from('realized_outcomes').update(outcomePayload).eq('id', existingOutcome.id);
+  } else {
+    await supabase.from('realized_outcomes').insert(outcomePayload);
+  }
 
   await logAuditEvent({
     case_id: caseId,
@@ -317,7 +350,7 @@ export async function handleAddComment(formData: FormData) {
 
   if (!content?.trim()) return;
 
-  await supabase.from('case_comments').insert({ case_id: caseId, author_id: user.id, content: content.trim() });
+  await supabase.from('case_comments').insert({ case_id: caseId, author_id: user.id, body: content.trim() });
   await logAuditEvent({ case_id: caseId, event_type: 'comment_added', actor_id: user.id, description: 'Comment added.' });
   revalidatePath(`/cases/${caseId}`);
 }

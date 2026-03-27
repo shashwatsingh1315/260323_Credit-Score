@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { upsertParty, deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser } from './actions';
 import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 
-const ROLES = ['founder_admin', 'system_admin', 'rm', 'kam', 'reviewer', 'approver', 'board_member'];
+const ROLES = ['rm', 'kam', 'accounts', 'bdo', 'ordinary_approver', 'board_member', 'founder_admin'];
 
 interface AdminClientProps {
   users: any[];
@@ -25,6 +26,54 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
   const [importOpen, setImportOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+
+  const handleUpsertPartySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const res = await upsertParty(formData);
+    if (res?.success) {
+      toast.success('Party saved successfully');
+      setPartyOpen(false);
+    } else {
+      toast.error(res?.error || 'Failed to save party');
+    }
+  };
+
+  const handleImportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsImporting(true);
+    const formData = new FormData(e.currentTarget);
+    const res = await importPartiesCsv(formData);
+    setIsImporting(false);
+    if (res?.success) {
+      toast.success('Parties imported successfully');
+      setImportOpen(false);
+    } else {
+      toast.error(res?.error || 'Import failed');
+    }
+  };
+
+  const handleCreateUserSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const res = await adminCreateUser(formData);
+    if (res?.success) {
+      toast.success('User created successfully');
+      setUserOpen(false);
+    } else {
+      toast.error(res?.error || 'Failed to create user');
+    }
+  };
+
+  const handleRoleAction = async (formData: FormData, action: (fd: FormData) => Promise<any>, successMsg: string) => {
+    const res = await action(formData);
+    if (res?.success) {
+      toast.success(successMsg);
+    } else {
+      toast.error(res?.error || 'Action failed');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -98,7 +147,7 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                         <Button variant="ghost" size="icon" onClick={() => { setEditingParty(p); setPartyOpen(true); }}>
                           <Pencil size={15} />
                         </Button>
-                        <form action={deactivateParty}>
+                        <form action={(fd) => handleRoleAction(fd, deactivateParty, 'Party deactivated')}>
                           <input type="hidden" name="id" value={p.id} />
                           <Button variant="ghost" size="icon" type="submit" className="text-destructive hover:text-destructive"><Trash2 size={15} /></Button>
                         </form>
@@ -113,39 +162,38 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
 
         {/* ─── Users & Roles ─── */}
         <TabsContent value="users" className="space-y-4">
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldCheck size={16} className="text-primary" /> Create New User
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateUserSubmit} className="flex flex-wrap gap-2 items-end">
+                <div className="space-y-1">
+                  <Label>Full Name</Label>
+                  <Input name="full_name" required placeholder="John Doe" className="w-48" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Email</Label>
+                  <Input name="email" type="email" required placeholder="john@example.com" className="w-48" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Password</Label>
+                  <Input name="password" type="password" required placeholder="Password123" className="w-48" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Initial Role</Label>
+                  <select name="role" required className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:ring-1 focus:ring-primary w-48">
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <Button type="submit">Create User</Button>
+              </form>
+            </CardContent>
+          </Card>
+
           <Card>
-
-            <Card className="mb-4">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-primary" /> Create New User
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form action={adminCreateUser} className="flex flex-wrap gap-2 items-end">
-                  <div className="space-y-1">
-                    <Label>Full Name</Label>
-                    <Input name="full_name" required placeholder="John Doe" className="w-48" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Email</Label>
-                    <Input name="email" type="email" required placeholder="john@example.com" className="w-48" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Password</Label>
-                    <Input name="password" type="password" required placeholder="Password123" className="w-48" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Initial Role</Label>
-                    <select name="role" required className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-48">
-                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-                  <Button type="submit">Create User</Button>
-                </form>
-              </CardContent>
-            </Card>
-
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <ShieldCheck size={16} className="text-primary" /> User Role Management
@@ -163,7 +211,7 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
               </TableHeader>
               <TableBody>
                 {users.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No users yet. Users appear here after they sign up.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users yet.</TableCell></TableRow>
                 )}
                 {users.map((u) => (
                   <TableRow key={u.id}>
@@ -172,30 +220,29 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {(u.roles || []).map((r: any) => (
-                          <form key={r.role} action={revokeRole} className="inline">
+                          <form key={r.role} action={(fd) => handleRoleAction(fd, revokeRole, 'Role revoked')} className="inline">
                             <input type="hidden" name="userId" value={u.id} />
                             <input type="hidden" name="role" value={r.role} />
                             <button type="submit" title="Click to revoke">
-                              <Badge variant="info" className="capitalize cursor-pointer hover:bg-red-500/20 hover:text-red-400 transition-colors">
+                              <Badge variant="info" className="capitalize cursor-pointer hover:bg-red-500/20 hover:text-red-400">
                                 {r.role}
                               </Badge>
                             </button>
                           </form>
                         ))}
-                        {(u.roles || []).length === 0 && <span className="text-xs text-muted-foreground">No roles</span>}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <form action={assignRole} className="flex gap-2">
+                      <form action={(fd) => handleRoleAction(fd, assignRole, 'Role assigned')} className="flex gap-2">
                         <input type="hidden" name="userId" value={u.id} />
-                        <select name="role" className="flex h-8 rounded-lg border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                        <select name="role" className="flex h-8 rounded-lg border border-input bg-transparent px-2 text-xs">
                           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                         <Button type="submit" size="sm" variant="outline">Assign</Button>
                       </form>
                     </TableCell>
                     <TableCell className="text-right">
-                      <form action={adminDeleteUser}>
+                      <form action={(fd) => handleRoleAction(fd, adminDeleteUser, 'User deleted')}>
                         <input type="hidden" name="userId" value={u.id} />
                         <Button type="submit" variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                           <Trash2 size={15} />
@@ -238,9 +285,9 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
 
       {/* Party Form Dialog */}
       <Dialog open={partyOpen} onOpenChange={setPartyOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editingParty ? 'Edit Party' : 'New Party'}</DialogTitle></DialogHeader>
-          <form action={upsertParty} onSubmit={() => setPartyOpen(false)} className="space-y-4">
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editingParty ? 'Edit' : 'Add'} Party</DialogTitle></DialogHeader>
+          <form onSubmit={handleUpsertPartySubmit} className="space-y-4">
             {editingParty && <input type="hidden" name="id" value={editingParty.id} />}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1">
@@ -253,7 +300,7 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
               </div>
               <div className="space-y-1">
                 <Label>Party Type</Label>
-                <select name="party_type" defaultValue={editingParty?.party_type || 'both'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <select name="party_type" defaultValue={editingParty?.party_type || 'both'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm">
                   <option value="customer">Customer</option>
                   <option value="contractor">Contractor</option>
                   <option value="both">Both</option>
@@ -294,22 +341,9 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
 
       {/* CSV Import Dialog */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Import Parties via CSV</DialogTitle></DialogHeader>
-          <form 
-            action={async (formData) => {
-              setIsImporting(true);
-              try {
-                await importPartiesCsv(formData);
-                setImportOpen(false);
-              } catch (e: any) {
-                alert(`Import failed: ${e.message}`);
-              } finally {
-                setIsImporting(false);
-              }
-            }} 
-            className="space-y-4"
-          >
+        <DialogContent>
+          <DialogHeader><DialogTitle>Import Parties (CSV)</DialogTitle></DialogHeader>
+          <form onSubmit={handleImportSubmit} className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
                 Upload a CSV file with the following headers: <code>legal_name, customer_code, party_type, gstin, pan, city, credit_limit</code>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations } from './actions';
 import styles from './page.module.css';
+import { cn } from '@/lib/utils';
 
 interface Tranche {
   type: 'amount' | 'percentage';
@@ -125,6 +126,13 @@ export default function NewCasePage() {
     }
   };
 
+  const canGoNext = (currentStep: number) => {
+    if (currentStep === 1) return (needsCustomer ? !!customerPartyId : true) && (needsContractor ? !!contractorPartyId : true) && !!scenario;
+    if (currentStep === 2) return billAmount > 0 && requestedExposure > 0;
+    if (currentStep === 3) return tranchesReconcile;
+    return true;
+  };
+
   if (loading) return <div className={styles.container}><p>Loading...</p></div>;
 
   return (
@@ -141,12 +149,25 @@ export default function NewCasePage() {
 
       <div className={styles.wizard}>
         <div className={styles.sidebar}>
-          {['Scenario & Parties', 'Commercial Terms', 'Tranche Builder', 'Context & Submit'].map((label, i) => (
-            <div key={i} className={`${styles.step} ${step === i + 1 ? styles.active : ''} ${step > i + 1 ? styles.done : ''}`} onClick={() => setStep(i + 1)}>
-              <div className={styles.stepNum}>{step > i + 1 ? '✓' : i + 1}</div>
-              <div className={styles.stepText}>{label}</div>
-            </div>
-          ))}
+          {['Scenario & Parties', 'Commercial Terms', 'Tranche Builder', 'Context & Submit'].map((label, i) => {
+            const stepNum = i + 1;
+            const isAccessible = stepNum <= step || (stepNum === step + 1 && canGoNext(step));
+            return (
+              <div 
+                key={i} 
+                className={cn(
+                  styles.step, 
+                  step === stepNum && styles.active, 
+                  step > stepNum && styles.done,
+                  !isAccessible && styles.disabled
+                )} 
+                onClick={() => isAccessible && setStep(stepNum)}
+              >
+                <div className={styles.stepNum}>{step > stepNum ? '✓' : stepNum}</div>
+                <div className={styles.stepText}>{label}</div>
+              </div>
+            );
+          })}
         </div>
 
         <div className={`card ${styles.formContent}`}>
@@ -192,7 +213,7 @@ export default function NewCasePage() {
               </div>
 
               <div className={styles.actions}>
-                <button type="button" className="btn-primary" onClick={() => setStep(2)}>Continue</button>
+                <button type="button" className="btn-primary" onClick={() => setStep(2)} disabled={!canGoNext(1)} style={{ opacity: canGoNext(1) ? 1 : 0.5 }}>Continue</button>
               </div>
             </div>
           )}
@@ -216,7 +237,7 @@ export default function NewCasePage() {
 
               <div className={styles.actions}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(3)}>Continue</button>
+                <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)} style={{ opacity: canGoNext(2) ? 1 : 0.5 }}>Continue</button>
               </div>
             </div>
           )}
@@ -268,7 +289,7 @@ export default function NewCasePage() {
 
               <div className={styles.actions}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(4)}>Continue</button>
+                <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={!canGoNext(3)} style={{ opacity: canGoNext(3) ? 1 : 0.5 }}>Continue</button>
               </div>
             </div>
           )}
