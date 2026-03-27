@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Briefcase, Building2, ChevronRight } from 'lucide-react';
+import { getImpersonationRole } from '@/utils/auth-actions';
 
 export default async function CasesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const sp = await searchParams;
@@ -11,6 +12,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
   const statusFilter = sp.status || '';
 
   const supabase = await createClient();
+  const activeRole = await getImpersonationRole();
 
   let query = supabase
     .from('credit_cases')
@@ -34,6 +36,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
   };
 
   const statuses = ['', 'Draft', 'In Review', 'Awaiting Approval', 'Approved', 'Rejected', 'Withdrawn'];
+  const canCreateCase = activeRole === 'rm' || activeRole === 'founder_admin';
 
   return (
     <div className="space-y-6">
@@ -42,9 +45,11 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
           <h1 className="text-2xl font-bold">Credit Cases</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{cases?.length || 0} cases</p>
         </div>
-        <Button asChild>
-          <Link href="/cases/new"><PlusCircle size={16} /> New Case</Link>
-        </Button>
+        {canCreateCase && (
+          <Button asChild>
+            <Link href="/cases/new"><PlusCircle size={16} /> New Case</Link>
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -76,7 +81,9 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
           <CardContent className="py-16 text-center space-y-3">
             <Briefcase size={40} className="mx-auto text-muted-foreground opacity-30" />
             <p className="text-muted-foreground">No cases found.</p>
-            <Button asChild><Link href="/cases/new">Create your first case</Link></Button>
+            {canCreateCase && (
+              <Button asChild><Link href="/cases/new">Create your first case</Link></Button>
+            )}
           </CardContent>
         </Card>
       ) : (
