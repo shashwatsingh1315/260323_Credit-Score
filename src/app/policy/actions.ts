@@ -76,6 +76,7 @@ export async function fetchParameters() {
   const { data } = await supabase
     .from('parameter_definitions')
     .select('*')
+    .eq('is_active', true)
     .order('name');
   return data || [];
 }
@@ -95,11 +96,15 @@ export async function upsertParameter(formData: FormData) {
     input_type: formData.get('data_type') as string || 'grade_select',
     weight: parseFloat(formData.get('weight') as string) || 1.0,
     rubric_guidance: formData.get('description') as string || '',
-    policy_version_id: formData.get('policy_version_id') as string || null,
     signal_strength: formData.get('signal_strength') as string || '3',
     signal_cost: formData.get('signal_cost') as string || '3',
     signal_lag: formData.get('signal_lag') as string || 'Leading',
   };
+
+  const policyVersionId = formData.get('policy_version_id') as string;
+  if (policyVersionId) {
+    payload.policy_version_id = policyVersionId;
+  }
 
   const autoBandConfigStr = formData.get('auto_band_config') as string;
   if (autoBandConfigStr) {
@@ -115,6 +120,14 @@ export async function upsertParameter(formData: FormData) {
   if (id) {
     await supabase.from('parameter_definitions').update(payload).eq('id', id);
   } else {
+    if (!payload.policy_version_id) {
+      const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+      if (activePolicy) {
+        payload.policy_version_id = activePolicy.id;
+      } else {
+        throw new Error('No active policy found to attach this parameter to.');
+      }
+    }
     await supabase.from('parameter_definitions').insert(payload);
   }
   await logAuditEvent({ event_type: 'parameter_updated', actor_id: user.id, description: `Parameter '${payload.name}' saved.` });
