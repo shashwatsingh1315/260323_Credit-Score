@@ -35,6 +35,14 @@ export async function handleNewCase(formData: FormData) {
     throw new Error('Invalid tranche data.');
   }
 
+  const rmTaskAnswersRaw = formData.get('rmTaskAnswers') as string;
+  let rmTaskAnswers = {};
+  if (rmTaskAnswersRaw) {
+    try {
+      rmTaskAnswers = JSON.parse(rmTaskAnswersRaw);
+    } catch {}
+  }
+
   // Validate tranches if submitting
   if (action === 'submit' && billAmount > 0) {
     const validation = validateTranches(tranches, billAmount);
@@ -52,7 +60,11 @@ export async function handleNewCase(formData: FormData) {
     requested_exposure_amount: requestedExposure,
     proposed_tranches: tranches,
     branch_id: branchId || undefined,
-    case_attributes: { product_category: productCategory, deal_size_bucket: dealSizeBucket },
+    case_attributes: {
+      product_category: productCategory,
+      deal_size_bucket: dealSizeBucket,
+      draft_rm_answers: rmTaskAnswers
+    },
     commercial_notes: `${commercialNotes}\n\nJustification: ${justification}`,
     rm_user_id: user.id,
   });
@@ -104,4 +116,51 @@ export async function fetchEnumerations(category: string) {
     .eq('is_active', true)
     .order('sort_order');
   return data || [];
+}
+
+/**
+ * Server action: Fetch RM specific Stage 1 parameters based on case scenario.
+ */
+export async function fetchRmIntakeTasks(scenario: string) {
+  const supabase = await createClient();
+
+  // Get active policy
+  const { data: activePolicy } = await supabase
+    .from('policy_versions')
+    .select('id')
+    .eq('is_active', true)
+    .single();
+
+  if (!activePolicy) return [];
+
+  const allowedSubjects = ['case'];
+  if (scenario === 'customer_name_customer_pays') {
+    allowedSubjects.push('customer');
+  } else if (scenario === 'contractor_name_contractor_pays') {
+    allowedSubjects.push('contractor');
+  } else if (scenario === 'customer_name_contractor_pays') {
+    allowedSubjects.push('customer', 'contractor');
+  }
+
+  const { data: params } = await supabase
+    .from('parameter_definitions')
+    .select('id, name, input_type, is_required, conditional_rules, description')
+    .eq('policy_version_id', activePolicy.id)
+    .eq('stage', 1)
+    .eq('default_owning_role', 'rm')
+    .eq('is_active', true)
+    .in('subject_type', allowedSubjects);
+
+  if (!params) return [];
+
+  const applicableParams = params.filter(p => {
+    if (p.conditional_rules?.scenarios && Array.isArray(p.conditional_rules.scenarios)) {
+      if (!p.conditional_rules.scenarios.includes(scenario)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  return applicableParams;
 }
