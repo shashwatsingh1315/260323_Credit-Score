@@ -9,12 +9,6 @@ const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,
   },
-  experimental: {
-    staleTimes: {
-      dynamic: 0,
-      static: 180,
-    },
-  },
 };
 
 export default nextConfig;
