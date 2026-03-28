@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import {
   handleProgressStage, handleCompleteTask, handleWithdraw,
   handleCreateApprovalRound, handleApprovalDecision, handleAddComment, handleForceReadyStage, handleToggleWaiting,
-  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleSaveOutcome
+  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleSaveOutcome, handleAssignTask
 } from './actions';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +30,7 @@ interface CaseWorkspaceProps {
     auditEvents: any[];
     approvalRounds: any[];
     comments: any[];
+    users?: any[];
     stageSummaries?: { stage: number; score: number | null; completedAt: string | null }[];
   };
 }
@@ -554,11 +555,29 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                   {task.is_waiting && <Badge variant="warning" className="text-xs">⏸ Waiting</Badge>}
                                 </div>
                                 <p className="text-sm">{task.description}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {task.assigned?.full_name || 'Unassigned'}
-                                  {task.grade_value != null && ` · Grade: ${task.grade_value}`}
-                                  {task.reason && ` · ${task.reason}`}
-                                </p>
+                                <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                                  {task.status !== 'Completed' && (activeRole === 'founder_admin' || activeRole === 'kam') ? (
+                                    <form action={handleAssignTask} className="flex items-center gap-2">
+                                      <input type="hidden" name="taskId" value={task.id} />
+                                      <input type="hidden" name="caseId" value={c.id} />
+                                      <select
+                                        name="assigneeId"
+                                        defaultValue={task.assigned_to || ""}
+                                        onChange={(e) => e.target.form?.requestSubmit()}
+                                        className="h-6 text-xs bg-background border border-input rounded px-1"
+                                      >
+                                        <option value="">Unassigned</option>
+                                        {data.users?.map((u: any) => (
+                                          <option key={u.id} value={u.id}>{u.full_name}</option>
+                                        ))}
+                                      </select>
+                                    </form>
+                                  ) : (
+                                    <span>{task.assigned?.full_name || 'Unassigned'}</span>
+                                  )}
+                                  {task.grade_value != null && <span>· Grade: {task.grade_value}</span>}
+                                  {task.reason && <span>· {task.reason}</span>}
+                                </div>
                               </div>
                               {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
                                 <form action={handleCompleteTask} className="flex items-center gap-2 shrink-0">
