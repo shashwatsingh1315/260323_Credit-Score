@@ -67,7 +67,9 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
   };
   const openEdit = (p: Parameter) => {
     setEditing(p);
-    setInputType(p.input_type || 'grade_select');
+    // Handle legacy 'dropdown' value that was previously allowed in UI but rejected by DB
+    const mappedType = p.input_type === 'dropdown' ? 'link_list' : (p.input_type || 'grade_select');
+    setInputType(mappedType);
     setAutoBandRules(p.auto_band_config?.bands || p.auto_band_config?.mappings || []);
     setOpen(true);
   };
