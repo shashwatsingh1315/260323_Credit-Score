@@ -89,7 +89,12 @@ export async function fetchCaseDetail(caseId: string) {
     .eq('case_id', caseId)
     .order('created_at', { ascending: false });
 
-  return { case: caseData, cycle, tasks, auditEvents: auditEvents || [], approvalRounds, comments: comments || [] };
+  const { data: users } = await supabase
+    .from('profiles')
+    .select('id, full_name, roles')
+    .order('full_name');
+
+  return { case: caseData, cycle, tasks, auditEvents: auditEvents || [], approvalRounds, comments: comments || [], users: users || [] };
 }
 
 export async function handleProgressStage(formData: FormData) {
@@ -104,6 +109,40 @@ export async function handleProgressStage(formData: FormData) {
   const currentStage = parseInt(formData.get('currentStage') as string);
   const caseId = formData.get('caseId') as string;
   await progressStage(cycleId, currentStage, user.id);
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function handleAssignTask(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+
+  const taskId = formData.get('taskId') as string;
+  const caseId = formData.get('caseId') as string;
+  const assigneeId = formData.get('assigneeId') as string;
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can assign tasks');
+  }
+
+  const supabase = await createClient();
+
+  await supabase.from('stage_tasks').update({
+    assigned_to: assigneeId || null
+  }).eq('id', taskId);
+
+  let assigneeName = 'Unassigned';
+  if (assigneeId) {
+    const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', assigneeId).single();
+    if (profile) assigneeName = profile.full_name;
+  }
+
+  await logAuditEvent({
+    case_id: caseId,
+    event_type: 'task_assigned',
+    actor_id: user.id,
+    description: `Task assigned to ${assigneeName}.`
+  });
+
   revalidatePath(`/cases/${caseId}`);
 }
 
