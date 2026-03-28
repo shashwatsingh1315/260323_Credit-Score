@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
-import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations } from './actions';
+import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations, fetchRmIntakeTasks } from './actions';
 import { PartyDialog } from '@/components/admin/PartyDialog';
 import styles from './page.module.css';
 import { cn } from '@/lib/utils';
@@ -58,9 +58,20 @@ export default function NewCasePage() {
   const [dealSizeBucket, setDealSizeBucket] = useState('');
   const [commercialNotes, setCommercialNotes] = useState('');
   const [justification, setJustification] = useState('');
+  const [rmTasks, setRmTasks] = useState<any[]>([]);
+  const [rmTaskAnswers, setRmTaskAnswers] = useState<Record<string, any>>({});
 
   const needsContractor = scenario !== 'customer_name_customer_pays';
   const needsCustomer = scenario !== 'contractor_name_contractor_pays';
+
+  // Fetch RM tasks whenever scenario changes
+  useEffect(() => {
+    async function fetchTasks() {
+      const tasks = await fetchRmIntakeTasks(scenario);
+      setRmTasks(tasks);
+    }
+    fetchTasks();
+  }, [scenario]);
 
   useEffect(() => {
     async function load() {
@@ -109,6 +120,16 @@ export default function NewCasePage() {
     setTranches(updated);
   };
 
+  const handleTaskAnswerChange = (taskId: string, field: 'grade_value' | 'raw_input_value' | 'reason', value: any) => {
+    setRmTaskAnswers(prev => ({
+      ...prev,
+      [taskId]: {
+        ...prev[taskId],
+        [field]: value
+      }
+    }));
+  };
+
   const handleSubmit = async (action: 'draft' | 'submit') => {
     setError('');
     setSubmitting(true);
@@ -117,6 +138,16 @@ export default function NewCasePage() {
       setError('Tranches must reconcile exactly to bill amount before submission.');
       setSubmitting(false);
       return;
+    }
+
+    // Check if required tasks are answered before submitting
+    if (action === 'submit') {
+      const missingTasks = rmTasks.filter(t => t.is_required && !rmTaskAnswers[t.id]?.raw_input_value && rmTaskAnswers[t.id]?.grade_value === undefined);
+      if (missingTasks.length > 0) {
+        setError(`Please answer all required RM intake questions before submitting: ${missingTasks.map(t => t.name).join(', ')}`);
+        setSubmitting(false);
+        return;
+      }
     }
 
     const fd = new FormData();
@@ -131,6 +162,7 @@ export default function NewCasePage() {
     fd.set('dealSizeBucket', dealSizeBucket);
     fd.set('commercialNotes', commercialNotes);
     fd.set('justification', justification);
+    fd.set('rmTaskAnswers', JSON.stringify(rmTaskAnswers));
     fd.set('action', action);
 
     try {
@@ -145,6 +177,7 @@ export default function NewCasePage() {
     if (currentStep === 1) return (needsCustomer ? !!customerPartyId : true) && (needsContractor ? !!contractorPartyId : true) && !!scenario;
     if (currentStep === 2) return billAmount > 0 && requestedExposure > 0;
     if (currentStep === 3) return tranchesReconcile;
+    if (currentStep === 4) return true;
     return true;
   };
 
@@ -164,7 +197,7 @@ export default function NewCasePage() {
 
       <div className={styles.wizard}>
         <div className={styles.sidebar}>
-          {['Scenario & Parties', 'Commercial Terms', 'Tranche Builder', 'Context & Submit'].map((label, i) => {
+          {['Scenario & Parties', 'Commercial Terms', 'Tranche Builder', 'Context', 'Intake Questions'].map((label, i) => {
             const stepNum = i + 1;
             const isAccessible = stepNum <= step || (stepNum === step + 1 && canGoNext(step));
             return (
@@ -364,6 +397,75 @@ export default function NewCasePage() {
 
               <div className={styles.actions}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
+                <button type="button" className="btn-primary" onClick={() => setStep(5)} disabled={!canGoNext(4)} style={{ opacity: canGoNext(4) ? 1 : 0.5 }}>Continue</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: RM Intake Tasks */}
+          {step === 5 && (
+            <div className={styles.formSection}>
+              <h2>Stage 1 Intake Questions</h2>
+              <p className={styles.helperText}>Required stage 1 items for RM completion based on selected scenario and policy.</p>
+
+              {rmTasks.length === 0 ? (
+                <p className="text-sm text-gray-500 my-4">No specific intake questions required for this scenario.</p>
+              ) : (
+                <div className="flex flex-col gap-6 my-4">
+                  {rmTasks.map((task) => (
+                    <div key={task.id} className="p-4 border border-gray-200 rounded-md bg-white">
+                      <label className="font-semibold block mb-1">
+                        {task.name} {task.is_required && <span className="text-red-500">*</span>}
+                      </label>
+                      {task.description && <p className="text-xs text-gray-500 mb-3">{task.description}</p>}
+
+                      {task.input_type === 'grade/select' || task.input_type === 'yes/no' ? (
+                        <select
+                          className={styles.input}
+                          value={rmTaskAnswers[task.id]?.grade_value ?? ''}
+                          onChange={(e) => handleTaskAnswerChange(task.id, 'grade_value', e.target.value === '' ? undefined : Number(e.target.value))}
+                        >
+                          <option value="">-- Select --</option>
+                          {task.input_type === 'yes/no' ? (
+                            <>
+                              <option value="1">Yes</option>
+                              <option value="0">No</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="1">Grade 1 (Best)</option>
+                              <option value="2">Grade 2</option>
+                              <option value="3">Grade 3</option>
+                              <option value="4">Grade 4 (Worst)</option>
+                            </>
+                          )}
+                        </select>
+                      ) : (
+                        <input
+                          type={task.input_type === 'numeric' ? 'number' : task.input_type === 'date' ? 'date' : 'text'}
+                          className={styles.input}
+                          placeholder="Enter value"
+                          value={rmTaskAnswers[task.id]?.raw_input_value || ''}
+                          onChange={(e) => handleTaskAnswerChange(task.id, 'raw_input_value', e.target.value)}
+                        />
+                      )}
+
+                      <textarea
+                        className={styles.input + ' mt-2'}
+                        placeholder="Reason or notes (optional)"
+                        rows={2}
+                        value={rmTaskAnswers[task.id]?.reason || ''}
+                        onChange={(e) => handleTaskAnswerChange(task.id, 'reason', e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {error && <p className={styles.errorMsg}>{error}</p>}
+
+              <div className={styles.actions}>
+                <button type="button" className="btn-secondary" onClick={() => setStep(4)}>Back</button>
                 <button type="button" className="btn-secondary" onClick={() => handleSubmit('draft')} disabled={submitting}>
                   {submitting ? 'Saving...' : 'Save as Draft'}
                 </button>

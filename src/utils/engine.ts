@@ -69,7 +69,7 @@ export async function createCaseDraft(data: {
   requested_exposure_amount: number;
   proposed_tranches: any[];
   branch_id?: string;
-  case_attributes?: Record<string, string>;
+  case_attributes?: Record<string, any>;
   commercial_notes?: string;
   rm_user_id: string;
 }) {
@@ -175,7 +175,7 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
   // 1. Get case scenario to filter subject types
   const { data: caseData } = await supabase
     .from('credit_cases')
-    .select('case_scenario, history_classification')
+    .select('case_scenario, history_classification, rm_user_id, case_attributes')
     .eq('id', caseId)
     .single();
 
@@ -231,6 +231,10 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
     }
 
     if (isApplicable) {
+      const isRmTask = p.default_owning_role === 'rm';
+      const draftAnswers = caseData.case_attributes?.draft_rm_answers || {};
+      const answer = isRmTask ? draftAnswers[p.id] : null;
+
       finalTasks.push({
         review_cycle_id: cycleId,
         stage: stage,
@@ -238,7 +242,12 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
         parameter_id: p.id,
         description: p.name,
         is_required: isRequired,
-        status: 'Pending',
+        status: answer ? 'Completed' : 'Pending',
+        assigned_to: isRmTask ? caseData.rm_user_id : null,
+        completed_by: answer ? caseData.rm_user_id : null,
+        raw_input_value: answer?.raw_input_value || null,
+        grade_value: answer?.grade_value != null ? answer.grade_value : null,
+        reason: answer?.reason || null,
       });
     }
   }
