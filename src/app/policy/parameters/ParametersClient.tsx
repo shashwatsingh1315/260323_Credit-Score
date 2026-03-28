@@ -92,7 +92,7 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
         const parts = lines[i].split(',').map(s => s.trim());
         if (inputType === 'numeric' && parts.length >= 3) {
           newRules.push({ min: Number(parts[0]), max: Number(parts[1]), grade: Number(parts[2]) });
-        } else if ((inputType === 'short_text' || inputType === 'dropdown') && parts.length >= 2) {
+        } else if ((inputType === 'short_text' || inputType === 'link_list') && parts.length >= 2) {
           newRules.push({ value: parts[0], grade: Number(parts[1]) });
         }
       }
@@ -248,10 +248,11 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
                 >
                   <option value="grade_select">Manual Grade (1-5)</option>
                   <option value="numeric">Numeric (Auto-Mapped)</option>
-                  <option value="dropdown">Dropdown Select (Auto-Mapped)</option>
+                  <option value="link_list">Dropdown Select (Auto-Mapped)</option>
                   <option value="yes_no">Yes/No (Auto-Mapped)</option>
                   <option value="short_text">Short Text</option>
                   <option value="long_text">Long Text</option>
+                  <option value="date">Date</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -278,7 +279,7 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
                 <Textarea name="description" defaultValue={editing?.rubric_guidance} rows={4} className="text-xs" />
               </div>
 
-              {(inputType === 'numeric' || inputType === 'dropdown' || inputType === 'yes_no') && (
+              {(inputType === 'numeric' || inputType === 'link_list' || inputType === 'yes_no') && (
                 <div className="col-span-2 space-y-3 p-4 border rounded-md bg-muted/30">
                   <div className="flex justify-between items-center">
                     <div>
