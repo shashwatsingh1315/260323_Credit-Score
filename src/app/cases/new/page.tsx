@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
-import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations, fetchRmIntakeTasks } from './actions';
+import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds } from './actions';
 import { PartyDialog } from '@/components/admin/PartyDialog';
 import styles from './page.module.css';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,7 @@ export default function NewCasePage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [productCategories, setProductCategories] = useState<any[]>([]);
   const [dealBuckets, setDealBuckets] = useState<any[]>([]);
+  const [routingThresholds, setRoutingThresholds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -75,16 +76,18 @@ export default function NewCasePage() {
 
   useEffect(() => {
     async function load() {
-      const [p, b, pc, ds] = await Promise.all([
+      const [p, b, pc, ds, rts] = await Promise.all([
         fetchParties(),
         fetchBranches(),
         fetchEnumerations('product_category'),
         fetchEnumerations('deal_size_bucket'),
+        fetchActiveRoutingThresholds(),
       ]);
       setParties(p);
       setBranches(b);
       setProductCategories(pc);
       setDealBuckets(ds);
+      setRoutingThresholds(rts);
       setLoading(false);
     }
     load();
@@ -121,13 +124,37 @@ export default function NewCasePage() {
   };
 
   const handleTaskAnswerChange = (taskId: string, field: 'grade_value' | 'raw_input_value' | 'reason', value: any) => {
-    setRmTaskAnswers(prev => ({
-      ...prev,
-      [taskId]: {
-        ...prev[taskId],
-        [field]: value
+    setRmTaskAnswers(prev => {
+      const updated = { ...prev };
+      const taskAnswer = { ...(updated[taskId] || {}) };
+      taskAnswer[field] = value;
+
+      // Auto-band mapping calculation
+      const taskDef = rmTasks.find(t => t.id === taskId);
+      if (field === 'raw_input_value' && taskDef?.auto_band_config) {
+        let mappedGrade: number | undefined = undefined;
+
+        if (taskDef.input_type === 'numeric' && taskDef.auto_band_config.bands) {
+          const numValue = parseFloat(value);
+          if (!isNaN(numValue)) {
+            const band = taskDef.auto_band_config.bands.find((b: any) => numValue >= b.min && numValue <= b.max);
+            if (band) mappedGrade = band.grade;
+          }
+        } else if ((taskDef.input_type === 'dropdown' || taskDef.input_type === 'yes_no') && taskDef.auto_band_config.mappings) {
+          const mapping = taskDef.auto_band_config.mappings.find((m: any) => m.value.toLowerCase() === String(value).toLowerCase());
+          if (mapping) mappedGrade = mapping.grade;
+        }
+
+        if (mappedGrade !== undefined) {
+          taskAnswer.grade_value = mappedGrade;
+        } else {
+           taskAnswer.grade_value = undefined; // clear if no mapping found
+        }
       }
-    }));
+
+      updated[taskId] = taskAnswer;
+      return updated;
+    });
   };
 
   const handleSubmit = async (action: 'draft' | 'submit') => {
@@ -179,6 +206,15 @@ export default function NewCasePage() {
     if (currentStep === 3) return tranchesReconcile;
     if (currentStep === 4) return true;
     return true;
+  };
+
+  const expectedStage = () => {
+    for (const rule of routingThresholds) {
+      if (rule.context_rule?.exposure_min && requestedExposure >= rule.context_rule.exposure_min) {
+        return rule.target_stage;
+      }
+    }
+    return 1; // Default
   };
 
   if (loading) return <div className={styles.container}><p>Loading...</p></div>;
@@ -393,6 +429,10 @@ export default function NewCasePage() {
                 <textarea value={justification} onChange={e => setJustification(e.target.value)} rows={4} className={styles.input} placeholder="Detail the business case for this credit request..." />
               </div>
 
+              <div className="mt-6 p-4 bg-muted rounded-md text-sm border">
+                <strong>Routing Preview:</strong> Based on the requested exposure (₹{requestedExposure.toLocaleString('en-IN')}), this case is expected to route up to <strong>Stage {expectedStage()}</strong>.
+              </div>
+
               {error && <p className={styles.errorMsg}>{error}</p>}
 
               <div className={styles.actions}>
@@ -440,6 +480,23 @@ export default function NewCasePage() {
                             </>
                           )}
                         </select>
+                      ) : task.input_type === 'dropdown' || task.input_type === 'yes_no' ? (
+                         <select
+                           className={styles.input}
+                           value={rmTaskAnswers[task.id]?.raw_input_value ?? ''}
+                           onChange={(e) => handleTaskAnswerChange(task.id, 'raw_input_value', e.target.value)}
+                         >
+                           <option value="">-- Select --</option>
+                           {task.auto_band_config?.mappings?.map((m: any, i: number) => (
+                             <option key={i} value={m.value}>{m.value}</option>
+                           ))}
+                           {(!task.auto_band_config?.mappings || task.auto_band_config.mappings.length === 0) && task.input_type === 'yes_no' && (
+                              <>
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                              </>
+                           )}
+                         </select>
                       ) : (
                         <input
                           type={task.input_type === 'numeric' ? 'number' : task.input_type === 'date' ? 'date' : 'text'}
@@ -448,6 +505,13 @@ export default function NewCasePage() {
                           value={rmTaskAnswers[task.id]?.raw_input_value || ''}
                           onChange={(e) => handleTaskAnswerChange(task.id, 'raw_input_value', e.target.value)}
                         />
+                      )}
+
+                      {/* Display automatically mapped grade if applicable */}
+                      {task.auto_band_config && rmTaskAnswers[task.id]?.grade_value !== undefined && (
+                        <div className="mt-1 text-xs text-green-600 font-medium">
+                           Auto-mapped to Grade {rmTaskAnswers[task.id].grade_value}
+                        </div>
                       )}
 
                       <textarea
