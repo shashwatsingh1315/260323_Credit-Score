@@ -231,7 +231,7 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
     }
 
     if (isApplicable) {
-      const isRmTask = p.default_owning_role === 'rm';
+      const isRmTask = p.default_owning_role?.toLowerCase() === 'rm';
       const draftAnswers = caseData.case_attributes?.draft_rm_answers || {};
       const answer = isRmTask ? draftAnswers[p.id] : null;
 

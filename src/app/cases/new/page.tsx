@@ -459,18 +459,26 @@ export default function NewCasePage() {
                       </label>
                       {task.description && <p className="text-xs text-gray-500 mb-3">{task.description}</p>}
 
-                      {task.input_type === 'grade_select' ? (
+                      {task.input_type === 'grade_select' || task.input_type === 'yes_no' ? (
                         <select
                           className={styles.input}
                           value={rmTaskAnswers[task.id]?.grade_value ?? ''}
                           onChange={(e) => handleTaskAnswerChange(task.id, 'grade_value', e.target.value === '' ? undefined : Number(e.target.value))}
                         >
                           <option value="">-- Select --</option>
-                          <option value="1">Grade 1 (Best)</option>
-                          <option value="2">Grade 2</option>
-                          <option value="3">Grade 3</option>
-                          <option value="4">Grade 4</option>
-                          <option value="5">Grade 5 (Worst)</option>
+                          {task.input_type === 'yes_no' ? (
+                            <>
+                              <option value="1">Yes</option>
+                              <option value="0">No</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="1">Grade 1 (Best)</option>
+                              <option value="2">Grade 2</option>
+                              <option value="3">Grade 3</option>
+                              <option value="4">Grade 4 (Worst)</option>
+                            </>
+                          )}
                         </select>
                       ) : task.input_type === 'dropdown' || task.input_type === 'yes_no' ? (
                          <select
