@@ -15,16 +15,25 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
+
+    // Construct the context_rule JSON from individual fields
+    const exposureMin = fd.get('exposure_min');
+    const scoreBelow = fd.get('score_below');
+
+    const contextRule: any = {};
+    if (exposureMin) contextRule.exposure_min = parseFloat(exposureMin as string);
+    if (scoreBelow) contextRule.score_below = parseFloat(scoreBelow as string);
+
+    fd.set('context_rule', JSON.stringify(contextRule));
+
     if (editingRule?.id) fd.set('id', editingRule.id);
     if (activePolicyId) fd.set('policy_version_id', activePolicyId);
 
-    // Ensure valid JSON
     try {
-      JSON.parse(fd.get('context_rule') as string);
       await upsertRoutingRule(fd);
       setEditingRule(null);
     } catch (err) {
-      alert("Invalid JSON in Context Rule");
+      alert("Failed to save routing rule");
     }
   };
 
@@ -46,10 +55,28 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
 
-                <div className="space-y-2">
-                  <Label>Context Rule (JSON)</Label>
-                  <Textarea name="context_rule" defaultValue={editingRule ? JSON.stringify(editingRule.context_rule, null, 2) : '{\n  "exposure_min": 1000000,\n  "score_below": 50\n}'} rows={5} className="font-mono text-xs" required />
-                  <p className="text-xs text-muted-foreground">JSON representing condition to trigger routing.</p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Minimum Exposure (₹)</Label>
+                    <Input
+                      name="exposure_min"
+                      type="number"
+                      defaultValue={editingRule?.context_rule?.exposure_min || ''}
+                      placeholder="e.g. 1000000"
+                    />
+                    <p className="text-xs text-muted-foreground">Route if Requested Exposure is at least this amount.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Score Below</Label>
+                    <Input
+                      name="score_below"
+                      type="number"
+                      defaultValue={editingRule?.context_rule?.score_below || ''}
+                      placeholder="e.g. 50"
+                    />
+                    <p className="text-xs text-muted-foreground">Route if initial score falls below this value.</p>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -86,7 +113,11 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">Stage {r.target_stage}</TableCell>
                       <TableCell>
-                        <pre className="text-xs bg-muted p-2 rounded">{JSON.stringify(r.context_rule)}</pre>
+                        <div className="flex flex-col gap-1 text-sm">
+                          {r.context_rule?.exposure_min && <div>Exposure &ge; ₹{r.context_rule.exposure_min.toLocaleString('en-IN')}</div>}
+                          {r.context_rule?.score_below && <div>Score &lt; {r.context_rule.score_below}</div>}
+                          {!r.context_rule?.exposure_min && !r.context_rule?.score_below && <div className="text-muted-foreground italic">No specific condition</div>}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

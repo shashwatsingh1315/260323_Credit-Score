@@ -100,6 +100,18 @@ export async function upsertParameter(formData: FormData) {
     signal_cost: formData.get('signal_cost') as string || '3',
     signal_lag: formData.get('signal_lag') as string || 'Leading',
   };
+
+  const autoBandConfigStr = formData.get('auto_band_config') as string;
+  if (autoBandConfigStr) {
+    try {
+      payload.auto_band_config = JSON.parse(autoBandConfigStr);
+    } catch (e) {
+      console.error('Invalid auto_band_config JSON', e);
+    }
+  } else {
+    payload.auto_band_config = null;
+  }
+
   if (id) {
     await supabase.from('parameter_definitions').update(payload).eq('id', id);
   } else {

@@ -105,6 +105,28 @@ export async function fetchBranches() {
 }
 
 /**
+ * Server action: Fetch active routing thresholds for preview.
+ */
+export async function fetchActiveRoutingThresholds() {
+  const supabase = await createClient();
+  const { data: activePolicy } = await supabase
+    .from('policy_versions')
+    .select('id')
+    .eq('is_active', true)
+    .single();
+
+  if (!activePolicy) return [];
+
+  const { data } = await supabase
+    .from('routing_thresholds')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('target_stage', { ascending: false }); // Highest stage first
+
+  return data || [];
+}
+
+/**
  * Server action: Fetch admin enumerations by category.
  */
 export async function fetchEnumerations(category: string) {
@@ -144,7 +166,7 @@ export async function fetchRmIntakeTasks(scenario: string) {
 
   const { data: params } = await supabase
     .from('parameter_definitions')
-    .select('id, name, input_type, is_required, conditional_rules, description')
+    .select('id, name, input_type, is_required, conditional_rules, description, auto_band_config')
     .eq('policy_version_id', activePolicy.id)
     .eq('stage', 1)
     .eq('default_owning_role', 'rm')

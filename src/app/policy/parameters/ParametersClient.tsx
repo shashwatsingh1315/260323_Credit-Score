@@ -25,6 +25,7 @@ interface Parameter {
   signal_lag: string;
   weight: number; 
   rubric_guidance: string; 
+  auto_band_config?: any;
   is_active: boolean;
   policy_version_id: string;
 }
@@ -33,6 +34,8 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
   const [params, setParams] = useState(initialParams);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Parameter | null>(null);
+  const [inputType, setInputType] = useState('grade_select');
+  const [autoBandRules, setAutoBandRules] = useState<any[]>([]);
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [stageFilter, setStageFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Parameter, direction: 'asc' | 'desc' } | null>(null);
@@ -56,8 +59,65 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
       return 0;
     });
 
-  const openNew = () => { setEditing(null); setOpen(true); };
-  const openEdit = (p: Parameter) => { setEditing(p); setOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setInputType('grade_select');
+    setAutoBandRules([]);
+    setOpen(true);
+  };
+  const openEdit = (p: Parameter) => {
+    setEditing(p);
+    setInputType(p.input_type || 'grade_select');
+    setAutoBandRules(p.auto_band_config?.bands || p.auto_band_config?.mappings || []);
+    setOpen(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const csvData = event.target?.result as string;
+      const lines = csvData.split('\n').filter(line => line.trim() !== '');
+      const newRules = [];
+
+      // Skip header row if it exists, roughly checking if first item is a number
+      let startIdx = 0;
+      if (lines.length > 0 && isNaN(Number(lines[0].split(',')[0]))) {
+        startIdx = 1;
+      }
+
+      for (let i = startIdx; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(s => s.trim());
+        if (inputType === 'numeric' && parts.length >= 3) {
+          newRules.push({ min: Number(parts[0]), max: Number(parts[1]), grade: Number(parts[2]) });
+        } else if ((inputType === 'short_text' || inputType === 'dropdown') && parts.length >= 2) {
+          newRules.push({ value: parts[0], grade: Number(parts[1]) });
+        }
+      }
+      setAutoBandRules(newRules);
+    };
+    reader.readAsText(file);
+  };
+
+  const addRule = () => {
+    if (inputType === 'numeric') {
+      setAutoBandRules([...autoBandRules, { min: 0, max: 0, grade: 1 }]);
+    } else {
+      setAutoBandRules([...autoBandRules, { value: '', grade: 1 }]);
+    }
+  };
+
+  const removeRule = (idx: number) => {
+    setAutoBandRules(autoBandRules.filter((_, i) => i !== idx));
+  };
+
+  const updateRule = (idx: number, field: string, val: any) => {
+    const updated = [...autoBandRules];
+    updated[idx][field] = val;
+    setAutoBandRules(updated);
+  };
 
   return (
     <div className="space-y-6">
@@ -177,10 +237,21 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
               </div>
               <div className="space-y-1">
                 <Label>Input Type</Label>
-                <select name="data_type" defaultValue={editing?.input_type || 'grade_select'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                  <option value="grade_select">Grade 1-5 Select</option>
-                  <option value="text">Text Entry</option>
-                  <option value="file">File Upload</option>
+                <select
+                  name="data_type"
+                  value={inputType}
+                  onChange={(e) => {
+                    setInputType(e.target.value);
+                    setAutoBandRules([]); // Reset rules when type changes
+                  }}
+                  className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="grade_select">Manual Grade (1-5)</option>
+                  <option value="numeric">Numeric (Auto-Mapped)</option>
+                  <option value="dropdown">Dropdown Select (Auto-Mapped)</option>
+                  <option value="yes_no">Yes/No (Auto-Mapped)</option>
+                  <option value="short_text">Short Text</option>
+                  <option value="long_text">Long Text</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -206,6 +277,82 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
                 <Label>Rubric Guidance (Description & Ratings)</Label>
                 <Textarea name="description" defaultValue={editing?.rubric_guidance} rows={4} className="text-xs" />
               </div>
+
+              {(inputType === 'numeric' || inputType === 'dropdown' || inputType === 'yes_no') && (
+                <div className="col-span-2 space-y-3 p-4 border rounded-md bg-muted/30">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <Label>Auto-Mapping / Banding Rules</Label>
+                      <p className="text-[10px] text-muted-foreground">Map raw values to a 1-5 grade.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Label className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 h-7 px-3 flex items-center justify-center rounded-md text-xs">
+                        Upload CSV
+                        <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+                      </Label>
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={addRule}>
+                        <Plus size={12} className="mr-1" /> Add Rule
+                      </Button>
+                    </div>
+                  </div>
+
+                  <input
+                    type="hidden"
+                    name="auto_band_config"
+                    value={autoBandRules.length > 0 ? JSON.stringify(inputType === 'numeric' ? { bands: autoBandRules } : { mappings: autoBandRules }) : ''}
+                  />
+
+                  {autoBandRules.length > 0 ? (
+                    <div className="space-y-2">
+                      {autoBandRules.map((rule, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          {inputType === 'numeric' ? (
+                            <>
+                              <Input
+                                type="number"
+                                value={rule.min}
+                                onChange={(e) => updateRule(idx, 'min', Number(e.target.value))}
+                                className="h-8"
+                                placeholder="Min"
+                              />
+                              <span className="text-xs">to</span>
+                              <Input
+                                type="number"
+                                value={rule.max}
+                                onChange={(e) => updateRule(idx, 'max', Number(e.target.value))}
+                                className="h-8"
+                                placeholder="Max"
+                              />
+                            </>
+                          ) : (
+                            <Input
+                              type="text"
+                              value={rule.value}
+                              onChange={(e) => updateRule(idx, 'value', e.target.value)}
+                              className="h-8"
+                              placeholder={inputType === 'yes_no' ? 'Yes or No' : 'Exact Value'}
+                            />
+                          )}
+                          <span className="text-xs">→ Grade:</span>
+                          <select
+                            value={rule.grade}
+                            onChange={(e) => updateRule(idx, 'grade', Number(e.target.value))}
+                            className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
+                          >
+                            {[1, 2, 3, 4, 5].map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeRule(idx)}>
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic text-center py-2">No rules defined. Parameter will be purely informational if not mapped.</p>
+                  )}
+                </div>
+              )}
+
             </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
