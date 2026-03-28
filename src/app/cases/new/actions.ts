@@ -144,16 +144,17 @@ export async function fetchRmIntakeTasks(scenario: string) {
 
   const { data: params } = await supabase
     .from('parameter_definitions')
-    .select('id, name, input_type, is_required, conditional_rules, description')
+    .select('id, name, input_type, is_required, conditional_rules, description, default_owning_role')
     .eq('policy_version_id', activePolicy.id)
     .eq('stage', 1)
-    .eq('default_owning_role', 'rm')
     .eq('is_active', true)
     .in('subject_type', allowedSubjects);
 
   if (!params) return [];
 
   const applicableParams = params.filter(p => {
+    if (p.default_owning_role?.toLowerCase() !== 'rm') return false;
+
     if (p.conditional_rules?.scenarios && Array.isArray(p.conditional_rules.scenarios)) {
       if (!p.conditional_rules.scenarios.includes(scenario)) {
         return false;
