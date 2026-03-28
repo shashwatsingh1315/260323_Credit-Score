@@ -60,7 +60,7 @@ export async function fetchCaseDetail(caseId: string) {
   if (cycle) {
     const { data: taskData } = await supabase
       .from('stage_tasks')
-      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role)')
+      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, description)')
       .eq('review_cycle_id', cycle.id)
       .order('stage').order('created_at');
     tasks = taskData || [];
@@ -171,7 +171,7 @@ export async function handleCompleteTask(formData: FormData) {
   // RBAC Audit for task completion
   const { data: task } = await supabase
     .from('stage_tasks')
-    .select('*, param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role)')
+    .select('*, param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config)')
     .eq('id', taskId)
     .single();
 
@@ -184,9 +184,23 @@ export async function handleCompleteTask(formData: FormData) {
     throw new Error(`Unauthorized. This task requires the ${task.param?.default_owning_role?.toUpperCase()} role.`);
   }
 
-  const gradeValue = formData.get('gradeValue') ? parseInt(formData.get('gradeValue') as string) : null;
+  let gradeValue = formData.get('gradeValue') ? parseInt(formData.get('gradeValue') as string) : null;
   const reason = formData.get('reason') as string || null;
   const rawInput = formData.get('rawInput') as string || null;
+
+  if (gradeValue === null && rawInput !== null && task.param) {
+    const p = task.param;
+    if (p.input_type === 'numeric' && p.auto_band_config?.bands) {
+      const numVal = parseFloat(rawInput);
+      if (!isNaN(numVal)) {
+        const band = p.auto_band_config.bands.find((b: any) => numVal >= b.min && numVal <= b.max);
+        if (band) gradeValue = band.grade;
+      }
+    } else if ((p.input_type === 'dropdown' || p.input_type === 'link_list' || p.input_type === 'yes_no') && p.auto_band_config?.mappings) {
+      const mapping = p.auto_band_config.mappings.find((m: any) => m.value.toLowerCase() === String(rawInput).toLowerCase());
+      if (mapping) gradeValue = mapping.grade;
+    }
+  }
 
   await supabase.from('stage_tasks').update({
     status: 'Completed',
