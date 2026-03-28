@@ -166,9 +166,7 @@ export async function fetchRmIntakeTasks(scenario: string) {
 
   const { data: params } = await supabase
     .from('parameter_definitions')
-feature/routing-and-grading-mapping-12401172817543900232
-    .select('id, name, input_type, is_required, conditional_rules, description, auto_band_config')
-main
+    .select('id, name, input_type, is_required, conditional_rules, description, auto_band_config, default_owning_role')
     .eq('policy_version_id', activePolicy.id)
     .eq('stage', 1)
     .eq('is_active', true)
