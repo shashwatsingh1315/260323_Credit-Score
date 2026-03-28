@@ -585,7 +585,41 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                   <input type="hidden" name="caseId" value={c.id} />
                                   {task.task_type === 'scoring' && (
                                     <>
-                                      <Input name="gradeValue" type="number" placeholder="Grade 1-10" className="w-24 h-8 text-xs" min="1" max="10" />
+                                      {task.param?.input_type === 'grade_select' || task.param?.input_type === 'yes_no' ? (
+                                        <select
+                                          name="gradeValue"
+                                          className="flex h-8 w-24 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm"
+                                        >
+                                          <option value="">-- Select --</option>
+                                          {task.param.input_type === 'yes_no' ? (
+                                            <>
+                                              <option value="1">Yes</option>
+                                              <option value="0">No</option>
+                                            </>
+                                          ) : (
+                                            Array.from({ length: 10 }, (_, i) => (
+                                              <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                            ))
+                                          )}
+                                        </select>
+                                      ) : task.param?.input_type === 'dropdown' || task.param?.input_type === 'link_list' ? (
+                                        <select
+                                          name="rawInput"
+                                          className="flex h-8 w-28 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm"
+                                        >
+                                          <option value="">-- Select --</option>
+                                          {task.param.auto_band_config?.mappings?.map((m: any, i: number) => (
+                                            <option key={i} value={m.value}>{m.value}</option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <Input
+                                          type={task.param?.input_type === 'numeric' ? 'number' : task.param?.input_type === 'date' ? 'date' : 'text'}
+                                          name="rawInput"
+                                          placeholder={task.param?.input_type === 'numeric' ? 'Value' : task.param?.input_type === 'date' ? '' : 'Text value'}
+                                          className="w-24 h-8 text-xs"
+                                        />
+                                      )}
                                       <Input name="reason" placeholder="Reason" className="w-28 h-8 text-xs" />
                                     </>
                                   )}
