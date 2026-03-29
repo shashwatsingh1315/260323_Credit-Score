@@ -58,11 +58,15 @@ export async function fetchCaseDetail(caseId: string) {
 
   let tasks: any[] = [];
   if (cycle) {
-    const { data: taskData } = await supabase
+    const { data: taskData, error } = await supabase
       .from('stage_tasks')
-      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, description)')
+      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name)')
       .eq('review_cycle_id', cycle.id)
       .order('stage').order('created_at');
+
+    if (error) {
+      console.error("Error fetching stage tasks:", error);
+    }
     tasks = taskData || [];
   }
 
