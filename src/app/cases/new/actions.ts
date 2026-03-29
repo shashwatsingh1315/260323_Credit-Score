@@ -166,7 +166,7 @@ export async function fetchRmIntakeTasks(scenario: string) {
 
   const { data: params } = await supabase
     .from('parameter_definitions')
-    .select('id, name, input_type, is_required, conditional_rules, description, auto_band_config, default_owning_role')
+    .select('id, name, input_type, is_required, conditional_rules, rubric_guidance, auto_band_config, default_owning_role')
     .eq('policy_version_id', activePolicy.id)
     .eq('stage', 1)
     .eq('is_active', true)
