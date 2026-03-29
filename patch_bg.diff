@@ -1,0 +1,11 @@
+--- src/app/cases/new/page.tsx
++++ src/app/cases/new/page.tsx
+@@ -460,7 +460,7 @@
+               ) : (
+                 <div className="flex flex-col gap-6 my-4">
+                   {rmTasks.map((task) => (
+-                    <div key={task.id} className="p-4 border border-gray-200 rounded-md bg-white">
++                    <div key={task.id} className="p-4 border border-border rounded-md bg-muted">
+                       <label className="font-semibold block mb-1">
+                         {task.name} {task.is_required && <span className="text-red-500">*</span>}
+                       </label>

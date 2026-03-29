@@ -116,7 +116,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                   onClick={() => setShowCounterOffer(true)}
                   variant="default"
                   size="sm"
-                  className="bg-primary hover:bg-primary/90"
+                  className="bg-indigo-600 hover:bg-indigo-700"
                 >
                   Negotiate Terms
                 </Button>
@@ -148,16 +148,16 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
               <input type="hidden" name="cycleId" value={cycle.id} />
               <input type="hidden" name="stage" value="3" />
               <input type="hidden" name="roundType" value="appeal" />
-              <Button type="submit" variant="default" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="submit" variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 <Scale size={15} className="mr-1.5" /> Appeal Decision
               </Button>
             </form>
           )}
 
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="print:hidden ml-2" 
+          <Button
+            variant="outline"
+            size="sm"
+            className="print:hidden ml-2"
             onClick={() => window.print()}
           >
             <Printer size={15} className="mr-1.5" /> Export PDF
@@ -214,7 +214,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
         <TabsContent value="overview">
 
           {showPersonaChange && cycle && (
-            <Card className="mb-4 bg-muted/20 border-border print:hidden">
+            <Card className="mb-4 bg-muted/20 border-indigo-200 print:hidden">
               <CardContent className="p-4">
                 <form action={handleChangePersona} className="space-y-3" onSubmit={() => setShowPersonaChange(false)}>
                   <input type="hidden" name="caseId" value={c.id} />
@@ -262,13 +262,13 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
           )}
 
           {showCounterOffer && isApproved && (
-            <Card className="mb-4 bg-card border-border print:hidden">
+            <Card className="mb-4 bg-indigo-50 border-indigo-200 print:hidden">
               <CardContent className="p-4">
                 <form action={handleCounterOffer} className="space-y-3" onSubmit={() => setShowCounterOffer(false)}>
                   <input type="hidden" name="caseId" value={c.id} />
                   <input type="hidden" name="cycleId" value={cycle?.id} />
-                  <h3 className="font-semibold text-sm text-foreground">Counter-Offer / Negotiate Terms</h3>
-                  <p className="text-xs text-muted-foreground mb-2">Approved Limit: <strong className="font-bold">{cycle?.approved_credit_days} days</strong>. You may restructure tranches to fit within this limit without requiring a new review.</p>
+                  <h3 className="font-semibold text-sm text-indigo-900">Counter-Offer / Negotiate Terms</h3>
+                  <p className="text-xs text-indigo-700 mb-2">Approved Limit: <strong className="font-bold">{cycle?.approved_credit_days} days</strong>. You may restructure tranches to fit within this limit without requiring a new review.</p>
 
                   <div className="flex items-center gap-2 mb-2">
                     <Input type="number" name="compositeDays" placeholder="New Composite Days" className="h-9 w-[200px]" required max={cycle?.approved_credit_days} />
@@ -276,7 +276,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" name="outcome" value="accepted" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">Accept New Terms</Button>
+                    <Button type="submit" name="outcome" value="accepted" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">Accept New Terms</Button>
                     <Button type="submit" name="outcome" value="dropped" size="sm" variant="outline" className="border-destructive text-destructive hover:bg-destructive/10">Customer Declined</Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setShowCounterOffer(false)}>Cancel</Button>
                   </div>
@@ -354,8 +354,8 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
               </Card>
             )}
 
-            <Card className="col-span-2 border-border">
-              <CardHeader className="pb-3 border-b border-border/50"><CardTitle className="text-base text-foreground">Party History & Exposure</CardTitle></CardHeader>
+            <Card className="col-span-2 border-indigo-100">
+              <CardHeader className="pb-3 bg-indigo-50/50"><CardTitle className="text-base text-indigo-900">Party History & Exposure</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-2 gap-6 pt-4">
                 <div>
                   <h4 className="text-sm font-semibold mb-3 border-b pb-1">Customer: {c.customer?.legal_name || 'N/A'}</h4>
@@ -424,7 +424,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
             </Card>
 
             {c.status === 'Closed' && (
-              <Card className="col-span-2 bg-card border-border print:hidden">
+              <Card className="col-span-2 bg-slate-50 border-slate-200 print:hidden">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
                   <CardTitle className="text-base">Realized Outcome</CardTitle>
                 </CardHeader>
