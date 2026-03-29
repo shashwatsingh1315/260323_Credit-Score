@@ -147,7 +147,7 @@ export default function NewCasePage() {
             const band = taskDef.auto_band_config.bands.find((b: any) => numValue >= b.min && numValue <= b.max);
             if (band) mappedGrade = band.grade;
           }
-        } else if ((taskDef.input_type === 'link_list' || taskDef.input_type === 'yes_no') && taskDef.auto_band_config.mappings) {
+        } else if ((taskDef.input_type === 'dropdown' || taskDef.input_type === 'yes_no') && taskDef.auto_band_config.mappings) {
           const mapping = taskDef.auto_band_config.mappings.find((m: any) => m.value.toLowerCase() === String(value).toLowerCase());
           if (mapping) mappedGrade = mapping.grade;
         }
@@ -244,14 +244,14 @@ export default function NewCasePage() {
             const stepNum = i + 1;
             const isAccessible = stepNum <= step || (stepNum === step + 1 && canGoNext(step));
             return (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={cn(
-                  styles.step, 
-                  step === stepNum && styles.active, 
+                  styles.step,
+                  step === stepNum && styles.active,
                   step > stepNum && styles.done,
                   !isAccessible && styles.disabled
-                )} 
+                )}
                 onClick={() => isAccessible && setStep(stepNum)}
               >
                 <div className={styles.stepNum}>{step > stepNum ? '✓' : stepNum}</div>
@@ -456,17 +456,17 @@ export default function NewCasePage() {
               <p className={styles.helperText}>Required stage 1 items for RM completion based on selected scenario and policy.</p>
 
               {rmTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground my-4">No specific intake questions required for this scenario.</p>
+                <p className="text-sm text-gray-500 my-4">No specific intake questions required for this scenario.</p>
               ) : (
                 <div className="flex flex-col gap-6 my-4">
                   {rmTasks.map((task) => (
-                    <div key={task.id} className="p-4 border border-border rounded-md bg-muted">
+                    <div key={task.id} className="p-4 border border-gray-200 rounded-md bg-white">
                       <label className="font-semibold block mb-1">
                         {task.name} {task.is_required && <span className="text-red-500">*</span>}
                       </label>
                       {task.rubric_guidance && (
                         <div
-                          className="text-xs text-muted-foreground mb-3"
+                          className="text-xs text-gray-500 mb-3"
                           dangerouslySetInnerHTML={formatRubricGuidance(task.rubric_guidance)}
                         />
                       )}
