@@ -457,7 +457,7 @@ export default function NewCasePage() {
                       <label className="font-semibold block mb-1">
                         {task.name} {task.is_required && <span className="text-red-500">*</span>}
                       </label>
-                      {task.description && <p className="text-xs text-gray-500 mb-3">{task.description}</p>}
+                      {task.rubric_guidance && <p className="text-xs text-gray-500 mb-3">{task.rubric_guidance}</p>}
 
                       {task.input_type === 'grade_select' || task.input_type === 'yes_no' ? (
                         <select
