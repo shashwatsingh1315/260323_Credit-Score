@@ -93,6 +93,13 @@ export default function NewCasePage() {
     load();
   }, []);
 
+  const formatRubricGuidance = (text: string) => {
+    if (!text) return { __html: '' };
+    const withBreaks = text.replace(/\\n/g, '<br/>').replace(/\n/g, '<br/>');
+    const withBold = withBreaks.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    return { __html: withBold };
+  };
+
   // Composite credit day calculation
   const compositeDays = useCallback(() => {
     if (billAmount <= 0 || tranches.length === 0) return 0;
@@ -457,7 +464,12 @@ export default function NewCasePage() {
                       <label className="font-semibold block mb-1">
                         {task.name} {task.is_required && <span className="text-red-500">*</span>}
                       </label>
-                      {task.rubric_guidance && <p className="text-xs text-gray-500 mb-3">{task.rubric_guidance}</p>}
+                      {task.rubric_guidance && (
+                        <div
+                          className="text-xs text-gray-500 mb-3"
+                          dangerouslySetInnerHTML={formatRubricGuidance(task.rubric_guidance)}
+                        />
+                      )}
 
                       {task.input_type === 'grade_select' || task.input_type === 'yes_no' ? (
                         <select
