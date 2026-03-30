@@ -1,7 +1,7 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser, logAuditEvent, hasAnyRole, isAdmin as checkIsAdmin } from '@/utils/auth';
-import { progressStage, setWaiting, withdrawCase } from '@/utils/engine';
+import { progressStage, setWaiting, withdrawCase, sendNotification } from '@/utils/engine';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { updateCycleScore } from '@/utils/scoring';
@@ -192,7 +192,9 @@ export async function handleCompleteTask(formData: FormData) {
     throw new Error(`Unauthorized. This task requires the ${task.param?.default_owning_role?.toUpperCase()} role.`);
   }
 
-  let gradeValue = formData.get('gradeValue') ? parseInt(formData.get('gradeValue') as string) : null;
+  const rawGrade = formData.get('gradeValue') as string | null;
+  let gradeValue = (rawGrade && rawGrade.trim() !== '') ? parseInt(rawGrade) : null;
+  if (gradeValue !== null && isNaN(gradeValue)) gradeValue = null;
   const reason = formData.get('reason') as string || null;
   const rawInput = formData.get('rawInput') as string || null;
 
@@ -418,6 +420,22 @@ export async function handleApprovalDecision(formData: FormData) {
   }
 
   await logAuditEvent({ case_id: caseId, event_type: 'approval_decision', actor_id: user.id, description: `Approval: ${decision}.${comment ? ' ' + comment : ''}` });
+  
+  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', caseId).single();
+  if (creditCase?.rm_user_id) {
+    if (decision === 'reject') {
+      await sendNotification(creditCase.rm_user_id, 'Case Rejected', `Case ${creditCase.case_number} has been rejected.`);
+    } else if (decision === 'return_for_revision') {
+      await sendNotification(creditCase.rm_user_id, 'Case Returned', `Case ${creditCase.case_number} was returned for revision.`);
+    } else {
+      const { data: allDecisions } = await supabase.from('approval_decisions').select('decision').eq('approval_round_id', roundId);
+      const allApproved = allDecisions?.every((d: any) => d.decision === 'approve');
+      if (allApproved) {
+        await sendNotification(creditCase.rm_user_id, 'Case Approved', `Case ${creditCase.case_number} has been fully approved.`);
+      }
+    }
+  }
+
   revalidatePath(`/cases/${caseId}`);
 }
 

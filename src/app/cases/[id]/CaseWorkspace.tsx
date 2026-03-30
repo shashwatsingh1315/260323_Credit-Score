@@ -167,6 +167,19 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
         </div>
       </div>
 
+      {['Approved', 'Accepted', 'Billing Active', 'Pending Write-Off Approval'].includes(c.status) && (
+        <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-400">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle size={18} />
+            <h3 className="font-semibold text-base">Credit Terms Approved</h3>
+          </div>
+          <p className="text-sm opacity-90">
+            This case was approved with <strong>{cycle?.approved_credit_days || c.composite_credit_days}</strong> days of credit. 
+            The Relationship Manager can proceed to the <strong>Ledger &amp; Billing</strong> tab to initiate billing.
+          </p>
+        </div>
+      )}
+
       {/* Live Score Banner — shown when scoring has started */}
       {liveScore !== null && (
         <Card className="border-primary/30 bg-primary/5">

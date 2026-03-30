@@ -196,6 +196,7 @@ export async function upsertScoreBand(formData: FormData) {
     min_score: parseFloat(formData.get('min_score') as string),
     max_score: parseFloat(formData.get('max_score') as string),
     approved_credit_days: parseInt(formData.get('approved_credit_days') as string),
+    is_ambiguity_band: formData.get('is_ambiguity_band') === 'true',
     policy_version_id: formData.get('policy_version_id') as string || null,
   };
   if (id) {

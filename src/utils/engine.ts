@@ -2,6 +2,19 @@ import { createClient } from './supabase/server';
 import { logAuditEvent } from './auth';
 
 /**
+ * Send a notification to a specific user.
+ */
+export async function sendNotification(userId: string, title: string, message: string) {
+  if (!userId) return;
+  const supabase = await createClient();
+  await supabase.from('notifications').insert({
+    user_id: userId,
+    title,
+    message,
+  });
+}
+
+/**
  * Composite Credit Day calculation per Doc 04.
  * composite_credit_days = sum(weight_of_tranche * days_after_billing)
  */
@@ -163,6 +176,11 @@ export async function submitCase(caseId: string, rmUserId: string) {
     description: 'Case submitted for review. Review Cycle 1 opened and all tasks generated.',
   });
 
+  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, kam_user_id').eq('id', caseId).single();
+  if (creditCase?.kam_user_id) {
+    await sendNotification(creditCase.kam_user_id, 'New Case Assigned', `Case ${creditCase.case_number} has been submitted for review.`);
+  }
+
   return cycle;
 }
 
@@ -278,6 +296,20 @@ export async function progressStage(cycleId: string, currentStage: number, actor
     throw new Error('Cannot progress beyond Stage 3.');
   }
 
+  // Validate that all required, non-waived tasks for the current stage are completed
+  const { data: incompleteTasks } = await supabase
+    .from('stage_tasks')
+    .select('id')
+    .eq('review_cycle_id', cycleId)
+    .eq('stage', currentStage)
+    .eq('is_required', true)
+    .neq('status', 'Completed')
+    .is('is_waived', false);
+
+  if (incompleteTasks && incompleteTasks.length > 0) {
+    throw new Error(`Cannot progress to Stage ${nextStage}. There are ${incompleteTasks.length} required tasks pending in Stage ${currentStage}.`);
+  }
+
   const { data: cycle } = await supabase
     .from('review_cycles')
     .select('case_id, policy_snapshot_id')
@@ -298,6 +330,11 @@ export async function progressStage(cycleId: string, currentStage: number, actor
     actor_id: actorId,
     description: `Progressed from Stage ${currentStage} to Stage ${nextStage}.`,
   });
+
+  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', cycle.case_id).single();
+  if (creditCase?.rm_user_id) {
+    await sendNotification(creditCase.rm_user_id, 'Stage Progressed', `Case ${creditCase.case_number} progressed to Stage ${nextStage}.`);
+  }
 }
 
 /**
@@ -356,6 +393,11 @@ export async function returnForRevision(params: {
     actor_id: params.actorId,
     description: `Returned for revision: ${params.comment}`,
   });
+
+  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).single();
+  if (creditCase?.rm_user_id) {
+    await sendNotification(creditCase.rm_user_id, 'Case Returned', `Case ${creditCase.case_number} was returned for revision.`);
+  }
 }
 
 /**
@@ -370,7 +412,7 @@ export async function withdrawCase(params: {
   const supabase = await createClient();
 
   await supabase.from('credit_cases').update({
-    status: 'Closed',
+    status: 'Withdrawn',
     closure_reason: params.reason,
     closure_note: params.note,
   }).eq('id', params.caseId);
@@ -387,4 +429,9 @@ export async function withdrawCase(params: {
     actor_id: params.actorId,
     description: `Case withdrawn. Reason: ${params.reason}. Note: ${params.note}`,
   });
+
+  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).single();
+  if (creditCase?.rm_user_id) {
+    await sendNotification(creditCase.rm_user_id, 'Case Withdrawn', `Case ${creditCase.case_number} has been withdrawn.`);
+  }
 }

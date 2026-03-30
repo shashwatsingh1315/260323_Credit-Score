@@ -1,5 +1,6 @@
 'use server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { getCurrentUser, logAuditEvent } from '@/utils/auth';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -193,8 +194,7 @@ export async function adminCreateUser(formData: FormData) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '';
 
-    const { createClient } = require('@supabase/supabase-js');
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
@@ -245,8 +245,7 @@ export async function adminDeleteUser(formData: FormData) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '';
 
-    const { createClient } = require('@supabase/supabase-js');
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
