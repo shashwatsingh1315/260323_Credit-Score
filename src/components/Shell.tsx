@@ -34,6 +34,7 @@ const navItems = [
     requiresAdmin: true,
     links: [
       { href: '/admin', label: 'Admin', icon: Settings },
+      { href: '/settings', label: 'System Settings', icon: Settings },
     ],
   },
 ];

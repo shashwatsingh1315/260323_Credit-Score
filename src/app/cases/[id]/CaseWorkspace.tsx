@@ -4,8 +4,9 @@ import Link from 'next/link';
 import {
   ChevronRight, Clock, CheckCircle, AlertCircle,
   Layers, FileText, History, Shield, MessageSquare,
-  BarChart3, TrendingUp, Award, Printer, Scale
+  BarChart3, TrendingUp, Award, Printer, Scale, Wallet
 } from 'lucide-react';
+import LedgerTab from './LedgerTab';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ interface CaseWorkspaceProps {
     approvalRounds: any[];
     comments: any[];
     users?: any[];
+    ledger: any | null;
     stageSummaries?: { stage: number; score: number | null; completedAt: string | null }[];
   };
 }
@@ -206,6 +208,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
           <TabsTrigger value="overview"><Layers size={14} className="mr-2" /> Overview</TabsTrigger>
           <TabsTrigger value="stages"><CheckCircle size={14} className="mr-2" /> Stages</TabsTrigger>
           <TabsTrigger value="approvals"><Shield size={14} className="mr-2" /> Approvals</TabsTrigger>
+          <TabsTrigger value="ledger"><Wallet size={14} className="mr-2" /> Ledger &amp; Billing</TabsTrigger>
           <TabsTrigger value="comments"><MessageSquare size={14} className="mr-2" /> Comments</TabsTrigger>
           <TabsTrigger value="audit"><History size={14} className="mr-2" /> Audit Trail</TabsTrigger>
         </TabsList>
@@ -423,74 +426,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
               </CardContent>
             </Card>
 
-            {c.status === 'Closed' && (
-              <Card className="col-span-2 bg-card border-border print:hidden">
-                <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">Realized Outcome</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {c.outcome ? (
-                    <div className="grid grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Deal Happened</p>
-                        <p className="font-semibold">{c.outcome.deal_happened ? 'Yes' : 'No'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Paid On Time</p>
-                        <p className="font-semibold">{c.outcome.payment_on_time ? 'Yes' : 'No'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Realized Delay</p>
-                        <p className="font-semibold">{c.outcome.realized_delay_days || 0} days</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Realized Exposure</p>
-                        <p className="font-semibold">₹{(c.outcome.realized_exposure || 0).toLocaleString('en-IN')}</p>
-                      </div>
-                      <div className="col-span-4 mt-2">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Outcome Notes</p>
-                        <p className="text-sm">{c.outcome.notes || 'None'}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <form action={handleSaveOutcome} className="space-y-4">
-                      <input type="hidden" name="caseId" value={c.id} />
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                          <Label>Deal Happened?</Label>
-                          <select name="dealHappened" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" required>
-                            <option value="">Select...</option>
-                            <option value="true">Yes</option>
-                            <option value="false">No</option>
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Paid On Time?</Label>
-                          <select name="paymentOnTime" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" required>
-                            <option value="">Select...</option>
-                            <option value="true">Yes</option>
-                            <option value="false">No</option>
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Delay (Days)</Label>
-                          <Input type="number" name="realizedDelayDays" defaultValue={0} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Realized Exposure (₹)</Label>
-                          <Input type="number" name="realizedExposure" defaultValue={0} />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Outcome Notes</Label>
-                        <Textarea name="notes" placeholder="Details about how the deal performed..." rows={2} />
-                      </div>
-                      <Button type="submit" size="sm">Save Realized Outcome</Button>
-                    </form>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Realized Outcome — superseded by Ledger & Billing tab */}
 
           </div>
         </TabsContent>
@@ -688,6 +624,21 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Ledger & Billing Tab */}
+        <TabsContent value="ledger">
+          {data.ledger ? (
+            <LedgerTab
+              caseId={c.id}
+              activeRole={activeRole}
+              ledger={data.ledger}
+            />
+          ) : (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              Ledger data unavailable. Case must be Approved or in a billing state.
             </div>
           )}
         </TabsContent>

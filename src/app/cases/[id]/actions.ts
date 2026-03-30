@@ -5,6 +5,7 @@ import { progressStage, setWaiting, withdrawCase } from '@/utils/engine';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { updateCycleScore } from '@/utils/scoring';
+import { fetchLedgerData } from './billing-actions';
 
 export async function fetchCaseDetail(caseId: string) {
   const supabase = await createClient();
@@ -98,7 +99,10 @@ export async function fetchCaseDetail(caseId: string) {
     .select('id, full_name, roles')
     .order('full_name');
 
-  return { case: caseData, cycle, tasks, auditEvents: auditEvents || [], approvalRounds, comments: comments || [], users: users || [] };
+  // Fetch Phase-2 ledger data (billing, repayments, credit notes, tranche waterfall)
+  const ledger = await fetchLedgerData(caseId);
+
+  return { case: caseData, cycle, tasks, auditEvents: auditEvents || [], approvalRounds, comments: comments || [], users: users || [], ledger };
 }
 
 export async function handleProgressStage(formData: FormData) {
