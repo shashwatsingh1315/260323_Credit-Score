@@ -10,5 +10,17 @@ export async function switchImpersonationRole(role: string) {
 
 export async function getImpersonationRole() {
   const cookieStore = await cookies();
-  return cookieStore.get('impersonated_role')?.value || 'founder_admin';
+  const requestedRole = cookieStore.get('impersonated_role')?.value || 'founder_admin';
+  
+  try {
+    const { getCurrentUser } = await import('./auth');
+    const user = await getCurrentUser();
+    if (user && (user.roles.includes(requestedRole as any) || user.roles.includes('founder_admin'))) {
+      return requestedRole;
+    }
+    // Fallback securely to their actual primary role
+    return user?.roles?.[0] || 'founder_admin';
+  } catch (e) {
+    return 'founder_admin';
+  }
 }

@@ -1,7 +1,7 @@
-import { fetchScoreBands } from '../actions';
+import { fetchActivePolicy, fetchScoreBands } from '../actions';
 import BandsClient from './BandsClient';
 
 export default async function BandsPage() {
-  const bands = await fetchScoreBands();
-  return <BandsClient initialBands={bands as any[]} />;
+  const [bands, activePolicy] = await Promise.all([fetchScoreBands(), fetchActivePolicy()]);
+  return <BandsClient initialBands={bands as any[]} activePolicyId={activePolicy?.id || null} />;
 }

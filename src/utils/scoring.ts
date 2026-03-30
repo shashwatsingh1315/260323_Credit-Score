@@ -294,14 +294,22 @@ export async function updateCycleScore(reviewCycleId: string) {
 
   const caseScenario = (cycle.credit_cases as any)?.case_scenario || 'customer_name_customer_pays';
   
-  // Calculate final score up to the furthest stage (3)
+  // Calculate final score up to the active stage
   const result = await calculateFinalCaseScore({
     reviewCycleId,
     caseScenario,
-    upToStage: 3,
+    upToStage: cycle.active_stage,
+  });
+
+  const bandResult = await mapScoreToCreditDays({
+    policyVersionId: cycle.policy_snapshot_id,
+    score: result.finalScore,
   });
 
   await supabase.from('review_cycles').update({
     current_case_score: result.finalScore,
+    approved_credit_days: bandResult?.approvedDays ?? null,
+    score_band_name: bandResult?.bandName ?? null,
+    is_ambiguous: bandResult?.isAmbiguity ?? false,
   }).eq('id', reviewCycleId);
 }

@@ -15,11 +15,12 @@ import Link from 'next/link';
 interface ScoreBand {
   id: string; band_name: string; min_score: number; max_score: number;
   approved_credit_days: number;
+  is_ambiguity_band: boolean;
 }
 
 const fallbackColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1'];
 
-export default function BandsClient({ initialBands }: { initialBands: ScoreBand[] }) {
+export default function BandsClient({ initialBands, activePolicyId }: { initialBands: ScoreBand[], activePolicyId: string | null }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ScoreBand | null>(null);
 
@@ -79,7 +80,10 @@ export default function BandsClient({ initialBands }: { initialBands: ScoreBand[
               <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No bands configured yet.</TableCell></TableRow>
             ) : sorted.map((b, i) => (
               <TableRow key={b.id}>
-                <TableCell className="font-medium">{b.band_name}</TableCell>
+                <TableCell className="font-medium">
+                  {b.band_name}
+                  {b.is_ambiguity_band && <Badge variant="secondary" className="ml-2 text-[10px] uppercase">Ambiguity</Badge>}
+                </TableCell>
                 <TableCell>{b.min_score} — {b.max_score}</TableCell>
                 <TableCell><Badge variant="info">{b.approved_credit_days} days</Badge></TableCell>
                 <TableCell>
@@ -108,6 +112,7 @@ export default function BandsClient({ initialBands }: { initialBands: ScoreBand[
           <DialogHeader><DialogTitle>{editing ? 'Edit Band' : 'New Score Band'}</DialogTitle></DialogHeader>
           <form action={upsertScoreBand} onSubmit={() => setOpen(false)} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
+            <input type="hidden" name="policy_version_id" value={activePolicyId || ''} />
             <div className="space-y-1">
               <Label>Band Name</Label>
               <Input name="band_name" defaultValue={editing?.band_name} placeholder="e.g. Band A — Prime" required />
@@ -126,7 +131,13 @@ export default function BandsClient({ initialBands }: { initialBands: ScoreBand[
               <Label>Approved Credit Days</Label>
               <Input name="approved_credit_days" type="number" min="0" defaultValue={editing?.approved_credit_days} required />
             </div>
-            <DialogFooter className="gap-2">
+            <div className="space-y-1 mt-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="is_ambiguity_band" defaultChecked={editing?.is_ambiguity_band} className="accent-primary" value="true" />
+                This is an ambiguity band (marks cases as inherently ambiguous)
+              </label>
+            </div>
+            <DialogFooter className="gap-2 mt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit">{editing ? 'Save' : 'Create'}</Button>
             </DialogFooter>

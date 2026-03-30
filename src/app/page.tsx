@@ -80,32 +80,47 @@ async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
     });
 
     // Waterfall allocate repayments to tranches
-    let remainingPaid = repayments.reduce((s, r) => s + r.amount, 0);
-    let runningPaymentDate = repayments.length > 0
-      ? new Date(repayments[repayments.length - 1].payment_date)
-      : null;
+    const sortedRepayments = [...repayments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+    let repIdx = 0;
+    let repRemaining = sortedRepayments.length > 0 ? sortedRepayments[0].amount : 0;
 
-    // For weighted days: use actual last payment date vs proposed days
     for (const tranche of trancheSchedule) {
-      const fill = Math.min(remainingPaid, tranche.expectedAmount);
-      remainingPaid -= fill;
+      let trancheRemaining = tranche.expectedAmount;
+      let lastPaymentDateForTranche: Date | null = null;
+
+      while (trancheRemaining > 0 && repIdx < sortedRepayments.length) {
+        const curRep = sortedRepayments[repIdx];
+        const fillAmount = Math.min(trancheRemaining, repRemaining);
+        
+        trancheRemaining -= fillAmount;
+        repRemaining -= fillAmount;
+        lastPaymentDateForTranche = new Date(curRep.payment_date);
+
+        if (repRemaining <= 0) {
+          repIdx++;
+          if (repIdx < sortedRepayments.length) {
+            repRemaining = sortedRepayments[repIdx].amount;
+          }
+        }
+      }
 
       totalTranches++;
       totalAmount += tranche.expectedAmount;
+      const fill = tranche.expectedAmount - trancheRemaining;
 
       // Count PDCR: did entire tranche get paid by due date?
-      if (fill >= tranche.expectedAmount && runningPaymentDate && runningPaymentDate <= tranche.dueDate) {
+      if (fill >= tranche.expectedAmount && lastPaymentDateForTranche && lastPaymentDateForTranche <= tranche.dueDate) {
         tranchesPaidOnTime++;
       }
 
       // Amount PDCR: proportional amount paid on time
-      if (runningPaymentDate && runningPaymentDate <= tranche.dueDate) {
+      if (lastPaymentDateForTranche && lastPaymentDateForTranche <= tranche.dueDate) {
         amountPaidOnTime += fill;
       }
 
       // Weighted Days PDCR: actualDays vs proposedDays
-      if (fill > 0 && runningPaymentDate && billingDate) {
-        const actualDaysMs = runningPaymentDate.getTime() - billingDate.getTime();
+      if (fill > 0 && lastPaymentDateForTranche && billingDate) {
+        const actualDaysMs = lastPaymentDateForTranche.getTime() - billingDate.getTime();
         const actualDays = actualDaysMs / (1000 * 3600 * 24);
         if (actualDays > 0 && tranche.proposedDays > 0) {
           const weight = tranche.expectedAmount;
