@@ -249,7 +249,6 @@ describe('engine.ts', () => {
   describe('progressStage', () => {
     it('progresses stage successfully', async () => {
       mockSingle.mockResolvedValueOnce({ data: { case_id: 'c1', policy_snapshot_id: 'p1' } });
-      mockEq.mockResolvedValueOnce({ error: null });
 
       await progressStage('cycle-1', 1, 'actor-1');
       expect(mockUpdate).toHaveBeenCalledWith({ active_stage: 2 });
@@ -257,6 +256,18 @@ describe('engine.ts', () => {
 
     it('throws error if progressing beyond stage 3', async () => {
       await expect(progressStage('cycle-1', 3, 'actor-1')).rejects.toThrow(/Cannot progress beyond Stage 3/i);
+    });
+
+    it('throws error if review cycle is not found', async () => {
+      mockSingle.mockResolvedValueOnce({ data: null, error: null });
+      await expect(progressStage('non-existent-cycle', 1, 'actor-1')).rejects.toThrow(/Review cycle not found/i);
+    });
+
+    it('progresses to stage 3 successfully (boundary success case)', async () => {
+      mockSingle.mockResolvedValueOnce({ data: { case_id: 'c1', policy_snapshot_id: 'p1' } });
+
+      await progressStage('cycle-1', 2, 'actor-1');
+      expect(mockUpdate).toHaveBeenCalledWith({ active_stage: 3 });
     });
   });
 
