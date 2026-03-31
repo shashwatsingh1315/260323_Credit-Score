@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { getCurrentUser, logAuditEvent } from '@/utils/auth';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { parsePartiesCsv } from '@/utils/csv';
 
 export async function fetchParties(search?: string) {
   const supabase = await createClient();
@@ -119,26 +120,7 @@ export async function importPartiesCsv(formData: FormData) {
     if (!file) throw new Error('No file provided');
 
     const text = await file.text();
-    const lines = text.split('\n').filter(l => l.trim() !== '');
-    if (lines.length < 2) throw new Error('CSV is empty or missing headers');
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    
-    const payload = lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim());
-      const obj: any = {};
-      headers.forEach((h, i) => {
-        if (values[i]) obj[h] = values[i];
-      });
-      return {
-        legal_name: obj.legal_name || 'Unknown',
-        customer_code: obj.customer_code || `CUST-IMP-${Math.floor(Math.random()*10000)}`,
-        gst_number: obj.gstin || null,
-        pan_number: obj.pan || null,
-        address: obj.city || null,
-        is_active: true
-      };
-    });
+    const payload = parsePartiesCsv(text);
 
     const supabase = await createClient();
     
