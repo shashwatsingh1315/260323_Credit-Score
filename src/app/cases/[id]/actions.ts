@@ -96,7 +96,7 @@ export async function fetchCaseDetail(caseId: string) {
 
   const { data: users } = await supabase
     .from('profiles')
-    .select('id, full_name, roles')
+    .select('id, full_name, roles:user_roles(role)')
     .order('full_name');
 
   // Fetch Phase-2 ledger data (billing, repayments, credit notes, tranche waterfall)

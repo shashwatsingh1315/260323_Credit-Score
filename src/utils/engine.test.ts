@@ -17,6 +17,8 @@ const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
 const mockSelect = vi.fn();
 const mockEq = vi.fn();
+const mockNeq = vi.fn();
+const mockIs = vi.fn();
 const mockSingle = vi.fn();
 const mockIn = vi.fn();
 
@@ -32,12 +34,23 @@ vi.mock('./supabase/server', () => ({
           mockUpdate(...args);
           return builder;
         }),
+        neq: vi.fn().mockImplementation((...args) => {
+          const res = mockNeq(...args);
+          if (res) return res;
+          return builder;
+        }),
+        is: vi.fn().mockImplementation((...args) => {
+          const res = mockIs(...args);
+          if (res) return res;
+          return builder;
+        }),
         select: vi.fn().mockImplementation((...args) => {
           mockSelect(...args);
           return builder;
         }),
         eq: vi.fn().mockImplementation((...args) => {
           const res = mockEq(...args);
+          return builder;
           if (res) {
             // Need to allow chaining if res is just an object without builder methods
             return { ...builder, ...res };
@@ -46,6 +59,7 @@ vi.mock('./supabase/server', () => ({
         }),
         in: vi.fn().mockImplementation((...args) => {
           const res = mockIn(...args);
+          return builder;
           if (res) {
             return { ...builder, ...res };
           }
@@ -249,7 +263,7 @@ describe('engine.ts', () => {
   describe('progressStage', () => {
     it('progresses stage successfully', async () => {
       mockSingle.mockResolvedValueOnce({ data: { case_id: 'c1', policy_snapshot_id: 'p1' } });
-
+      mockSingle.mockResolvedValueOnce({ data: { case_number: "CASE-123", rm_user_id: "rm1" } });
       await progressStage('cycle-1', 1, 'actor-1');
       expect(mockUpdate).toHaveBeenCalledWith({ active_stage: 2 });
     });
@@ -265,7 +279,7 @@ describe('engine.ts', () => {
 
     it('progresses to stage 3 successfully (boundary success case)', async () => {
       mockSingle.mockResolvedValueOnce({ data: { case_id: 'c1', policy_snapshot_id: 'p1' } });
-
+      mockSingle.mockResolvedValueOnce({ data: { case_number: "CASE-123", rm_user_id: "rm1" } });
       await progressStage('cycle-1', 2, 'actor-1');
       expect(mockUpdate).toHaveBeenCalledWith({ active_stage: 3 });
     });
@@ -288,6 +302,7 @@ describe('engine.ts', () => {
   describe('returnForRevision', () => {
     it('updates case status', async () => {
       mockEq.mockResolvedValueOnce({ error: null });
+      mockSingle.mockResolvedValueOnce({ data: { case_number: "CASE-123", rm_user_id: "rm1" } });
       await returnForRevision({ caseId: 'c1', cycleId: 'cycle1', comment: 'fix this', actorId: 'a1' });
       expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'In Review', substatus: 'Returned for revision' }));
     });
@@ -297,8 +312,10 @@ describe('engine.ts', () => {
     it('updates case status to Closed and withdraws active cycle', async () => {
       mockEq.mockReturnValue({ error: null, eq: mockEq });
 
+      mockSingle.mockResolvedValueOnce({ data: { case_number: "CASE-123", rm_user_id: "rm1" } });
       await withdrawCase({ caseId: 'c1', reason: 'lost', note: 'lost deal', actorId: 'a1' });
-      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'Closed', closure_reason: 'lost' }));
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'Withdrawn', closure_reason: 'lost' }));
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ is_active: false, decision: 'withdrawn' }));
     });
   });
 });
