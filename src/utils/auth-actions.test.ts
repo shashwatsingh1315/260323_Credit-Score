@@ -46,6 +46,15 @@ describe('auth-actions.ts', () => {
   });
 
   describe('getImpersonationRole', () => {
+    it('should return the user primary role if no cookie is set', async () => {
+      mockCookieStore.get.mockReturnValue(undefined);
+      mockGetCurrentUser.mockResolvedValue({ roles: ['founder_admin'] });
+
+      const result = await getImpersonationRole();
+
+      expect(result).toBe('founder_admin');
+    });
+
     it('should return founder_admin if no cookie is set and no user is found', async () => {
       mockCookieStore.get.mockReturnValue(undefined);
       mockGetCurrentUser.mockResolvedValue(null);

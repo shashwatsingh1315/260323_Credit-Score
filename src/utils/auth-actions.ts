@@ -13,16 +13,24 @@ export async function switchImpersonationRole(role: string) {
 
 export async function getImpersonationRole() {
   const cookieStore = await cookies();
-  const requestedRole = cookieStore.get('impersonated_role')?.value || 'viewer';
+  const cookieRole = cookieStore.get('impersonated_role')?.value;
   
   try {
     const { getCurrentUser } = await import('./auth');
     const user = await getCurrentUser();
-    if (user && (user.roles.includes(requestedRole as any) || user.roles.includes('founder_admin'))) {
+    
+    if (!user) return 'viewer';
+
+    // If no cookie, default to the user's first assigned role
+    const requestedRole = cookieRole || user.roles[0] || 'viewer';
+
+    // Verify user has the role OR is a founder_admin (who can impersonate any role)
+    if (user.roles.includes(requestedRole as any) || user.roles.includes('founder_admin')) {
       return requestedRole;
     }
+    
     // Fallback securely to their actual primary role
-    return user?.roles?.[0] || 'viewer';
+    return user.roles[0] || 'viewer';
   } catch (e) {
     return 'viewer';
   }
