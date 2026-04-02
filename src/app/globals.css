@@ -4,42 +4,43 @@
 
 @layer base {
   :root {
-    /* Shadcn semantic tokens — pure black/white palette */
-    --background: 0 0% 4%;             /* #0a0a0a */
-    --foreground: 0 0% 94%;            /* #f0f0f0 */
-    --card: 0 0% 6%;                   /* #0f0f0f */
-    --card-foreground: 0 0% 94%;
-    --popover: 0 0% 6%;
-    --popover-foreground: 0 0% 94%;
-    --primary: 0 0% 94%;               /* near-white — primary CTA */
-    --primary-foreground: 0 0% 5%;     /* dark text on white buttons */
-    --secondary: 0 0% 11%;             /* #1c1c1c */
-    --secondary-foreground: 0 0% 55%;
-    --muted: 0 0% 11%;
-    --muted-foreground: 0 0% 44%;      /* #707070 */
-    --accent: 0 0% 11%;
-    --accent-foreground: 0 0% 94%;
-    --destructive: 0 55% 45%;
-    --destructive-foreground: 0 0% 94%;
-    --border: 0 0% 12%;                /* #1e1e1e */
-    --input: 0 0% 11%;
-    --ring: 0 0% 65%;
-    --radius: 0.625rem;
+    --background: 210 40% 98%;      /* #f8fafc */
+    --foreground: 222 47% 11%;      /* #0f172a */
+    --card: 0 0% 100%;              /* #ffffff */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
 
-    /* Legacy tokens used by CSS modules */
-    --bg-primary: #080808;
-    --bg-secondary: #0f0f0f;
-    --bg-tertiary: #181818;
-    --text-primary: #f0f0f0;
-    --text-secondary: #888888;
-    --text-muted: #484848;
-    --accent-primary: #c8c8c8;         /* light gray — replaces blue accent */
-    --accent-hover: #f0f0f0;
-    --border-primary: #1e1e1e;
-    --border-color: #1e1e1e;
-    --success: #34d399;
-    --warning: #fbbf24;
-    --danger: #f87171;
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --accent-primary: #cbd5e1;
+    --accent-hover: #e2e8f0;
+    --border-primary: #e2e8f0;
+    --border-color: #e2e8f0;
+    
+    --color-success: 142.1 70.6% 45.3%;
+    --color-warning: 38 92% 50%;
+    --color-destructive: 0 84.2% 60.2%;
+    --color-info: 221.2 83.2% 53.3%;
+    
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
   }
 }
@@ -79,10 +80,10 @@
 .badge {
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide;
 }
-.badge.success { @apply bg-emerald-500/10 text-emerald-400; }
-.badge.warning { @apply bg-amber-500/10 text-amber-400; }
-.badge.danger  { @apply bg-red-500/10 text-red-400; }
-.badge.info    { @apply bg-white/10 text-white/70; }
+.badge.success { @apply bg-emerald-100 text-emerald-700 border-emerald-200; }
+.badge.warning { @apply bg-amber-100 text-amber-700 border-amber-200; }
+.badge.danger  { @apply bg-red-100 text-red-700 border-red-200; }
+.badge.info    { @apply bg-blue-100 text-blue-700 border-blue-200; }
 
 @layer base {
   /* Fix dropdown option colors for dark theme to prevent white-on-white text */
