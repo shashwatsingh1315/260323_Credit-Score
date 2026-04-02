@@ -16,6 +16,7 @@ vi.mock('next/cache', () => ({
 const mockGetCurrentUser = vi.fn();
 vi.mock('./auth', () => ({
   getCurrentUser: () => mockGetCurrentUser(),
+  USER_ROLES: ['rm', 'kam', 'accounts', 'bdo', 'ordinary_approver', 'board_member', 'founder_admin'],
 }));
 
 describe('auth-actions.ts', () => {
@@ -51,7 +52,7 @@ describe('auth-actions.ts', () => {
 
       const result = await getImpersonationRole();
 
-      expect(result).toBe('founder_admin');
+      expect(result).toBe('viewer');
     });
 
     it('should return the requested role if the user has that role', async () => {
@@ -87,7 +88,7 @@ describe('auth-actions.ts', () => {
 
       const result = await getImpersonationRole();
 
-      expect(result).toBe('founder_admin');
+      expect(result).toBe('viewer');
     });
 
     it('should fallback to founder_admin on error', async () => {
@@ -96,7 +97,7 @@ describe('auth-actions.ts', () => {
 
       const result = await getImpersonationRole();
 
-      expect(result).toBe('founder_admin');
+      expect(result).toBe('viewer');
     });
   });
 });

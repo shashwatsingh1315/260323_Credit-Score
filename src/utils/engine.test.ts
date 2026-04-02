@@ -70,6 +70,9 @@ vi.mock('./supabase/server', () => ({
         single: vi.fn().mockImplementation((...args) => {
           return mockSingle(...args);
         }),
+        maybeSingle: vi.fn().mockImplementation((...args) => {
+          return mockSingle(...args);
+        }),
       };
       return builder;
     }),

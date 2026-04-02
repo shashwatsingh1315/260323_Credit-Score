@@ -52,6 +52,9 @@ vi.mock('./supabase/server', () => ({
         single: vi.fn().mockImplementation((...args) => {
           return mockSingle(...args);
         }),
+        maybeSingle: vi.fn().mockImplementation((...args) => {
+          return mockSingle(...args);
+        }),
       };
       return builder;
     }),
@@ -118,6 +121,7 @@ describe('scoring.ts', () => {
           ]
         }),
         single: mockSingle,
+        maybeSingle: mockSingle,
         not: mockNot,
         eq: mockEq,
       } as any);
