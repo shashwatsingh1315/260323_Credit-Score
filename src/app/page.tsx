@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
 
+import { BlurText } from '@/components/animations/BlurText';
+import { SpotlightCard } from '@/components/animations/SpotlightCard';
+import { CountUp } from '@/components/animations/CountUp';
+import { StaggeredFade } from '@/components/animations/StaggeredFade';
+
 // ── PDCR & Metrics computation (server-side) ─────────────────────────────────
 
 async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
@@ -291,17 +296,19 @@ export default async function DashboardPage() {
         {stats.map((s, i) => {
           const Icon = s.icon;
           return (
-            <Card key={i}>
-              <CardContent className="p-5">
+            <SpotlightCard key={i}>
+              <div className="p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center`}>
                     <Icon size={18} className={s.color} />
                   </div>
-                  <span className="text-sm text-muted-foreground">{s.label}</span>
+                  <span className="text-sm font-medium text-muted-foreground">{s.label}</span>
                 </div>
-                <p className="text-3xl font-bold text-foreground">{s.value}</p>
-              </CardContent>
-            </Card>
+                <div className="text-3xl font-bold text-foreground">
+                  <CountUp to={s.value} />
+                </div>
+              </div>
+            </SpotlightCard>
           );
         })}
       </div>
