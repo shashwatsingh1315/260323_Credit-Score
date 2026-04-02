@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,12 @@ interface PartyDialogProps {
 export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: PartyDialogProps) {
   const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState(editingParty?.party_type || 'both');
+
+  useEffect(() => {
+    if (open) {
+      setSelectedType(editingParty?.party_type || 'both');
+    }
+  }, [open, editingParty]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
