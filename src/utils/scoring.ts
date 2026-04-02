@@ -16,13 +16,13 @@ export async function calculateSubjectScore(params: {
   const supabase = await createClient();
 
   // 1. Get cycle to identify persona and policy
-  const { data: cycle } = await supabase
+  const { data: cycle, error: cycleError } = await supabase
     .from('review_cycles')
     .select('policy_snapshot_id, customer_persona_id, contractor_persona_id')
     .eq('id', params.reviewCycleId)
-    .single();
+    .maybeSingle();
 
-  if (!cycle) return 0;
+  if (cycleError || !cycle) return 0;
 
   const personaId = params.subjectType === 'customer' 
     ? cycle.customer_persona_id 
@@ -49,7 +49,9 @@ export async function calculateSubjectScore(params: {
     
     if (overrides) {
       overrides.forEach(o => {
-        weightsMap[o.parameter_id] = parseFloat(o.weight as any);
+        const weightNum = parseFloat(o.weight as string);
+        if (isNaN(weightNum)) throw new Error("Invalid weight");
+        weightsMap[o.parameter_id] = weightNum;
       });
     }
   }
@@ -82,13 +84,13 @@ export async function calculateCumulativeScore(params: {
   const supabase = await createClient();
 
   // 1. Get cycle to identify policy
-  const { data: cycle } = await supabase
+  const { data: cycle, error: cycleError } = await supabase
     .from('review_cycles')
     .select('policy_snapshot_id')
     .eq('id', params.reviewCycleId)
-    .single();
+    .maybeSingle();
 
-  if (!cycle) return 0;
+  if (cycleError || !cycle) return 0;
 
   let weightedSum = 0;
   for (let s = 1; s <= params.upToStage; s++) {
@@ -100,12 +102,12 @@ export async function calculateCumulativeScore(params: {
   }
 
   // Fetch max total for the cumulative stage
-  const { data: maxTotal } = await supabase
+  const { data: maxTotal, error: maxTotalError } = await supabase
     .from('stage_max_totals')
     .select('max_total')
     .eq('policy_version_id', cycle.policy_snapshot_id)
     .eq('stage', params.upToStage)
-    .single();
+    .maybeSingle();
 
   const maxTotalValue = maxTotal?.max_total || 100;
   if (maxTotalValue <= 0) return 0; // Guard against division by zero
@@ -146,22 +148,22 @@ export async function calculateFinalCaseScore(params: {
   }
 
   // Get dominance category for this cycle
-  const { data: cycle } = await supabase
+  const { data: cycle, error: cycleError } = await supabase
     .from('review_cycles')
     .select('dominance_category_id')
     .eq('id', params.reviewCycleId)
-    .single();
+    .maybeSingle();
 
   let finalScore: number;
 
-  if (cycle?.dominance_category_id) {
-    const { data: dom } = await supabase
+  if (!cycleError && cycle?.dominance_category_id) {
+    const { data: dom, error: domError } = await supabase
       .from('dominance_categories')
       .select('*')
       .eq('id', cycle.dominance_category_id)
-      .single();
+      .maybeSingle();
 
-    if (dom) {
+    if (!domError && dom) {
       switch (dom.combination_method) {
         case 'customer_only':
           finalScore = customerScore;
@@ -170,9 +172,10 @@ export async function calculateFinalCaseScore(params: {
           finalScore = contractorScore;
           break;
         case 'power_law':
+          const exp = dom.exponent > 0 ? dom.exponent : 1;
           finalScore = Math.pow(
-            Math.pow(customerScore, dom.customer_weight) * Math.pow(Math.max(contractorScore, 1), dom.contractor_weight),
-            1 / dom.exponent
+            Math.pow(customerScore, dom.customer_weight) * Math.pow(Math.max(contractorScore, 0), dom.contractor_weight),
+            1 / exp
           );
           break;
         case 'weighted':
@@ -258,12 +261,14 @@ export async function checkAmbiguity(params: {
   }
 
   // Check missing critical parameters
-  const { data: incompleteCritical } = await supabase
+  const { data: incompleteCritical, error: incompleteError } = await supabase
     .from('stage_tasks')
     .select('description, parameter:parameter_definitions(name, is_critical)')
     .eq('review_cycle_id', params.reviewCycleId)
     .eq('task_type', 'scoring')
     .is('grade_value', null);
+
+  if (incompleteError) throw new Error(incompleteError.message);
 
   const missingCritical = (incompleteCritical || []).filter(
     (t: any) => t.parameter?.is_critical
@@ -284,13 +289,13 @@ export async function checkAmbiguity(params: {
  */
 export async function updateCycleScore(reviewCycleId: string) {
   const supabase = await createClient();
-  const { data: cycle } = await supabase
+  const { data: cycle, error: cycleError } = await supabase
     .from('review_cycles')
     .select('*, credit_cases(case_scenario)')
     .eq('id', reviewCycleId)
-    .single();
+    .maybeSingle();
 
-  if (!cycle) return;
+  if (cycleError || !cycle) return;
 
   const caseScenario = (cycle.credit_cases as any)?.case_scenario || 'customer_name_customer_pays';
   

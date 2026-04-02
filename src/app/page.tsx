@@ -139,8 +139,8 @@ async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
     ? Math.min(100, (amountPaidOnTime / totalAmount) * 100)
     : null;
 
-  const weightedDaysPDCR = totalWeightedActualDays > 0
-    ? Math.min(100, (totalWeightedProposedDays / totalWeightedActualDays) * 100)
+  const weightedDaysPDCR = totalWeightedProposedDays > 0
+    ? Math.min(100, (totalWeightedActualDays / totalWeightedProposedDays) * 100)
     : null;
 
   return { totalExposure, averageMargin, countPDCR, amountPDCR, weightedDaysPDCR };
