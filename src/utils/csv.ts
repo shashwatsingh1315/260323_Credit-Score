@@ -4,6 +4,7 @@ export interface PartyImportRow {
   legal_name: string;
   customer_code: string;
   party_type: string | null;
+  influencer_subtype: string | null;
   gst_number: string | null;
   pan_number: string | null;
   address: string | null;
@@ -51,7 +52,8 @@ export function parsePartiesCsv(text: string): PartyImportRow[] {
     }
 
     const customer_code = (obj.customer_code || '').trim() || `CUST-IMP-${crypto.randomUUID()}`;
-    const party_type = (obj.party_type || '').trim() || null;
+    const party_type = (obj.party_type || '').trim() || 'both';
+    const influencer_subtype = (obj.influencer_subtype || '').trim() || null;
     const gst_number = (obj.gstin || obj.gst_number || '').trim() || null;
     const pan_number = (obj.pan || obj.pan_number || '').trim() || null;
     const address = (obj.city || obj.address || '').trim() || null;
@@ -68,6 +70,7 @@ export function parsePartiesCsv(text: string): PartyImportRow[] {
       legal_name,
       customer_code,
       party_type,
+      influencer_subtype,
       gst_number,
       pan_number,
       address,
