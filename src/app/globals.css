@@ -25,17 +25,6 @@
     --ring: 222.2 84% 4.9%;
     --radius: 0.75rem;
 
-    --bg-primary: #f8fafc;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #f1f5f9;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --text-muted: #94a3b8;
-    --accent-primary: #cbd5e1;
-    --accent-hover: #e2e8f0;
-    --border-primary: #e2e8f0;
-    --border-color: #e2e8f0;
-    
     --color-success: 142.1 70.6% 45.3%;
     --color-warning: 38 92% 50%;
     --color-destructive: 0 84.2% 60.2%;
@@ -80,26 +69,26 @@
 .badge {
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide;
 }
-.badge.success { @apply bg-emerald-100 text-emerald-700 border-emerald-200; }
-.badge.warning { @apply bg-amber-100 text-amber-700 border-amber-200; }
-.badge.danger  { @apply bg-red-100 text-red-700 border-red-200; }
-.badge.info    { @apply bg-blue-100 text-blue-700 border-blue-200; }
+.badge.success { @apply bg-success/20 text-success border-success/30; }
+.badge.warning { @apply bg-warning/20 text-warning border-warning/30; }
+.badge.danger  { @apply bg-destructive/20 text-destructive border-destructive/30; }
+.badge.info    { @apply bg-info/20 text-info border-info/30; }
 
 @layer base {
   /* Fix dropdown option colors for dark theme to prevent white-on-white text */
   select {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
   }
 
   select option {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   /* Ensure inputs and textareas have correct dark background and text color */
   input, textarea {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
   }
 }
