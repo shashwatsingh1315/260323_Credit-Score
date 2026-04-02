@@ -303,7 +303,9 @@ export default function NewCasePage() {
                   </div>
                   <select value={customerPartyId} onChange={e => setCustomerPartyId(e.target.value)} className={styles.input}>
                     <option value="">-- Select Customer --</option>
-                    {parties.map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
+                    {parties
+                      .filter(p => !p.party_type || p.party_type === 'customer' || p.party_type === 'both')
+                      .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
                   </select>
                 </div>
               )}
@@ -311,7 +313,7 @@ export default function NewCasePage() {
               {needsContractor && (
                 <div className={styles.inputGroup}>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="mb-0">Contractor Party *</label>
+                    <label className="mb-0">Contractor / Influencer Party *</label>
                     <button
                       type="button"
                       onClick={() => { setPartyTypeForDialog('contractor'); setPartyDialogOpen(true); }}
@@ -321,8 +323,10 @@ export default function NewCasePage() {
                     </button>
                   </div>
                   <select value={contractorPartyId} onChange={e => setContractorPartyId(e.target.value)} className={styles.input}>
-                    <option value="">-- Select Contractor --</option>
-                    {parties.map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
+                    <option value="">-- Select Influencer --</option>
+                    {parties
+                      .filter(p => p.party_type === 'influencer' || p.party_type === 'both' || p.party_type === 'contractor')
+                      .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.influencer_subtype ? `[${p.influencer_subtype}]` : ''}</option>)}
                   </select>
                 </div>
               )}

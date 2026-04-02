@@ -26,6 +26,8 @@ export async function upsertParty(formData: FormData) {
     const payload: any = {
       legal_name: formData.get('legal_name') as string,
       customer_code: formData.get('customer_code') as string,
+      party_type: formData.get('party_type') as string || 'both',
+      influencer_subtype: formData.get('influencer_subtype') as string || null,
       gst_number: formData.get('gstin') as string || null,
       pan_number: formData.get('pan') as string || null,
       address: [formData.get('city'), formData.get('state')].filter(Boolean).join(', ') || null,

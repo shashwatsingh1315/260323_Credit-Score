@@ -10,7 +10,8 @@ describe('parsePartiesCsv', () => {
     expect(result[0]).toEqual({
       legal_name: 'Acme Corp',
       customer_code: 'CUST-001',
-      party_type: null,
+      party_type: 'both',
+      influencer_subtype: null,
       gst_number: 'GST-001',
       pan_number: 'PAN-001',
       address: 'New York',

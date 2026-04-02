@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,13 @@ interface PartyDialogProps {
 
 export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: PartyDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [selectedType, setSelectedType] = useState(editingParty?.party_type || 'both');
+
+  useEffect(() => {
+    if (open) {
+      setSelectedType(editingParty?.party_type || 'both');
+    }
+  }, [open, editingParty]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -51,12 +58,31 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
             </div>
             <div className="space-y-1">
               <Label>Party Type</Label>
-              <select name="party_type" defaultValue={editingParty?.party_type || 'both'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm">
+              <select 
+                name="party_type" 
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm"
+              >
                 <option value="customer">Customer</option>
-                <option value="contractor">Contractor</option>
+                <option value="influencer">Influencer</option>
                 <option value="both">Both</option>
               </select>
             </div>
+            
+            {(selectedType === 'influencer' || selectedType === 'both') && (
+              <div className="space-y-1">
+                <Label>Influencer Subtype</Label>
+                <select 
+                  name="influencer_subtype" 
+                  defaultValue={editingParty?.influencer_subtype || 'contractor'}
+                  className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm"
+                >
+                  <option value="contractor">Contractor</option>
+                  <option value="interior">Interior</option>
+                </select>
+              </div>
+            )}
             <div className="space-y-1">
               <Label>GSTIN</Label>
               <Input name="gstin" defaultValue={editingParty?.gstin} placeholder="22AAAAA0000A1Z5" />

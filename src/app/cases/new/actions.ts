@@ -84,7 +84,7 @@ export async function fetchParties() {
   const supabase = await createClient();
   const { data } = await supabase
     .from('parties')
-    .select('id, legal_name, customer_code, industry_category')
+    .select('id, legal_name, customer_code, industry_category, party_type, influencer_subtype')
     .eq('is_active', true)
     .order('legal_name')
     .limit(200);
