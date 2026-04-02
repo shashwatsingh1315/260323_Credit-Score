@@ -142,8 +142,8 @@ export async function handleSaveBillingDetails(formData: FormData) {
 
   const caseId = formData.get('caseId') as string;
   const billingDate = formData.get('billingDate') as string;
-  const decidedAmount = parseInt(formData.get('decidedAmount') as string, 10);
-  const promisedAmount = parseInt(formData.get('promisedAmount') as string, 10);
+  const decidedAmount = Math.round(parseFloat(formData.get('decidedAmount') as string));
+  const promisedAmount = Math.round(parseFloat(formData.get('promisedAmount') as string));
 
   if (!billingDate || isNaN(decidedAmount) || isNaN(promisedAmount)) {
     throw new Error('Billing date, decided amount, and promised amount are required.');
@@ -168,6 +168,7 @@ export async function handleSaveBillingDetails(formData: FormData) {
     billing_date: billingDate,
     decided_bill_amount: decidedAmount,
     promised_bill_amount: promisedAmount,
+    actual_bill_amount: 0,
     status: 'Billing Active',
   }).eq('id', caseId);
 
