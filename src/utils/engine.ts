@@ -109,9 +109,9 @@ export async function createCaseDraft(data: {
       status: 'Draft',
     })
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error) throw error;
+  if (error || !newCase) throw error || new Error("Failed to create draft");
 
   await logAuditEvent({
     case_id: newCase.id,
@@ -131,59 +131,66 @@ export async function submitCase(caseId: string, rmUserId: string) {
   const supabase = await createClient();
 
   // Get active policy
-  const { data: activePolicy } = await supabase
+  const { data: activePolicy, error: policyErr } = await supabase
     .from('policy_versions')
     .select('id')
     .eq('is_active', true)
-    .single();
+    .maybeSingle();
 
-  if (!activePolicy) {
+  if (policyErr || !activePolicy) {
     throw new Error('No active policy version found. Cannot submit case.');
   }
 
-  // Update case status
-  const { error: updateErr } = await supabase
-    .from('credit_cases')
-    .update({
-      status: 'In Review',
-      submitted_at: new Date().toISOString(),
-    })
-    .eq('id', caseId);
+  try {
+    // Update case status
+    const { error: updateErr } = await supabase
+      .from('credit_cases')
+      .update({
+        status: 'In Review',
+        submitted_at: new Date().toISOString(),
+      })
+      .eq('id', caseId);
 
-  if (updateErr) throw updateErr;
+    if (updateErr) throw updateErr;
 
-  // Create review cycle
-  const { data: cycle, error: cycleErr } = await supabase
-    .from('review_cycles')
-    .insert({
+    // Create review cycle
+    const { data: cycle, error: cycleErr } = await supabase
+      .from('review_cycles')
+      .insert({
+        case_id: caseId,
+        cycle_number: 1,
+        policy_snapshot_id: activePolicy.id,
+        active_stage: 1,
+        is_active: true,
+      })
+      .select()
+      .maybeSingle();
+
+    if (cycleErr || !cycle) throw cycleErr || new Error("Failed to create review cycle");
+    
+    // Generate all tasks for Cycle 1
+    await generateAllCycleTasks(cycle.id, activePolicy.id, caseId);
+
+    await logAuditEvent({
       case_id: caseId,
-      cycle_number: 1,
-      policy_snapshot_id: activePolicy.id,
-      active_stage: 1,
-      is_active: true,
-    })
-    .select()
-    .single();
+      review_cycle_id: cycle.id,
+      event_type: 'submission',
+      actor_id: rmUserId,
+      description: 'Case submitted for review. Review Cycle 1 opened and all tasks generated.',
+    });
 
-  if (cycleErr) throw cycleErr;
-  
-  // Generate all tasks for Cycle 1
-  await generateAllCycleTasks(cycle.id, activePolicy.id, caseId);
+    const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, kam_user_id').eq('id', caseId).maybeSingle();
+    if (!caseErr && creditCase?.kam_user_id) {
+      await sendNotification(creditCase.kam_user_id, 'New Case Assigned', `Case ${creditCase.case_number} has been submitted for review.`);
+    }
 
-  await logAuditEvent({
-    case_id: caseId,
-    review_cycle_id: cycle.id,
-    event_type: 'submission',
-    actor_id: rmUserId,
-    description: 'Case submitted for review. Review Cycle 1 opened and all tasks generated.',
-  });
-
-  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, kam_user_id').eq('id', caseId).single();
-  if (creditCase?.kam_user_id) {
-    await sendNotification(creditCase.kam_user_id, 'New Case Assigned', `Case ${creditCase.case_number} has been submitted for review.`);
+    return cycle;
+  } catch (error) {
+    // Basic rollback attempt
+    await supabase.from('review_cycles').delete().eq('case_id', caseId);
+    await supabase.from('credit_cases').update({ status: 'Draft', submitted_at: null }).eq('id', caseId);
+    throw error;
   }
-
-  return cycle;
 }
 
 /**
@@ -193,13 +200,13 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
   const supabase = await createClient();
 
   // 1. Get case scenario to filter subject types
-  const { data: caseData } = await supabase
+  const { data: caseData, error: caseError } = await supabase
     .from('credit_cases')
     .select('case_scenario, history_classification, rm_user_id, case_attributes')
     .eq('id', caseId)
-    .single();
+    .maybeSingle();
 
-  if (!caseData) return;
+  if (caseError || !caseData) return;
 
   // 2. Map scenario to allowed subject types
   const allowedSubjects = ['case'];
@@ -274,7 +281,10 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
 
   if (finalTasks.length > 0) {
     const { error } = await supabase.from('stage_tasks').insert(finalTasks);
-    if (error) console.error('Error generating stage tasks:', error.message);
+    if (error) {
+      console.error('Error generating stage tasks:', error.message);
+      throw error;
+    }
   }
 }
 
@@ -299,7 +309,7 @@ export async function progressStage(cycleId: string, currentStage: number, actor
   }
 
   // Validate that all required, non-waived tasks for the current stage are completed
-  const { data: incompleteTasks } = await supabase
+  const { data: incompleteTasks, error: errIncomplete } = await supabase
     .from('stage_tasks')
     .select('id')
     .eq('review_cycle_id', cycleId)
@@ -308,17 +318,19 @@ export async function progressStage(cycleId: string, currentStage: number, actor
     .neq('status', 'Completed')
     .is('is_waived', false);
 
+  if (errIncomplete) throw errIncomplete;
+
   if (incompleteTasks && incompleteTasks.length > 0) {
     throw new Error(`Cannot progress to Stage ${nextStage}. There are ${incompleteTasks.length} required tasks pending in Stage ${currentStage}.`);
   }
 
-  const { data: cycle } = await supabase
+  const { data: cycle, error: cycleErr } = await supabase
     .from('review_cycles')
     .select('case_id, policy_snapshot_id')
     .eq('id', cycleId)
-    .single();
+    .maybeSingle();
 
-  if (!cycle) throw new Error('Review cycle not found.');
+  if (cycleErr || !cycle) throw new Error('Review cycle not found.');
 
   await supabase
     .from('review_cycles')
@@ -333,8 +345,8 @@ export async function progressStage(cycleId: string, currentStage: number, actor
     description: `Progressed from Stage ${currentStage} to Stage ${nextStage}.`,
   });
 
-  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', cycle.case_id).single();
-  if (creditCase?.rm_user_id) {
+  const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', cycle.case_id).maybeSingle();
+  if (!caseErr && creditCase?.rm_user_id) {
     await sendNotification(creditCase.rm_user_id, 'Stage Progressed', `Case ${creditCase.case_number} progressed to Stage ${nextStage}.`);
   }
 }
@@ -396,8 +408,8 @@ export async function returnForRevision(params: {
     description: `Returned for revision: ${params.comment}`,
   });
 
-  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).single();
-  if (creditCase?.rm_user_id) {
+  const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).maybeSingle();
+  if (!caseErr && creditCase?.rm_user_id) {
     await sendNotification(creditCase.rm_user_id, 'Case Returned', `Case ${creditCase.case_number} was returned for revision.`);
   }
 }
@@ -432,8 +444,8 @@ export async function withdrawCase(params: {
     description: `Case withdrawn. Reason: ${params.reason}. Note: ${params.note}`,
   });
 
-  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).single();
-  if (creditCase?.rm_user_id) {
+  const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).maybeSingle();
+  if (!caseErr && creditCase?.rm_user_id) {
     await sendNotification(creditCase.rm_user_id, 'Case Withdrawn', `Case ${creditCase.case_number} has been withdrawn.`);
   }
 }
