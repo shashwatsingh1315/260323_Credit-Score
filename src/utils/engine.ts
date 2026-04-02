@@ -85,6 +85,7 @@ export async function createCaseDraft(data: {
   case_attributes?: Record<string, any>;
   commercial_notes?: string;
   rm_user_id: string;
+  kam_user_id?: string;
 }) {
   const supabase = await createClient();
 
@@ -104,6 +105,7 @@ export async function createCaseDraft(data: {
       case_attributes: data.case_attributes,
       commercial_notes: data.commercial_notes,
       rm_user_id: data.rm_user_id,
+      kam_user_id: data.kam_user_id,
       status: 'Draft',
     })
     .select()

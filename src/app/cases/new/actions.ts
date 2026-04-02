@@ -21,12 +21,12 @@ export async function handleNewCase(formData: FormData) {
   const billAmount = parseFloat(formData.get('billAmount') as string) || 0;
   const requestedExposure = parseFloat(formData.get('requestedExposure') as string) || 0;
   const tranchesRaw = formData.get('tranches') as string;
-  const branchId = formData.get('branchId') as string || undefined;
   const commercialNotes = formData.get('commercialNotes') as string || '';
   const productCategory = formData.get('productCategory') as string || '';
   const dealSizeBucket = formData.get('dealSizeBucket') as string || '';
   const justification = formData.get('justification') as string || '';
-  const action = formData.get('action') as string; // 'draft' or 'submit'
+  const action = formData.get('action') as string;
+  const kamUserId = formData.get('kamUserId') as string || undefined; // 'draft' or 'submit'
 
   let tranches: any[] = [];
   try {
@@ -59,7 +59,6 @@ export async function handleNewCase(formData: FormData) {
     bill_amount: billAmount,
     requested_exposure_amount: requestedExposure,
     proposed_tranches: tranches,
-    branch_id: branchId || undefined,
     case_attributes: {
       product_category: productCategory,
       deal_size_bucket: dealSizeBucket,
@@ -67,6 +66,7 @@ export async function handleNewCase(formData: FormData) {
     },
     commercial_notes: `${commercialNotes}\n\nJustification: ${justification}`,
     rm_user_id: user.id,
+    kam_user_id: kamUserId,
   });
 
   // If submitting, also trigger submission
@@ -94,15 +94,19 @@ export async function fetchParties() {
 /**
  * Server action: Fetch branches.
  */
-export async function fetchBranches() {
+/**
+ * Server action: Fetch KAM users.
+ */
+export async function fetchKams() {
   const supabase = await createClient();
   const { data } = await supabase
-    .from('branches')
-    .select('id, name')
-    .eq('is_active', true)
-    .order('name');
+    .from('profiles')
+    .select('id, full_name, user_roles!inner(role)')
+    .eq('user_roles.role', 'kam')
+    .order('full_name');
   return data || [];
 }
+
 
 /**
  * Server action: Fetch active routing thresholds for preview.

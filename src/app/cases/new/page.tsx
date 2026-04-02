@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
-import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds } from './actions';
+import { handleNewCase, fetchParties,  fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds, fetchKams } from './actions';
 import { PartyDialog } from '@/components/admin/PartyDialog';
 import styles from './page.module.css';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,8 @@ export default function NewCasePage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [parties, setParties] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [kams, setKams] = useState<any[]>([]);
+  const [kamUserId, setKamUserId] = useState<string>('');
   const [productCategories, setProductCategories] = useState<any[]>([]);
   const [dealBuckets, setDealBuckets] = useState<any[]>([]);
   const [routingThresholds, setRoutingThresholds] = useState<any[]>([]);
@@ -54,7 +55,6 @@ export default function NewCasePage() {
   const [tranches, setTranches] = useState<Tranche[]>([
     { type: 'percentage', value: 100, days_after_billing: 30 },
   ]);
-  const [branchId, setBranchId] = useState('');
   const [productCategory, setProductCategory] = useState('');
   const [dealSizeBucket, setDealSizeBucket] = useState('');
   const [commercialNotes, setCommercialNotes] = useState('');
@@ -76,15 +76,15 @@ export default function NewCasePage() {
 
   useEffect(() => {
     async function load() {
-      const [p, b, pc, ds, rts] = await Promise.all([
+      const [p, k, pc, ds, rts] = await Promise.all([
         fetchParties(),
-        fetchBranches(),
+        fetchKams(),
         fetchEnumerations('product_category'),
         fetchEnumerations('deal_size_bucket'),
         fetchActiveRoutingThresholds(),
       ]);
       setParties(p);
-      setBranches(b);
+      setKams(k);
       setProductCategories(pc);
       setDealBuckets(ds);
       setRoutingThresholds(rts);
@@ -191,7 +191,7 @@ export default function NewCasePage() {
     fd.set('billAmount', billAmount.toString());
     fd.set('requestedExposure', requestedExposure.toString());
     fd.set('tranches', JSON.stringify(tranches));
-    fd.set('branchId', branchId);
+    if (kamUserId) fd.set('kamUserId', kamUserId);
     fd.set('productCategory', productCategory);
     fd.set('dealSizeBucket', dealSizeBucket);
     fd.set('commercialNotes', commercialNotes);
@@ -314,10 +314,10 @@ export default function NewCasePage() {
               )}
 
               <div className={styles.inputGroup}>
-                <label>Branch / Region</label>
-                <select value={branchId} onChange={e => setBranchId(e.target.value)} className={styles.input}>
-                  <option value="">-- Select Branch --</option>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                <label>KAM Assignee *</label>
+                <select value={kamUserId} onChange={e => setKamUserId(e.target.value)} className={styles.input}>
+                  <option value="">-- Select KAM --</option>
+                  {kams.map((k: any) => <option key={k.id} value={k.id}>{k.full_name}</option>)}
                 </select>
               </div>
 
