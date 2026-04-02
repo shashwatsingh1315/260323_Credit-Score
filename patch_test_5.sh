@@ -1,2 +1,0 @@
-sed -i -e '/expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: '\''Withdrawn'\'', closure_reason: '\''lost'\'' }));/c \
-      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: '\''Withdrawn'\'', closure_reason: '\''lost'\'' }));\n      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ is_active: false, decision: '\''withdrawn'\'' }));' src/utils/engine.test.ts

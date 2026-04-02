@@ -21,7 +21,6 @@ export async function handleNewCase(formData: FormData) {
   const billAmount = parseFloat(formData.get('billAmount') as string) || 0;
   const requestedExposure = parseFloat(formData.get('requestedExposure') as string) || 0;
   const tranchesRaw = formData.get('tranches') as string;
-  const branchId = formData.get('branchId') as string || undefined;
   const commercialNotes = formData.get('commercialNotes') as string || '';
   const productCategory = formData.get('productCategory') as string || '';
   const dealSizeBucket = formData.get('dealSizeBucket') as string || '';
@@ -60,7 +59,6 @@ export async function handleNewCase(formData: FormData) {
     bill_amount: billAmount,
     requested_exposure_amount: requestedExposure,
     proposed_tranches: tranches,
-    branch_id: branchId || undefined,
     case_attributes: {
       product_category: productCategory,
       deal_size_bucket: dealSizeBucket,
@@ -109,15 +107,6 @@ export async function fetchKams() {
   return data || [];
 }
 
-export async function fetchBranches() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('branches')
-    .select('id, name')
-    .eq('is_active', true)
-    .order('name');
-  return data || [];
-}
 
 /**
  * Server action: Fetch active routing thresholds for preview.

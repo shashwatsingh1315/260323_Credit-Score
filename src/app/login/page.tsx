@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ShieldCheck } from 'lucide-react';
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -26,6 +26,12 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setInfo('Check your email to confirm your account, then sign in.');
+      } else if (mode === 'reset') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback?redirect_to=/reset-password`,
+        });
+        if (error) throw error;
+        setInfo('Password reset instructions sent to your email.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -69,9 +75,9 @@ export default function LoginPage() {
 
         <Card>
           <CardHeader className="text-center pb-4">
-            <CardTitle>{mode === 'signin' ? 'Welcome back' : 'Create account'}</CardTitle>
+            <CardTitle>{mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create account' : 'Reset Password'}</CardTitle>
             <CardDescription>
-              {mode === 'signin' ? 'Sign in to your account to continue' : 'Create your CreditFlow account'}
+              {mode === 'signin' ? 'Sign in to your account to continue' : mode === 'signup' ? 'Create your CreditFlow account' : 'Enter your email to receive a reset link'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -80,17 +86,19 @@ export default function LoginPage() {
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-              </div>
+              {mode !== 'reset' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">Password</Label>
+                  <Input id="password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+                </div>
+              )}
 
               {error && <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>}
               {info && <p className="text-sm text-emerald-400 bg-emerald-400/10 px-3 py-2 rounded-lg">{info}</p>}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 size={16} className="animate-spin" />}
-                {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+                {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
               </Button>
             </form>
 
@@ -122,14 +130,32 @@ export default function LoginPage() {
               Google
             </Button>
 
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center flex flex-col gap-2">
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('reset'); setError(''); setInfo(''); }}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Forgot your password?
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => { setMode(m => m === 'signin' ? 'signup' : 'signin'); setError(''); setInfo(''); }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+                {mode === 'signin' || mode === 'reset' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
               </button>
+              {mode === 'reset' && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('signin'); setError(''); setInfo(''); }}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Back to Sign in
+                </button>
+              )}
             </div>
           </CardContent>
         </Card>

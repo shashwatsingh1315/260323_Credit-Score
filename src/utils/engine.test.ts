@@ -36,12 +36,16 @@ vi.mock('./supabase/server', () => ({
         }),
         neq: vi.fn().mockImplementation((...args) => {
           const res = mockNeq(...args);
-          if (res) return res;
+          if (res) {
+            return { ...builder, ...res };
+          }
           return builder;
         }),
         is: vi.fn().mockImplementation((...args) => {
           const res = mockIs(...args);
-          if (res) return res;
+          if (res) {
+            return { ...builder, ...res };
+          }
           return builder;
         }),
         select: vi.fn().mockImplementation((...args) => {
@@ -50,7 +54,6 @@ vi.mock('./supabase/server', () => ({
         }),
         eq: vi.fn().mockImplementation((...args) => {
           const res = mockEq(...args);
-          return builder;
           if (res) {
             // Need to allow chaining if res is just an object without builder methods
             return { ...builder, ...res };
@@ -59,7 +62,6 @@ vi.mock('./supabase/server', () => ({
         }),
         in: vi.fn().mockImplementation((...args) => {
           const res = mockIn(...args);
-          return builder;
           if (res) {
             return { ...builder, ...res };
           }

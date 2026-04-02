@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
-  Home, Briefcase, ShieldCheck, Settings, FileText,
+  LogOut, Home, Briefcase, ShieldCheck, Settings, FileText,
   Bell, Search, UserCircle, PlusCircle, ChevronRight, Check
 } from 'lucide-react';
 import { fetchMyNotifications, markNotificationRead } from './actions';
-import { switchImpersonationRole, getImpersonationRole } from '@/utils/auth-actions';
+import { switchImpersonationRole, getImpersonationRole, signOut } from '@/utils/auth-actions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -201,14 +201,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {canCreateCase && (
-              <Button asChild size="sm">
-                <Link href="/cases/new">
-                  <PlusCircle size={15} />
-                  New Case
-                </Link>
+            <form action={signOut}>
+              <Button type="submit" variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20">
+                <LogOut size={15} className="mr-1.5" />
+                Log Out
               </Button>
-            )}
+            </form>
           </div>
         </header>
 

@@ -1,6 +1,7 @@
 'use server';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 export async function switchImpersonationRole(role: string) {
   const cookieStore = await cookies();
@@ -23,4 +24,11 @@ export async function getImpersonationRole() {
   } catch (e) {
     return 'founder_admin';
   }
+}
+
+export async function signOut() {
+  const { createClient } = await import('@/utils/supabase/server');
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect('/login');
 }

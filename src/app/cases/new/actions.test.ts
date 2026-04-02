@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   handleNewCase,
   fetchParties,
-  fetchBranches,
+
   fetchActiveRoutingThresholds,
   fetchEnumerations,
   fetchRmIntakeTasks
@@ -169,14 +169,6 @@ describe('cases/new/actions.ts', () => {
       mockLimit.mockResolvedValue({ data: [{ id: 'p1' }] });
       const res = await fetchParties();
       expect(res).toEqual([{ id: 'p1' }]);
-    });
-  });
-
-  describe('fetchBranches', () => {
-    it('returns branches', async () => {
-      mockOrder.mockResolvedValue({ data: [{ id: 'b1' }] });
-      const res = await fetchBranches();
-      expect(res).toEqual([{ id: 'b1' }]);
     });
   });
 
