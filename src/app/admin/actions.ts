@@ -1,7 +1,7 @@
 'use server';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { getCurrentUser, logAuditEvent } from '@/utils/auth';
+import { getCurrentUser, logAuditEvent, hasAnyRole, isAdmin } from '@/utils/auth';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { parsePartiesCsv } from '@/utils/csv';
@@ -61,6 +61,8 @@ export async function deactivateParty(formData: FormData) {
 }
 
 export async function fetchAllUsers() {
+  const user = await getCurrentUser();
+  if (!isAdmin(user)) return { success: false, error: 'Forbidden' };
   const supabase = await createClient();
   const { data } = await supabase
     .from('profiles')
@@ -155,9 +157,6 @@ export async function importPartiesCsv(formData: FormData) {
   }
 }
 
-
-import { isAdmin, hasAnyRole } from '@/utils/auth';
-
 export async function adminCreateUser(formData: FormData) {
   try {
     const user = await getCurrentUser();
@@ -173,8 +172,11 @@ export async function adminCreateUser(formData: FormData) {
       throw new Error('Missing required fields');
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '';
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Server misconfiguration: Missing Supabase Admin credentials');
+    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey, {
       auth: {
@@ -224,8 +226,11 @@ export async function adminDeleteUser(formData: FormData) {
     const targetUserId = formData.get('userId') as string;
     if (!targetUserId) throw new Error('Missing user ID');
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '';
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Server misconfiguration: Missing Supabase Admin credentials');
+    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey, {
       auth: {
