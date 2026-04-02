@@ -173,6 +173,7 @@ export async function upsertGradeDefinition(formData: FormData) {
   } else {
     await supabase.from('grade_scale').insert(payload);
   }
+  await logAuditEvent({ event_type: 'grade_definition_updated', actor_id: user.id, description: `Grade ${payload.grade_value} definition updated.` });
   revalidatePath('/policy/grades');
 }
 
@@ -276,6 +277,7 @@ export async function upsertDominanceCategory(formData: FormData) {
   } else {
     await supabase.from('dominance_categories').insert(payload);
   }
+  await logAuditEvent({ event_type: 'dominance_category_updated', actor_id: user.id, description: `Dominance Category '${payload.name}' saved.` });
   revalidatePath('/policy/dominance');
 }
 
@@ -304,7 +306,14 @@ export async function upsertRoutingRule(formData: FormData) {
 
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
-  const context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  
+  let context_rule = {};
+  try {
+    context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  } catch (e) {
+    throw new Error('Invalid JSON in context rule');
+  }
+  
   const target_stage = parseInt(formData.get('target_stage') as string) || 1;
   const policy_version_id = formData.get('policy_version_id') as string || null;
 
@@ -313,6 +322,7 @@ export async function upsertRoutingRule(formData: FormData) {
   } else {
     await supabase.from('routing_thresholds').insert({ context_rule, target_stage, policy_version_id });
   }
+  await logAuditEvent({ event_type: 'routing_rule_updated', actor_id: user.id, description: `Routing rule saved.` });
   revalidatePath('/policy/routing');
 }
 
@@ -416,10 +426,20 @@ export async function upsertWeightMatrix(formData: FormData) {
   } else {
     await supabase.from('weight_matrices').insert({ persona_id, parameter_id, weight });
   }
+  await logAuditEvent({ event_type: 'weight_matrix_updated', actor_id: user.id, description: `Weight matrix updated.` });
   revalidatePath('/policy/weights');
 }
 
 export async function deleteWeightMatrix(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
+
+  const supabase = await createClient();
+  await supabase.from('weight_matrices').delete().eq('id', formData.get('id') as string);
+  revalidatePath('/policy/weights');
+}
+teWeightMatrix(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   if (!isAdmin(user)) throw new Error('Only Admin can manage policy');

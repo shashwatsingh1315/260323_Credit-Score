@@ -522,7 +522,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
           )}
 
           {/* Manual close button */}
-          {isKam && (billingActive || pendingWriteOff) && repayments.length > 0 && !pendingWriteOff && (
+          {isKam && (billingActive || pendingWriteOff) && repayments.length > 0 && (
             <div className="pt-2 border-t border-border">
               <form action={async (fd) => {
                 fd.set('caseId', caseId);

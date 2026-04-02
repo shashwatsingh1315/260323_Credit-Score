@@ -211,15 +211,18 @@ export default function NewCasePage() {
     if (currentStep === 1) return (needsCustomer ? !!customerPartyId : true) && (needsContractor ? !!contractorPartyId : true) && !!scenario;
     if (currentStep === 2) return billAmount > 0 && requestedExposure > 0;
     if (currentStep === 3) return tranchesReconcile;
-    if (currentStep === 4) return true;
+    if (currentStep === 4) return justification.trim().length > 0;
     return true;
   };
 
   const expectedStage = () => {
     for (const rule of routingThresholds) {
-      if (rule.context_rule?.exposure_min && requestedExposure >= rule.context_rule.exposure_min) {
-        return rule.target_stage;
-      }
+      let matches = true;
+      if (rule.context_rule?.exposure_min && requestedExposure < rule.context_rule.exposure_min) matches = false;
+      if (rule.context_rule?.case_scenario && rule.context_rule.case_scenario !== scenario) matches = false;
+      if (rule.context_rule?.deal_size_bucket && rule.context_rule.deal_size_bucket !== dealSizeBucket) matches = false;
+      if (rule.context_rule?.product_category && rule.context_rule.product_category !== productCategory) matches = false;
+      if (matches) return rule.target_stage;
     }
     return 1; // Default
   };
@@ -467,8 +470,9 @@ export default function NewCasePage() {
                       {task.rubric_guidance && (
                         <div
                           className="text-xs text-muted-foreground mb-3"
-                          dangerouslySetInnerHTML={formatRubricGuidance(task.rubric_guidance)}
-                        />
+                        >
+                          {formatRubricGuidance(task.rubric_guidance)}
+                        </div>
                       )}
 
                       <div className="flex flex-col gap-2">
@@ -494,7 +498,7 @@ export default function NewCasePage() {
                             </>
                           )}
                         </select>
-                      ) : task.input_type === 'link_list' || task.input_type === 'yes_no' ? (
+                      ) : task.input_type === 'link_list' || task.input_type === 'dropdown' ? (
                          <select
                            className={styles.input}
                            value={rmTaskAnswers[task.id]?.raw_input_value ?? ''}
@@ -504,12 +508,6 @@ export default function NewCasePage() {
                            {task.auto_band_config?.mappings?.map((m: any, i: number) => (
                              <option key={i} value={m.value}>{m.value}</option>
                            ))}
-                           {(!task.auto_band_config?.mappings || task.auto_band_config.mappings.length === 0) && task.input_type === 'yes_no' && (
-                              <>
-                                <option value="Yes">Yes</option>
-                                <option value="No">No</option>
-                              </>
-                           )}
                          </select>
                       ) : (
                         <input

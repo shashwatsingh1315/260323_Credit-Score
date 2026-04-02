@@ -10,9 +10,11 @@ describe('parsePartiesCsv', () => {
     expect(result[0]).toEqual({
       legal_name: 'Acme Corp',
       customer_code: 'CUST-001',
+      party_type: null,
       gst_number: 'GST-001',
       pan_number: 'PAN-001',
       address: 'New York',
+      credit_limit: null,
       is_active: true
     });
   });
@@ -23,7 +25,7 @@ describe('parsePartiesCsv', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].legal_name).toBe('Small Business');
-    expect(result[0].customer_code).toMatch(/^CUST-IMP-\d+$/);
+    expect(result[0].customer_code).toMatch(/^CUST-IMP-[0-9a-fA-F-]+$/);
     expect(result[0].gst_number).toBeNull();
     expect(result[0].pan_number).toBeNull();
     expect(result[0].address).toBeNull();

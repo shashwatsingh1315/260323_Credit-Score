@@ -129,7 +129,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <UserCircle size={32} className="text-muted-foreground shrink-0" />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">Operator</p>
+              <p className="text-sm font-medium text-foreground truncate">{sessionUser?.full_name || 'Operator'}</p>
               <p className="text-xs text-muted-foreground capitalize">{activeRole.replace('_', ' ')}</p>
             </div>
           </div>
@@ -143,13 +143,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               }}
               className="w-full bg-muted border border-border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="rm">RM</option>
-              <option value="kam">KAM</option>
-              <option value="accounts">Accounts</option>
-              <option value="bdo">BDO</option>
-              <option value="ordinary_approver">Ordinary Approver</option>
-              <option value="board_member">Board Member</option>
-              <option value="founder_admin">Founder / Admin</option>
+              {sessionUser?.roles?.length ? (
+                sessionUser.roles.map(r => <option key={r} value={r}>{r.replace('_', ' ').toUpperCase()}</option>)
+              ) : (
+                <option value={activeRole}>{activeRole.replace('_', ' ').toUpperCase()}</option>
+              )}
             </select>
           </div>
         </div>
@@ -182,7 +180,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   {unreadCount > 0 && <Badge variant="secondary" className="text-xs">{unreadCount} unread</Badge>}
                 </div>
                 <div className="overflow-y-auto flex-1 p-2 space-y-1">
-                  {notifications.length === 0 ? (
+                  {loadingNotifs ? (
+                    <p className="text-sm text-muted-foreground p-4 text-center">Loading...</p>
+                  ) : notifications.length === 0 ? (
                     <p className="text-sm text-muted-foreground p-4 text-center">No notifications</p>
                   ) : notifications.map(n => (
                     <div key={n.id} className={cn("p-3 rounded-lg text-sm relative group", !n.is_read ? "bg-primary/5 border border-primary/20" : "hover:bg-muted")}>
@@ -204,6 +204,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
             <form action={signOut}>
               <Button type="submit" variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20">
+                <LogOut size={15} className="mr-1.5" />
+                Log Out
+              </Button>
+            </form>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-auto p-6">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+ive hover:bg-destructive/10 hover:text-destructive border-destructive/20">
                 <LogOut size={15} className="mr-1.5" />
                 Log Out
               </Button>

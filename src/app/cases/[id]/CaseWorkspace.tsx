@@ -18,8 +18,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   handleProgressStage, handleCompleteTask, handleWithdraw,
-  handleCreateApprovalRound, handleApprovalDecision, handleAddComment, handleForceReadyStage, handleToggleWaiting,
-  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleSaveOutcome, handleAssignTask
+  handleCreateApprovalRound, handleApprovalDecision, handleAddComment,
+  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleAssignTask
 } from './actions';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +50,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
   const [activeRole, setActiveRole] = useState<string>('');
 
   useEffect(() => {
-    getImpersonationRole().then(r => setActiveRole(r || 'founder_admin'));
+    getImpersonationRole().then(r => setActiveRole(r || 'viewer'));
   }, []);
 
   const stageTasks = (s: number) => tasks.filter((t: any) => t.stage === s);
@@ -64,10 +64,6 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
   const [showUnlock, setShowUnlock] = useState(false);
   const [showPersonaChange, setShowPersonaChange] = useState(false);
   const isApproved = c.status === 'Approved';
-
-  const [showForceReady, setShowForceReady] = useState<number | null>(null);
-  const [showWaitReason, setShowWaitReason] = useState(false);
-  const isAwaitingInput = c.status === 'Awaiting Input';
 
   // Calculate SLA display
   const submittedAt = c.submitted_at ? new Date(c.submitted_at) : null;

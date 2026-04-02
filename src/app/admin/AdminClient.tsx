@@ -124,10 +124,10 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.legal_name}</TableCell>
                     <TableCell className="text-muted-foreground">{p.customer_code}</TableCell>
-                    <TableCell><Badge variant="secondary" className="capitalize">{p.party_type}</Badge></TableCell>
-                    <TableCell className="text-muted-foreground">{p.gstin || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.city || '—'}</TableCell>
-                    <TableCell>{p.credit_limit ? `₹${p.credit_limit.toLocaleString('en-IN')}` : '—'}</TableCell>
+                    <TableCell><Badge variant="secondary" className="capitalize">{p.industry_category || '—'}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground">{p.gst_number || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{p.address || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{p.pan_number || '—'}</TableCell>
                     <TableCell>
                       <Badge variant={p.is_active ? 'success' : 'secondary'}>{p.is_active ? 'Active' : 'Inactive'}</Badge>
                     </TableCell>
