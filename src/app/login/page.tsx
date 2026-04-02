@@ -28,7 +28,7 @@ export default function LoginPage() {
         setInfo('Check your email to confirm your account, then sign in.');
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback?redirect_to=/reset-password`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
         });
         if (error) throw error;
         setInfo('Password reset instructions sent to your email.');

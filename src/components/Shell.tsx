@@ -41,6 +41,7 @@ const navItems = [
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  if (pathname === '/login' || pathname === '/reset-password') return <>{children}</>;
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
