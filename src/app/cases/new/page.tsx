@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
 import { handleNewCase, fetchParties, fetchBranches, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds } from './actions';
@@ -94,10 +94,33 @@ export default function NewCasePage() {
   }, []);
 
   const formatRubricGuidance = (text: string) => {
-    if (!text) return { __html: '' };
-    const withBreaks = text.replace(/\\n/g, '<br/>').replace(/\n/g, '<br/>');
-    const withBold = withBreaks.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    return { __html: withBold };
+    if (!text) return null;
+
+    // Split by explicit \n or literal \\n
+    const lines = text.split(/\\n|\n/g);
+
+    return (
+      <>
+        {lines.map((line, lineIndex) => {
+          // Split each line by bold markers **...**
+          const parts = line.split(/(\*\*.*?\*\*)/g);
+
+          return (
+            <React.Fragment key={lineIndex}>
+              {parts.map((part, partIndex) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  // Render bold part without the asterisks
+                  return <strong key={partIndex}>{part.slice(2, -2)}</strong>;
+                }
+                // Render regular text
+                return <React.Fragment key={partIndex}>{part}</React.Fragment>;
+              })}
+              {lineIndex < lines.length - 1 && <br />}
+            </React.Fragment>
+          );
+        })}
+      </>
+    );
   };
 
   // Composite credit day calculation
@@ -465,10 +488,9 @@ export default function NewCasePage() {
                         {task.name} {task.is_required && <span className="text-red-500">*</span>}
                       </label>
                       {task.rubric_guidance && (
-                        <div
-                          className="text-xs text-muted-foreground mb-3"
-                          dangerouslySetInnerHTML={formatRubricGuidance(task.rubric_guidance)}
-                        />
+                        <div className="text-xs text-muted-foreground mb-3">
+                          {formatRubricGuidance(task.rubric_guidance)}
+                        </div>
                       )}
 
                       <div className="flex flex-col gap-2">
