@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LogOut, Home, Briefcase, ShieldCheck, Settings, FileText,
-  Bell, Search, UserCircle, PlusCircle, ChevronRight, Check
+  Bell, Search, UserCircle, PlusCircle, ChevronRight, Check, Shield
 } from 'lucide-react';
-import { fetchMyNotifications, markNotificationRead } from './actions';
+import { fetchMyNotifications, markNotificationRead, fetchSessionInfo } from './actions';
 import { switchImpersonationRole, getImpersonationRole, signOut } from '@/utils/auth-actions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ const navItems = [
     section: 'System',
     requiresAdmin: true,
     links: [
-      { href: '/admin', label: 'Admin', icon: Settings },
+      { href: '/admin', label: 'Admin', icon: Shield },
       { href: '/settings', label: 'System Settings', icon: Settings },
     ],
   },
@@ -47,13 +47,26 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [activeRole, setActiveRole] = useState<string>('founder_admin');
+  const [activeRole, setActiveRole] = useState<string>('viewer');
+  const [sessionUser, setSessionUser] = useState<{ id: string, full_name: string, roles: string[] } | null>(null);
+  const [loadingNotifs, setLoadingNotifs] = useState(true);
 
   useEffect(() => {
     getImpersonationRole().then(r => {
       if (r) setActiveRole(r);
+    }).catch(console.error);
+
+    fetchMyNotifications().then(n => {
+      setNotifications(n);
+      setLoadingNotifs(false);
+    }).catch(e => {
+      console.error(e);
+      setLoadingNotifs(false);
     });
-    fetchMyNotifications().then(setNotifications);
+
+    fetchSessionInfo().then(u => {
+      if (u) setSessionUser(u);
+    }).catch(console.error);
   }, [pathname]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -204,22 +217,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
             <form action={signOut}>
               <Button type="submit" variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20">
-                <LogOut size={15} className="mr-1.5" />
-                Log Out
-              </Button>
-            </form>
-          </div>
-        </header>
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
-}
-ive hover:bg-destructive/10 hover:text-destructive border-destructive/20">
                 <LogOut size={15} className="mr-1.5" />
                 Log Out
               </Button>

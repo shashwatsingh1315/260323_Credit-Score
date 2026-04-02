@@ -439,12 +439,3 @@ export async function deleteWeightMatrix(formData: FormData) {
   await supabase.from('weight_matrices').delete().eq('id', formData.get('id') as string);
   revalidatePath('/policy/weights');
 }
-teWeightMatrix(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  if (!isAdmin(user)) throw new Error('Only Admin can manage policy');
-
-  const supabase = await createClient();
-  await supabase.from('weight_matrices').delete().eq('id', formData.get('id') as string);
-  revalidatePath('/policy/weights');
-}

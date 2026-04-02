@@ -94,10 +94,21 @@ export default function NewCasePage() {
   }, []);
 
   const formatRubricGuidance = (text: string) => {
-    if (!text) return { __html: '' };
-    const withBreaks = text.replace(/\\n/g, '<br/>').replace(/\n/g, '<br/>');
-    const withBold = withBreaks.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    return { __html: withBold };
+    if (!text) return null;
+    return text.split(/\\n|\n/).map((line, i) => {
+      const parts = line.split(/(\*\*.*?\*\*)/g);
+      return (
+        <span key={i}>
+          {parts.map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={j}>{part.slice(2, -2)}</strong>;
+            }
+            return <span key={j}>{part}</span>;
+          })}
+          <br />
+        </span>
+      );
+    });
   };
 
   // Composite credit day calculation
