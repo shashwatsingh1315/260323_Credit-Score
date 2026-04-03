@@ -235,8 +235,6 @@ export default async function DashboardPage() {
     return <Badge variant={map[status] || 'secondary'}>{status}</Badge>;
   };
 
-  const fmtPdcr = (n: number | null) => n != null ? `${n.toFixed(1)}%` : '—';
-
   return (
     <div className="space-y-8 pb-12">
       {/* Header Section */}
@@ -307,25 +305,25 @@ export default async function DashboardPage() {
         {/* 3. Quick Shortcuts (1x1) */}
         <div className="grid grid-rows-2 gap-4">
           <Link href="/cases/new" className="group">
-            <SpotlightCard className="h-full bg-brand text-brand-foreground hover:bg-brand/90 border-none transition-all flex items-center justify-center p-4">
+            <SpotlightCard className="h-full bg-brand text-brand-foreground hover:bg-brand/90 border-none transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
               <div className="text-center space-y-1">
                 <Plus size={24} className="mx-auto group-hover:rotate-90 transition-transform duration-300" aria-hidden="true" />
-                <p className="text-xs font-bold uppercase tracking-widest">New Case</p>
+                <p className="text-tiny font-bold uppercase tracking-widest">New Case</p>
               </div>
             </SpotlightCard>
           </Link>
           <Link href="/policy">
-            <SpotlightCard className="h-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4">
+            <SpotlightCard className="h-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
               <div className="text-center space-y-1">
                 <ShieldCheck size={24} className="mx-auto text-brand" aria-hidden="true" />
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Policy</p>
+                <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Policy</p>
               </div>
             </SpotlightCard>
           </Link>
         </div>
 
         {/* 4. Recent Activity (Tall - 2x2) */}
-        <SpotlightCard className="col-span-1 md:col-span-2 row-span-2 bg-card/70 backdrop-blur-md border-white/20">
+        <SpotlightCard className="col-span-1 md:col-span-2 row-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all">
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -333,13 +331,14 @@ export default async function DashboardPage() {
                 Recent Case Activity
               </CardTitle>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/cases" className="text-tiny">All Cases</Link>
+                <Link href="/cases" className="text-tiny font-bold uppercase tracking-widest">All Cases</Link>
               </Button>
             </div>
           </CardHeader>
           <CardContent className="pt-4 px-0">
-            {recentCases.map((c: any) => (
+            {(recentCases || []).map((c: any) => (
               <Link key={c.id} href={`/cases/${c.id}`} className="flex items-center justify-between py-3 px-6 hover:bg-brand/5 transition-colors border-b border-border/30 last:border-0">
+
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground truncate">{c.case_number}</p>
                   <p className="text-tiny text-muted-foreground">{(c.customer as any)?.legal_name || '—'}</p>
@@ -351,7 +350,7 @@ export default async function DashboardPage() {
         </SpotlightCard>
 
         {/* 5. Performance Metrics / Analytics (2x1) */}
-        <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6">
+        <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
           <div className="flex items-center justify-between mb-6">
             <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
             <TrendingUp size={18} className="text-success" aria-hidden="true" />
@@ -360,7 +359,9 @@ export default async function DashboardPage() {
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground font-medium">Approval Success Rate</span>
-                <span className="text-foreground font-bold">78%</span>
+                <span className="text-foreground font-bold">
+                  <CountUp to={78} suffix="%" />
+                </span>
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={78} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full bg-success w-[78%] rounded-full" />
@@ -369,7 +370,9 @@ export default async function DashboardPage() {
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground font-medium">PDCR (Amount)</span>
-                <span className="text-foreground font-bold">{fmtPdcr(rmMetrics?.amountPDCR)}</span>
+                <span className="text-foreground font-bold">
+                  <CountUp to={rmMetrics?.amountPDCR || 0} decimals={1} suffix="%" />
+                </span>
               </div>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={rmMetrics?.amountPDCR || 0} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full bg-brand" style={{ width: `${rmMetrics?.amountPDCR || 0}%` }} />
@@ -385,11 +388,11 @@ export default async function DashboardPage() {
             { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
           ].map((action, i) => (
             <Link key={i} href={action.href}>
-              <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3">
+              <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3 hover:scale-[1.02]">
                 <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", action.bg)}>
                   <action.icon size={18} className={action.iconColor || action.color} aria-hidden="true" />
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-foreground">{action.label}</span>
+                <span className="text-tiny font-bold uppercase tracking-widest text-foreground">{action.label}</span>
               </SpotlightCard>
             </Link>
           ))}
