@@ -1,0 +1,3 @@
+## 2025-04-03 - [Global CSS Refactor]
+**Learning:** A significant legacy UI pattern in this app relied on specific, hardcoded hex variables (e.g. `--bg-primary: #f8fafc;`) mapped within CSS Modules, which conflicted directly with the new dark-mode compatible HSL semantic tokens (e.g. `hsl(var(--background))`). Furthermore, global form elements like `select` and `input` were statically assigned dark theme text colors over hardcoded bright hex backgrounds.
+**Action:** Re-mapped legacy CSS variables inside `globals.css` to act as aliases for their HSL token equivalents to preserve structure while enforcing theming. Globally refactored `*.module.css` to consume standard semantic tokens. This unifies the global token configuration.
