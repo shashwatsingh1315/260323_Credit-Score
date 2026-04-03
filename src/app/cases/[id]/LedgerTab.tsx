@@ -85,8 +85,8 @@ const fmtDate = (d: string | Date | null | undefined) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const TRANCHE_COLORS: Record<string, string> = {
-  Paid:     'bg-emerald-500',
-  Partial:  'bg-amber-400',
+  Paid:     'bg-success',
+  Partial:  'bg-warning',
   Delayed:  'bg-destructive',
   Upcoming: 'bg-muted-foreground/40',
   'No Billing': 'bg-muted',
@@ -180,13 +180,13 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
       )}
 
       {/* ── BILLING FRAME ─────────────────────────────────────── */}
-      <Card className={cn(billingActive && 'border-primary/40', pendingWriteOff && 'border-amber-500/60')}>
+      <Card className={cn(billingActive && 'border-primary/40', pendingWriteOff && 'border-warning/60')}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               {billing.isLocked
                 ? <Lock size={15} className="text-muted-foreground" />
-                : <Unlock size={15} className="text-emerald-400" />}
+                : <Unlock size={15} className="text-success" />}
               Billing Frame
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -229,7 +229,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                 <div
                   className={cn(
                     "h-2 rounded-full transition-all",
-                    (collectPct ?? 0) >= 100 ? 'bg-emerald-500' : 'bg-primary'
+                    (collectPct ?? 0) >= 100 ? 'bg-success' : 'bg-primary'
                   )}
                   style={{ width: `${Math.min(100, collectPct ?? 0)}%` }}
                 />
@@ -290,8 +290,8 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
           {pendingWriteOff && isAdmin && (
             <>
               <Separator />
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                <p className="text-sm font-semibold text-amber-600 mb-2">⚠ Pending Write-Off — Awaiting Admin Decision</p>
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                <p className="text-sm font-semibold text-warning-foreground mb-2">⚠ Pending Write-Off — Awaiting Admin Decision</p>
                 <p className="text-xs text-muted-foreground mb-3">
                   Shortfall: {fmt((billing.promisedAmount ?? 0) - billing.actualAmount)}
                 </p>
@@ -299,7 +299,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                   <form action={handleWriteOffApproval}>
                     <input type="hidden" name="caseId" value={caseId} />
                     <input type="hidden" name="decision" value="approve" />
-                    <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                    <Button type="submit" size="sm" className="bg-success hover:bg-success/90">
                       Approve Write-Off
                     </Button>
                   </form>
@@ -476,7 +476,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+                          <CheckCircle size={14} className="text-success shrink-0" />
                           <span className="text-sm font-semibold">{fmt(p.amount)}</span>
                           <span className="text-xs text-muted-foreground">{fmtDate(p.payment_date)}</span>
                         </div>
@@ -624,7 +624,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                         <input type="hidden" name="creditNoteId" value={cn.id} />
                         <input type="hidden" name="caseId" value={caseId} />
                         <input type="hidden" name="decision" value="approved" />
-                        <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                        <Button type="submit" size="sm" className="bg-success hover:bg-success/90">
                           Approve
                         </Button>
                       </form>
@@ -647,15 +647,15 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
       </Card>
 
       {/* ── CONTRACTOR REPUTATION MVP ──────────────────────────── */}
-      <Card className="border-indigo-200/40 bg-indigo-500/5">
+      <Card className="border-brand/40 bg-brand/5">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen size={15} className="text-indigo-400" />
+            <BookOpen size={15} className="text-brand" />
             Contractor Reputation Checks
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+          <p className="text-xs font-semibold text-brand uppercase tracking-wider">
             Ground-Truth Instructions (KAM Reference)
           </p>
           <div className="space-y-2">
@@ -677,7 +677,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
               },
             ].map(item => (
               <div key={item.num} className="flex gap-3 p-3 rounded-lg bg-muted/40">
-                <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-brand/20 text-brand flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                   {item.num}
                 </div>
                 <div>

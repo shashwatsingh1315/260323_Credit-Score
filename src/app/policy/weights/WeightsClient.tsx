@@ -134,7 +134,7 @@ export default function WeightsClient({ matrices, personas, parameters }: { matr
                 <TableBody>
                   {filtered.map((m) => (
                     <TableRow key={m.id}>
-                      <TableCell className="font-medium text-indigo-600">{m.persona?.name}</TableCell>
+                      <TableCell className="font-medium text-brand">{m.persona?.name}</TableCell>
                       <TableCell>{m.parameter?.name}</TableCell>
                       <TableCell>Stage {m.parameter?.stage}</TableCell>
                       <TableCell className="font-bold">{m.weight}</TableCell>

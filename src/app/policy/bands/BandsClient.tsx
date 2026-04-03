@@ -18,7 +18,14 @@ interface ScoreBand {
   is_ambiguity_band: boolean;
 }
 
-const fallbackColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1'];
+const fallbackColors = [
+  'hsl(var(--color-success))',
+  'hsl(var(--color-info))',
+  'hsl(var(--color-warning))',
+  'hsl(var(--color-destructive))',
+  'hsl(var(--color-brand))',
+  'hsl(var(--color-attention))'
+];
 
 export default function BandsClient({ initialBands, activePolicyId }: { initialBands: ScoreBand[], activePolicyId: string | null }) {
   const [open, setOpen] = useState(false);
@@ -82,7 +89,7 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
               <TableRow key={b.id}>
                 <TableCell className="font-medium">
                   {b.band_name}
-                  {b.is_ambiguity_band && <Badge variant="secondary" className="ml-2 text-[10px] uppercase">Ambiguity</Badge>}
+                  {b.is_ambiguity_band && <Badge variant="secondary" className="ml-2 text-tiny uppercase">Ambiguity</Badge>}
                 </TableCell>
                 <TableCell>{b.min_score} — {b.max_score}</TableCell>
                 <TableCell><Badge variant="info">{b.approved_credit_days} days</Badge></TableCell>

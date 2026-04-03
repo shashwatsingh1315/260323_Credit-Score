@@ -30,9 +30,9 @@ export default async function PolicyPage() {
 
   const getVersionIcon = (v: any) => {
     const status = getVersionStatus(v);
-    if (status === 'published') return <CheckCircle2 size={16} className="text-emerald-400" />;
+    if (status === 'published') return <CheckCircle2 size={16} className="text-success" />;
     if (status === 'archived') return <Archive size={16} className="text-muted-foreground" />;
-    return <ShieldCheck size={16} className="text-amber-400" />;
+    return <ShieldCheck size={16} className="text-warning" />;
   };
 
   return (

@@ -37,7 +37,7 @@ export default function BoardClient({ data }: { data: any }) {
             <span className="text-foreground font-medium">Board Portal</span>
           </div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Scale size={24} className="text-indigo-600" />
+            <Scale size={24} className="text-brand" />
             {approvalRound?.round_type === 'appeal' ? 'Committee Appeal Review' : 'Committee Ambiguity Review'}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -74,11 +74,11 @@ export default function BoardClient({ data }: { data: any }) {
                       <p className="text-sm font-medium truncate">{member.full_name}</p>
                     </div>
                     {isPending ? (
-                      <Badge variant="outline" className="text-[10px]">Pending</Badge>
+                      <Badge variant="outline" className="text-tiny">Pending</Badge>
                     ) : (
                       <Badge
                         variant={vote.decision === 'approve' ? 'success' : vote.decision === 'reject' ? 'destructive' : 'secondary'}
-                        className="text-[10px] capitalize"
+                        className="text-tiny capitalize"
                       >
                         {vote.decision}
                       </Badge>
@@ -94,16 +94,17 @@ export default function BoardClient({ data }: { data: any }) {
               <CardTitle className="text-lg">Current Tally</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="flex h-6 rounded-full overflow-hidden mb-3 bg-muted">
-                <div style={{ width: `${(approvals / rosterMembers.length) * 100}%` }} className="bg-emerald-500" />
-                <div style={{ width: `${(rejections / rosterMembers.length) * 100}%` }} className="bg-red-500" />
-                <div style={{ width: `${(abstains / rosterMembers.length) * 100}%` }} className="bg-slate-400" />
+              <div className="h-4 w-full bg-muted rounded-full overflow-hidden flex">
+                <div style={{ width: `${(approvals / rosterMembers.length) * 100}%` }} className="bg-success" />
+                <div style={{ width: `${(rejections / rosterMembers.length) * 100}%` }} className="bg-destructive" />
+                <div style={{ width: `${(abstains / rosterMembers.length) * 100}%` }} className="bg-muted-foreground/40" />
               </div>
-              <div className="grid grid-cols-3 text-center text-sm font-medium">
-                <div className="text-emerald-600">{approvals} App</div>
-                <div className="text-red-600">{rejections} Rej</div>
-                <div className="text-slate-600">{abstains} Abs</div>
+              <div className="flex justify-between text-tiny font-bold mt-1">
+                <div className="text-success">{approvals} App</div>
+                <div className="text-destructive">{rejections} Rej</div>
+                <div className="text-muted-foreground">{abstains} Abs</div>
               </div>
+
               <p className="text-xs text-muted-foreground text-center mt-3 border-t pt-3">Decision basis: Majority of votes cast. Ties escalate to Founder/Admin.</p>
             </CardContent>
           </Card>
@@ -113,10 +114,10 @@ export default function BoardClient({ data }: { data: any }) {
 
           {/* Casting Vote Section */}
           {!isClosed && (
-            <Card className="border-indigo-100 shadow-sm">
-              <CardHeader className="bg-indigo-50/50 pb-4">
-                <CardTitle className="text-lg text-indigo-900">Cast Your Vote</CardTitle>
-                <p className="text-xs text-indigo-700">Record your decision. You may change your vote until the window closes.</p>
+            <Card className="border-brand/20 shadow-sm">
+              <CardHeader className="bg-brand/5 pb-4">
+                <CardTitle className="text-lg text-brand">Cast Your Vote</CardTitle>
+                <p className="text-xs text-brand/80">Record your decision. You may change your vote until the window closes.</p>
               </CardHeader>
               <CardContent className="pt-4">
                 <form action={submitBoardVote} className="space-y-4">
@@ -129,7 +130,7 @@ export default function BoardClient({ data }: { data: any }) {
                   </div>
 
                   <div className="flex gap-3 pt-2">
-                    <Button type="submit" name="decision" value="approve" className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+                    <Button type="submit" name="decision" value="approve" className="flex-1 bg-success hover:bg-success/90">
                       <CheckSquare size={16} className="mr-2" /> Approve
                     </Button>
                     <Button type="submit" name="decision" value="reject" className="flex-1" variant="destructive">
@@ -146,12 +147,12 @@ export default function BoardClient({ data }: { data: any }) {
 
           {/* Finalize Section (Admins/Founders) */}
           {!isClosed && totalVotesCast >= rosterMembers.length / 2 && (
-            <Card className="border-warning shadow-sm">
-              <CardHeader className="bg-amber-50/50 pb-4">
-                <CardTitle className="text-lg flex items-center gap-2 text-amber-900">
+            <Card className="border-warning/20 shadow-sm">
+              <CardHeader className="bg-warning/5 pb-4">
+                <CardTitle className="text-lg flex items-center gap-2 text-warning">
                   <Gavel size={18} /> Finalize Board Outcome
                 </CardTitle>
-                <p className="text-xs text-amber-700">Close the voting window and record the final organizational decision.</p>
+                <p className="text-xs text-warning-foreground/80">Close the voting window and record the final organizational decision.</p>
               </CardHeader>
               <CardContent className="pt-4">
                 <form action={finalizeBoardDecision} className="space-y-4">
@@ -190,7 +191,7 @@ export default function BoardClient({ data }: { data: any }) {
                     </div>
                   )}
 
-                  <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700">Finalize Decision & Close Voting</Button>
+                  <Button type="submit" className="w-full bg-warning text-warning-foreground hover:bg-warning/90">Finalize Decision & Close Voting</Button>
                 </form>
               </CardContent>
             </Card>

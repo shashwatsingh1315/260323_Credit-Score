@@ -286,7 +286,7 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
                   <div className="flex justify-between items-center">
                     <div>
                       <Label>Auto-Mapping / Banding Rules</Label>
-                      <p className="text-[10px] text-muted-foreground">Map raw values to a 1-5 grade.</p>
+                      <p className="text-tiny text-muted-foreground">Map raw values to a 1-5 grade.</p>
                     </div>
                     <div className="flex gap-2">
                       <Label className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 h-7 px-3 flex items-center justify-center rounded-md text-xs">

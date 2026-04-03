@@ -80,7 +80,7 @@ export default function ValidityClient({ rules, activePolicyId }: { rules: any[]
                 <TableBody>
                   {rules.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="font-medium text-emerald-600 font-bold">{r.validity_days} days</TableCell>
+                      <TableCell className="font-medium text-success font-bold">{r.validity_days} days</TableCell>
                       <TableCell>
                         <pre className="text-xs bg-muted p-2 rounded">{JSON.stringify(r.context_rule)}</pre>
                       </TableCell>

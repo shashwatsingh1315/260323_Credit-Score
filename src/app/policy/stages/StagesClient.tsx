@@ -76,7 +76,7 @@ export default function StagesClient({ totals, activePolicyId }: { totals: any[]
                 <TableBody>
                   {totals.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell className="font-medium text-indigo-600 font-bold">Stage {t.stage}</TableCell>
+                      <TableCell className="font-medium text-brand font-bold">Stage {t.stage}</TableCell>
                       <TableCell>{t.max_total}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

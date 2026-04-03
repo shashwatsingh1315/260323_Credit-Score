@@ -83,29 +83,29 @@ export default function SimulationClient({ parameters, grades, personas, dominan
         </Card>
 
         {result && (
-          <Card className="bg-indigo-50 border-indigo-200">
+          <Card className="bg-brand/5 border-brand/20">
             <CardHeader>
-              <CardTitle className="text-indigo-900">Simulation Result</CardTitle>
+              <CardTitle className="text-brand">Simulation Result</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="text-indigo-700">Combined Final Score</Label>
-                <p className="text-4xl font-bold text-indigo-900">{result.finalScore}</p>
+                <Label className="text-brand/80">Combined Final Score</Label>
+                <p className="text-4xl font-bold text-brand">{result.finalScore}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-indigo-700">Score Band</Label>
+                  <Label className="text-brand/80">Score Band</Label>
                   <p className="text-xl font-semibold">{result.bandName}</p>
                 </div>
                 <div>
-                  <Label className="text-indigo-700">Approved Credit Days</Label>
-                  <p className="text-xl font-semibold text-emerald-600">{result.approvedDays} days</p>
+                  <Label className="text-brand/80">Approved Credit Days</Label>
+                  <p className="text-xl font-semibold text-success">{result.approvedDays} days</p>
                 </div>
               </div>
 
               {result.isAmbiguous && (
-                <div className="bg-amber-100 text-amber-900 p-3 rounded text-sm font-medium">
+                <div className="bg-warning/15 text-warning-foreground p-3 rounded text-sm font-medium border border-warning/20">
                   ⚠ This score falls within an ambiguity band.
                 </div>
               )}

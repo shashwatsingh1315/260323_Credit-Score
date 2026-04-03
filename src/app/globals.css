@@ -37,9 +37,17 @@
     --border-color: #e2e8f0;
     
     --color-success: 142.1 70.6% 45.3%;
+    --color-success-foreground: 144.9 80.4% 10%;
     --color-warning: 38 92% 50%;
+    --color-warning-foreground: 38 92% 10%;
     --color-destructive: 0 84.2% 60.2%;
+    --color-destructive-foreground: 210 40% 98%;
     --color-info: 221.2 83.2% 53.3%;
+    --color-info-foreground: 221.2 83.2% 10%;
+    --color-attention: 24.6 95% 53.1%;
+    --color-attention-foreground: 24.6 95% 10%;
+    --color-brand: 243.4 75.4% 58.6%;
+    --color-brand-foreground: 210 40% 98%;
     
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
   }
@@ -66,10 +74,10 @@
   }
 }
 
-/* Legacy utility classes — still used by pages not yet fully migrated */
+/* Legacy utility classes — tokenized */
 .card {
   @apply bg-card border border-border rounded-xl p-6 shadow-sm;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-primary {
   @apply inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 active:scale-[.98];
@@ -80,10 +88,11 @@
 .badge {
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide;
 }
-.badge.success { @apply bg-emerald-100 text-emerald-700 border-emerald-200; }
-.badge.warning { @apply bg-amber-100 text-amber-700 border-amber-200; }
-.badge.danger  { @apply bg-red-100 text-red-700 border-red-200; }
-.badge.info    { @apply bg-blue-100 text-blue-700 border-blue-200; }
+.badge.success { @apply bg-success/15 text-success border-success/20; }
+.badge.warning { @apply bg-warning/15 text-warning border-warning/20; }
+.badge.danger  { @apply bg-destructive/15 text-destructive border-destructive/20; }
+.badge.info    { @apply bg-info/15 text-info border-info/20; }
+.badge.attention { @apply bg-attention/15 text-attention border-attention/20; }
 
 @layer base {
   /* Fix dropdown option colors for dark theme to prevent white-on-white text */

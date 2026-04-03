@@ -94,7 +94,7 @@ export default function LoginPage() {
               )}
 
               {error && <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>}
-              {info && <p className="text-sm text-emerald-400 bg-emerald-400/10 px-3 py-2 rounded-lg">{info}</p>}
+              {info && <p className="text-sm text-success bg-success/15 px-3 py-2 rounded-lg border border-success/20">{info}</p>}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 size={16} className="animate-spin" />}

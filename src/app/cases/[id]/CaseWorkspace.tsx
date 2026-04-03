@@ -393,7 +393,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                           </div>
                         </>
                       )}
-                      <p className="text-[10px] text-muted-foreground pt-1">Data as of: {new Date(c.customer_exposure.data_as_of).toLocaleDateString()}</p>
+                      <p className="text-tiny text-muted-foreground pt-1">Data as of: {new Date(c.customer_exposure.data_as_of).toLocaleDateString()}</p>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">No historical exposure found.</p>
@@ -425,7 +425,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                             </div>
                           </>
                         )}
-                        <p className="text-[10px] text-muted-foreground pt-1">Data as of: {new Date(c.contractor_exposure.data_as_of).toLocaleDateString()}</p>
+                        <p className="text-tiny text-muted-foreground pt-1">Data as of: {new Date(c.contractor_exposure.data_as_of).toLocaleDateString()}</p>
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground italic">No historical exposure found.</p>

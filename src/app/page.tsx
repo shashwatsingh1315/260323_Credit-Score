@@ -263,12 +263,12 @@ export default async function DashboardPage() {
   }
 
   const stats = [
-    { label: 'Total Cases', value: totalCases || 0, icon: Briefcase, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-    { label: 'In Review', value: inReview || 0, icon: Clock, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-    { label: 'Awaiting Approval', value: awaitingApproval || 0, icon: AlertCircle, color: 'text-orange-400', bg: 'bg-orange-400/10' },
-    { label: 'Approved', value: approved || 0, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { label: 'Billing Active', value: billingActive || 0, icon: Wallet, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
-    { label: 'Parties', value: totalParties || 0, icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
+    { label: 'Total Cases', value: totalCases || 0, icon: Briefcase, color: 'text-info', bg: 'bg-info/10' },
+    { label: 'In Review', value: inReview || 0, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
+    { label: 'Awaiting Approval', value: awaitingApproval || 0, icon: AlertCircle, color: 'text-attention', bg: 'bg-attention/10' },
+    { label: 'Approved', value: approved || 0, icon: CheckCircle, color: 'text-success', bg: 'bg-success/10' },
+    { label: 'Billing Active', value: billingActive || 0, icon: Wallet, color: 'text-brand', bg: 'bg-brand/10' },
+    { label: 'Parties', value: totalParties || 0, icon: Users, color: 'text-info', bg: 'bg-info/10' },
   ];
 
   const statusBadge = (status: string) => {
@@ -318,16 +318,16 @@ export default async function DashboardPage() {
         <div className="space-y-4">
           <h2 className="text-base font-semibold text-foreground">My Portfolio Metrics</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-indigo-400/30 bg-indigo-500/5">
+            <Card className="border-brand/30 bg-brand/5">
               <CardContent className="p-5">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total Exposure</p>
-                <p className="text-2xl font-bold text-indigo-400">{fmtRupee(rmMetrics.totalExposure)}</p>
+                <p className="text-2xl font-bold text-brand">{fmtRupee(rmMetrics.totalExposure)}</p>
               </CardContent>
             </Card>
-            <Card className={rmMetrics.averageMargin != null && rmMetrics.averageMargin >= 0 ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-destructive/30 bg-destructive/5'}>
+            <Card className={rmMetrics.averageMargin != null && rmMetrics.averageMargin >= 0 ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'}>
               <CardContent className="p-5">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Avg Margin</p>
-                <p className={`text-2xl font-bold ${rmMetrics.averageMargin != null && rmMetrics.averageMargin >= 0 ? 'text-emerald-400' : 'text-destructive'}`}>
+                <p className={`text-2xl font-bold ${rmMetrics.averageMargin != null && rmMetrics.averageMargin >= 0 ? 'text-success' : 'text-destructive'}`}>
                   {rmMetrics.averageMargin != null ? `${rmMetrics.averageMargin >= 0 ? '+' : ''}${rmMetrics.averageMargin.toFixed(2)}%` : '—'}
                 </p>
               </CardContent>
@@ -359,7 +359,7 @@ export default async function DashboardPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Clock size={15} className="text-amber-400" />
+                  <Clock size={15} className="text-warning" />
                   Upcoming Collections
                 </CardTitle>
               </CardHeader>
@@ -376,7 +376,7 @@ export default async function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold">{fmtRupee(t.unpaid)}</p>
-                          <p className="text-xs text-amber-400">Due {fmtDate(t.dueDate)}</p>
+                          <p className="text-xs text-warning">Due {fmtDate(t.dueDate)}</p>
                         </div>
                       </Link>
                     ))}

@@ -218,7 +218,7 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                             <input type="hidden" name="userId" value={u.id} />
                             <input type="hidden" name="role" value={r.role} />
                             <button type="submit" title="Click to revoke">
-                              <Badge variant="info" className="capitalize cursor-pointer hover:bg-red-500/20 hover:text-red-400">
+                              <Badge variant="info" className="capitalize cursor-pointer hover:bg-destructive/20 hover:text-destructive">
                                 {r.role}
                               </Badge>
                             </button>

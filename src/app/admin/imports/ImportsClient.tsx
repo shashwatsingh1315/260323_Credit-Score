@@ -128,7 +128,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
               <div className="space-y-3 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">Preview ({preview.length} rows)</p>
-                  <Button onClick={handleUpload} disabled={processing} className="bg-emerald-600 hover:bg-emerald-700">
+                  <Button onClick={handleUpload} disabled={processing} className="bg-success hover:bg-success/90">
                     {processing ? 'Processing...' : `Confirm & Import ${preview.length} rows`}
                   </Button>
                 </div>
@@ -173,14 +173,14 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                     <TableRow key={j.id}>
                       <TableCell className="capitalize text-xs font-medium">{j.import_type.replace('_', ' ')}</TableCell>
                       <TableCell>
-                        <Badge variant={j.status === 'completed' ? 'success' : j.status === 'failed' ? 'destructive' : 'warning'} className="text-[10px]">
+                        <Badge variant={j.status === 'completed' ? 'success' : j.status === 'failed' ? 'destructive' : 'warning'} className="text-tiny">
                           {j.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs">
                         {j.records_processed} / {j.records_total}
                       </TableCell>
-                      <TableCell className="text-[10px] text-muted-foreground">
+                      <TableCell className="text-tiny text-muted-foreground">
                         {new Date(j.created_at).toLocaleString()}
                       </TableCell>
                     </TableRow>

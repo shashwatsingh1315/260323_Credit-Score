@@ -52,7 +52,7 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
         <div className="col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-indigo-900"><Shuffle size={18} /> Merge Parties</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-brand"><Shuffle size={18} /> Merge Parties</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -69,14 +69,14 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
                   <option value="">-- Select Duplicate --</option>
                   {parties.map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.is_candidate ? '(Cand)' : ''}</option>)}
                 </select>
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-tiny text-muted-foreground mt-1">
                   The duplicate will be deleted. All related cases, history, and exposure will be moved to the Primary record. The duplicate's name will be saved as an Alias.
                 </p>
               </div>
 
               {error && <p className="text-xs text-destructive font-medium bg-destructive/10 p-2 rounded">{error}</p>}
 
-              <Button onClick={handleMerge} disabled={loading || !primaryId || !duplicateId} className="w-full bg-indigo-600 hover:bg-indigo-700">
+              <Button onClick={handleMerge} disabled={loading || !primaryId || !duplicateId} className="w-full bg-brand hover:bg-brand/90">
                 {loading ? 'Merging...' : 'Confirm Merge'}
               </Button>
             </CardContent>
@@ -102,10 +102,10 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
                       <TableRow key={p.id}>
                         <TableCell className="font-medium text-sm">
                           {p.legal_name}
-                          <span className="block text-[10px] text-muted-foreground font-mono mt-0.5 truncate max-w-[200px]">{p.id}</span>
+                          <span className="block text-tiny text-muted-foreground font-mono mt-0.5 truncate max-w-[200px]">{p.id}</span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={p.is_candidate ? "warning" : "default"} className="text-[10px]">
+                          <Badge variant={p.is_candidate ? "warning" : "default"} className="text-tiny">
                             {p.is_candidate ? 'Candidate' : 'Verified'}
                           </Badge>
                         </TableCell>
@@ -115,7 +115,7 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
                               <span className="text-xs text-muted-foreground italic">None</span>
                             ) : (
                               p.aliases?.map((a: any) => (
-                                <Badge key={a.id} variant="secondary" className="text-[10px] bg-muted">{a.alias_name}</Badge>
+                                <Badge key={a.id} variant="secondary" className="text-tiny bg-muted">{a.alias_name}</Badge>
                               ))
                             )}
                           </div>

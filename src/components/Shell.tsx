@@ -202,7 +202,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                       <div className="pr-6">
                         <p className="font-medium text-foreground mb-0.5">{n.title}</p>
                         <p className="text-xs text-muted-foreground">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground mt-2 opacity-70">{new Date(n.created_at).toLocaleString()}</p>
+                        <p className="text-tiny text-muted-foreground mt-2 opacity-70">{new Date(n.created_at).toLocaleString()}</p>
                       </div>
                       {!n.is_read && (
                         <button onClick={() => handleMarkRead(n.id)} className="absolute top-3 right-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Mark as read">

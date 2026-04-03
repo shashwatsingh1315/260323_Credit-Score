@@ -150,7 +150,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
                         <Badge variant={STATUS_VARIANT[c.status] || 'secondary'} className="text-xs">{c.status}</Badge>
                         {c.substatus && <Badge variant="secondary" className="text-xs">{c.substatus}</Badge>}
                         {ts && (
-                          <Badge variant={ts.type === 'delayed' ? 'destructive' : 'secondary'} className={ts.type === 'upcoming' ? 'bg-amber-400/20 text-amber-600 dark:text-amber-400 font-medium border-transparent text-[10px]' : 'text-[10px]'}>
+                          <Badge variant={ts.type === 'delayed' ? 'destructive' : 'secondary'} className={ts.type === 'upcoming' ? 'bg-amber-400/20 text-amber-600 dark:text-amber-400 font-medium border-transparent text-tiny' : 'text-tiny'}>
                             {ts.text}
                           </Badge>
                         )}
