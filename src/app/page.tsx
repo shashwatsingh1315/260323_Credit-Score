@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
-import { Briefcase, Clock, CheckCircle, AlertCircle, TrendingUp, Users, ShieldCheck, ArrowRight, Wallet, TrendingDown, Activity, Plus } from 'lucide-react';
+import { Briefcase, Clock, TrendingUp, Users, ShieldCheck, ArrowRight, Activity, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -159,29 +159,6 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   const role = await getImpersonationRole();
 
-  let queryCases = supabase.from('credit_cases').select('*', { count: 'exact', head: true });
-  let queryInReview = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'In Review');
-  let queryAwaiting = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).in('status', ['Awaiting Approval', 'Appealed']);
-  let queryApproved = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
-  let queryDrafts = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Draft');
-  let queryBillingActive = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Billing Active');
-
-  if (role === 'rm' && user) {
-    queryCases = queryCases.eq('rm_user_id', user.id);
-    queryInReview = queryInReview.eq('rm_user_id', user.id);
-    queryAwaiting = queryAwaiting.eq('rm_user_id', user.id);
-    queryApproved = queryApproved.eq('rm_user_id', user.id);
-    queryDrafts = queryDrafts.eq('rm_user_id', user.id);
-    queryBillingActive = queryBillingActive.eq('rm_user_id', user.id);
-  } else if (role === 'kam' && user) {
-    queryCases = queryCases.eq('kam_user_id', user.id);
-    queryInReview = queryInReview.eq('kam_user_id', user.id);
-    queryAwaiting = queryAwaiting.eq('kam_user_id', user.id);
-    queryApproved = queryApproved.eq('kam_user_id', user.id);
-    queryDrafts = queryDrafts.eq('kam_user_id', user.id);
-    queryBillingActive = queryBillingActive.eq('kam_user_id', user.id);
-  }
-
   let queryRecent = supabase.from('credit_cases')
     .select('id, case_number, status, case_scenario, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
     .order('created_at', { ascending: false })
@@ -191,22 +168,8 @@ export default async function DashboardPage() {
   if (role === 'kam' && user) queryRecent = queryRecent.eq('kam_user_id', user.id);
 
   const [
-    { count: totalCases },
-    { count: inReview },
-    { count: awaitingApproval },
-    { count: approved },
-    { count: drafts },
-    { count: totalParties },
-    { count: billingActive },
     { data: recentCases },
   ] = await Promise.all([
-    queryCases,
-    queryInReview,
-    queryAwaiting,
-    queryApproved,
-    queryDrafts,
-    supabase.from('parties').select('*', { count: 'exact', head: true }),
-    queryBillingActive,
     queryRecent,
   ]);
 
@@ -263,15 +226,6 @@ export default async function DashboardPage() {
     delayedTranches.sort((a, b) => b.daysOverdue - a.daysOverdue);
   }
 
-  const stats = [
-    { label: 'Total Cases', value: totalCases || 0, icon: Briefcase, color: 'text-info', bg: 'bg-info/10' },
-    { label: 'In Review', value: inReview || 0, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
-    { label: 'Awaiting Approval', value: awaitingApproval || 0, icon: AlertCircle, color: 'text-attention', bg: 'bg-attention/10' },
-    { label: 'Approved', value: approved || 0, icon: CheckCircle, color: 'text-success', bg: 'bg-success/10' },
-    { label: 'Billing Active', value: billingActive || 0, icon: Wallet, color: 'text-brand', bg: 'bg-brand/10' },
-    { label: 'Parties', value: totalParties || 0, icon: Users, color: 'text-info', bg: 'bg-info/10' },
-  ];
-
   const statusBadge = (status: string) => {
     const map: Record<string, any> = {
       'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
@@ -281,9 +235,7 @@ export default async function DashboardPage() {
     return <Badge variant={map[status] || 'secondary'}>{status}</Badge>;
   };
 
-  const fmtRupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
   const fmtPdcr = (n: number | null) => n != null ? `${n.toFixed(1)}%` : '—';
-  const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
   return (
     <div className="space-y-8 pb-12">
@@ -293,7 +245,7 @@ export default async function DashboardPage() {
           <BlurText text="Dashboard" />
         </h1>
         <p className="text-muted-foreground text-sm flex items-center gap-2">
-          <Activity size={14} className="text-brand" />
+          <Activity size={14} className="text-brand" aria-hidden="true" />
           <BlurText text="Credit Issuance System Overview" />
         </p>
       </div>
@@ -306,7 +258,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Portfolio Overview</span>
               <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center">
-                <Briefcase size={20} className="text-brand" />
+                <Briefcase size={20} className="text-brand" aria-hidden="true" />
               </div>
             </div>
             <div className="space-y-1">
@@ -334,11 +286,11 @@ export default async function DashboardPage() {
         </SpotlightCard>
 
         {/* 2. Urgent Collections (1x1) */}
-        <SpotlightCard className="bg-warning/10 border-warning/20 hover:scale-[1.01] transition-all">
+        <SpotlightCard className="bg-warning/10 backdrop-blur-md border-warning/20 hover:scale-[1.01] transition-all">
           <div className="p-6 h-full flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-tiny font-bold uppercase tracking-widest text-warning">Urgent</span>
-              <Clock size={18} className="text-warning" />
+              <Clock size={18} className="text-warning" aria-hidden="true" />
             </div>
             <div className="mt-4">
               <p className="text-5xl font-bold text-warning">
@@ -347,7 +299,7 @@ export default async function DashboardPage() {
               <p className="text-sm font-medium text-warning/80 mt-1">Delayed Payments</p>
             </div>
             <Link href="/cases" className="text-xs font-semibold text-warning flex items-center gap-1 hover:underline mt-4">
-              Take Action <ArrowRight size={12} />
+              Take Action <ArrowRight size={12} aria-hidden="true" />
             </Link>
           </div>
         </SpotlightCard>
@@ -355,20 +307,20 @@ export default async function DashboardPage() {
         {/* 3. Quick Shortcuts (1x1) */}
         <div className="grid grid-rows-2 gap-4">
           <Link href="/cases/new" className="group">
-            <Card className="h-full bg-brand text-brand-foreground hover:bg-brand/90 border-none transition-all flex items-center justify-center p-4">
+            <SpotlightCard className="h-full bg-brand text-brand-foreground hover:bg-brand/90 border-none transition-all flex items-center justify-center p-4">
               <div className="text-center space-y-1">
-                <Plus size={24} className="mx-auto group-hover:rotate-90 transition-transform duration-300" />
+                <Plus size={24} className="mx-auto group-hover:rotate-90 transition-transform duration-300" aria-hidden="true" />
                 <p className="text-xs font-bold uppercase tracking-widest">New Case</p>
               </div>
-            </Card>
+            </SpotlightCard>
           </Link>
           <Link href="/policy">
-            <Card className="h-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4">
+            <SpotlightCard className="h-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4">
               <div className="text-center space-y-1">
-                <ShieldCheck size={24} className="mx-auto text-brand" />
+                <ShieldCheck size={24} className="mx-auto text-brand" aria-hidden="true" />
                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Policy</p>
               </div>
-            </Card>
+            </SpotlightCard>
           </Link>
         </div>
 
@@ -377,7 +329,7 @@ export default async function DashboardPage() {
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Activity size={16} className="text-brand" />
+                <Activity size={16} className="text-brand" aria-hidden="true" />
                 Recent Case Activity
               </CardTitle>
               <Button variant="ghost" size="sm" asChild>
@@ -402,7 +354,7 @@ export default async function DashboardPage() {
         <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6">
           <div className="flex items-center justify-between mb-6">
             <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
-            <TrendingUp size={18} className="text-success" />
+            <TrendingUp size={18} className="text-success" aria-hidden="true" />
           </div>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -410,7 +362,7 @@ export default async function DashboardPage() {
                 <span className="text-muted-foreground font-medium">Approval Success Rate</span>
                 <span className="text-foreground font-bold">78%</span>
               </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={78} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full bg-success w-[78%] rounded-full" />
               </div>
             </div>
@@ -419,7 +371,7 @@ export default async function DashboardPage() {
                 <span className="text-muted-foreground font-medium">PDCR (Amount)</span>
                 <span className="text-foreground font-bold">{fmtPdcr(rmMetrics?.amountPDCR)}</span>
               </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={rmMetrics?.amountPDCR || 0} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full bg-brand" style={{ width: `${rmMetrics?.amountPDCR || 0}%` }} />
               </div>
             </div>
@@ -433,12 +385,12 @@ export default async function DashboardPage() {
             { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
           ].map((action, i) => (
             <Link key={i} href={action.href}>
-              <Card className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3">
+              <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3">
                 <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", action.bg)}>
-                  <action.icon size={18} className={action.iconColor || action.color} />
+                  <action.icon size={18} className={action.iconColor || action.color} aria-hidden="true" />
                 </div>
                 <span className="text-xs font-bold uppercase tracking-wider text-foreground">{action.label}</span>
-              </Card>
+              </SpotlightCard>
             </Link>
           ))}
         </div>
