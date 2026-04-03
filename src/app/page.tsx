@@ -158,6 +158,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const user = await getCurrentUser();
   const role = await getImpersonationRole();
+  const isRm = role === 'rm';
 
   let queryRecent = supabase.from('credit_cases')
     .select('id, case_number, status, case_scenario, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
@@ -251,59 +252,63 @@ export default async function DashboardPage() {
       <StaggeredFade className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-auto">
         
         {/* 1. Portfolio Overview (Large - 2x1) */}
-        <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
-          <div className="p-6 h-full flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Portfolio Overview</span>
-              <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center">
-                <Briefcase size={20} className="text-brand" aria-hidden="true" />
+        {isRm && (
+          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
+            <div className="p-6 h-full flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Portfolio Overview</span>
+                <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center">
+                  <Briefcase size={20} className="text-brand" aria-hidden="true" />
+                </div>
               </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-4xl font-bold text-foreground">
-                <CountUp to={rmMetrics?.totalExposure || 0} prefix="₹" />
-              </p>
-              <p className="text-sm text-muted-foreground">Total Outstanding Exposure</p>
-            </div>
-            <div className="mt-6 pt-6 border-t border-border/50 flex gap-8">
-              <div>
-                <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">PDCR</p>
-                <p className="text-xl font-bold text-success">
-                  <CountUp to={rmMetrics?.amountPDCR || 0} suffix="%" />
+              <div className="space-y-1">
+                <p className="text-4xl font-bold text-foreground">
+                  <CountUp to={rmMetrics?.totalExposure || 0} prefix="₹" />
                 </p>
+                <p className="text-sm text-muted-foreground">Total Outstanding Exposure</p>
               </div>
-              <div>
-                <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">Avg Margin</p>
-                <p className={cn("text-xl font-bold", (rmMetrics?.averageMargin || 0) >= 0 ? "text-success" : "text-destructive")}>
-                  {(rmMetrics?.averageMargin || 0) >= 0 ? '+' : ''}
-                  <CountUp to={Math.abs(rmMetrics?.averageMargin || 0)} decimals={2} suffix="%" />
-                </p>
+              <div className="mt-6 pt-6 border-t border-border/50 flex gap-8">
+                <div>
+                  <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">PDCR</p>
+                  <p className="text-xl font-bold text-success">
+                    <CountUp to={rmMetrics?.amountPDCR || 0} suffix="%" />
+                  </p>
+                </div>
+                <div>
+                  <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">Avg Margin</p>
+                  <p className={cn("text-xl font-bold", (rmMetrics?.averageMargin || 0) >= 0 ? "text-success" : "text-destructive")}>
+                    {(rmMetrics?.averageMargin || 0) >= 0 ? '+' : ''}
+                    <CountUp to={Math.abs(rmMetrics?.averageMargin || 0)} decimals={2} suffix="%" />
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </SpotlightCard>
+          </SpotlightCard>
+        )}
 
         {/* 2. Urgent Collections (1x1) */}
-        <SpotlightCard className="bg-warning/10 backdrop-blur-md border-warning/20 hover:scale-[1.01] transition-all">
-          <div className="p-6 h-full flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-tiny font-bold uppercase tracking-widest text-warning">Urgent</span>
-              <Clock size={18} className="text-warning" aria-hidden="true" />
+        {isRm && (
+          <SpotlightCard className="bg-warning/10 backdrop-blur-md border-warning/20 hover:scale-[1.01] transition-all">
+            <div className="p-6 h-full flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-tiny font-bold uppercase tracking-widest text-warning">Urgent</span>
+                <Clock size={18} className="text-warning" aria-hidden="true" />
+              </div>
+              <div className="mt-4">
+                <p className="text-5xl font-bold text-warning">
+                  <CountUp to={delayedTranches.length} />
+                </p>
+                <p className="text-sm font-medium text-warning/80 mt-1">Delayed Payments</p>
+              </div>
+              <Link href="/cases" className="text-xs font-semibold text-warning flex items-center gap-1 hover:underline mt-4">
+                Take Action <ArrowRight size={12} aria-hidden="true" />
+              </Link>
             </div>
-            <div className="mt-4">
-              <p className="text-5xl font-bold text-warning">
-                <CountUp to={delayedTranches.length} />
-              </p>
-              <p className="text-sm font-medium text-warning/80 mt-1">Delayed Payments</p>
-            </div>
-            <Link href="/cases" className="text-xs font-semibold text-warning flex items-center gap-1 hover:underline mt-4">
-              Take Action <ArrowRight size={12} aria-hidden="true" />
-            </Link>
-          </div>
-        </SpotlightCard>
+          </SpotlightCard>
+        )}
 
         {/* 3. Quick Shortcuts (1x1) */}
-        <div className="grid grid-rows-2 gap-4">
+        <div className={cn("grid grid-rows-2 gap-4", !isRm && "col-span-1 md:col-span-1")}>
           <Link href="/cases/new" className="group">
             <SpotlightCard className="h-full bg-brand text-brand-foreground hover:bg-brand/90 border-none transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
               <div className="text-center space-y-1">
@@ -323,7 +328,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* 4. Recent Activity (Tall - 2x2) */}
-        <SpotlightCard className="col-span-1 md:col-span-2 row-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all">
+        <SpotlightCard className={cn("row-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all", isRm ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-3")}>
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -350,39 +355,41 @@ export default async function DashboardPage() {
         </SpotlightCard>
 
         {/* 5. Performance Metrics / Analytics (2x1) */}
-        <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
-            <TrendingUp size={18} className="text-success" aria-hidden="true" />
-          </div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground font-medium">Approval Success Rate</span>
-                <span className="text-foreground font-bold">
-                  <CountUp to={78} suffix="%" />
-                </span>
+        {isRm && (
+          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
+              <TrendingUp size={18} className="text-success" aria-hidden="true" />
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">Approval Success Rate</span>
+                  <span className="text-foreground font-bold">
+                    <CountUp to={78} suffix="%" />
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={78} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="h-full bg-success w-[78%] rounded-full" />
+                </div>
               </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={78} aria-valuemin={0} aria-valuemax={100}>
-                <div className="h-full bg-success w-[78%] rounded-full" />
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">PDCR (Amount)</span>
+                  <span className="text-foreground font-bold">
+                    <CountUp to={rmMetrics?.amountPDCR || 0} decimals={1} suffix="%" />
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={rmMetrics?.amountPDCR || 0} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="h-full bg-brand" style={{ width: `${rmMetrics?.amountPDCR || 0}%` }} />
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground font-medium">PDCR (Amount)</span>
-                <span className="text-foreground font-bold">
-                  <CountUp to={rmMetrics?.amountPDCR || 0} decimals={1} suffix="%" />
-                </span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={rmMetrics?.amountPDCR || 0} aria-valuemin={0} aria-valuemax={100}>
-                <div className="h-full bg-brand" style={{ width: `${rmMetrics?.amountPDCR || 0}%` }} />
-              </div>
-            </div>
-          </div>
-        </SpotlightCard>
+          </SpotlightCard>
+        )}
 
         {/* 6. Quick Actions (2x1) */}
-        <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4">
+        <div className={cn("grid grid-cols-2 gap-4", isRm ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-4")}>
           {[
             { label: 'System Audit', href: '/audit', icon: ShieldCheck, color: 'text-info', bg: 'bg-info/10' },
             { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
