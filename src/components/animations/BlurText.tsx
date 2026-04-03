@@ -5,10 +5,11 @@ export function BlurText({ text, className = "" }: { text: string; className?: s
   const letters = text.split("");
 
   return (
-    <span className={`inline-block ${className}`}>
+    <span className={`inline-block ${className}`} aria-label={text}>
       {letters.map((letter, i) => (
         <motion.span
           key={i}
+          aria-hidden="true"
           initial={{ filter: "blur(10px)", opacity: 0, y: 10 }}
           animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
           transition={{

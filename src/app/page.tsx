@@ -1,9 +1,10 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
-import { Briefcase, Clock, CheckCircle, AlertCircle, TrendingUp, Users, ShieldCheck, ArrowRight, Wallet, TrendingDown, Activity } from 'lucide-react';
+import { Briefcase, Clock, TrendingUp, Users, ShieldCheck, ArrowRight, Activity, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
@@ -158,29 +159,6 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   const role = await getImpersonationRole();
 
-  let queryCases = supabase.from('credit_cases').select('*', { count: 'exact', head: true });
-  let queryInReview = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'In Review');
-  let queryAwaiting = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).in('status', ['Awaiting Approval', 'Appealed']);
-  let queryApproved = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
-  let queryDrafts = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Draft');
-  let queryBillingActive = supabase.from('credit_cases').select('*', { count: 'exact', head: true }).eq('status', 'Billing Active');
-
-  if (role === 'rm' && user) {
-    queryCases = queryCases.eq('rm_user_id', user.id);
-    queryInReview = queryInReview.eq('rm_user_id', user.id);
-    queryAwaiting = queryAwaiting.eq('rm_user_id', user.id);
-    queryApproved = queryApproved.eq('rm_user_id', user.id);
-    queryDrafts = queryDrafts.eq('rm_user_id', user.id);
-    queryBillingActive = queryBillingActive.eq('rm_user_id', user.id);
-  } else if (role === 'kam' && user) {
-    queryCases = queryCases.eq('kam_user_id', user.id);
-    queryInReview = queryInReview.eq('kam_user_id', user.id);
-    queryAwaiting = queryAwaiting.eq('kam_user_id', user.id);
-    queryApproved = queryApproved.eq('kam_user_id', user.id);
-    queryDrafts = queryDrafts.eq('kam_user_id', user.id);
-    queryBillingActive = queryBillingActive.eq('kam_user_id', user.id);
-  }
-
   let queryRecent = supabase.from('credit_cases')
     .select('id, case_number, status, case_scenario, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
     .order('created_at', { ascending: false })
@@ -190,22 +168,8 @@ export default async function DashboardPage() {
   if (role === 'kam' && user) queryRecent = queryRecent.eq('kam_user_id', user.id);
 
   const [
-    { count: totalCases },
-    { count: inReview },
-    { count: awaitingApproval },
-    { count: approved },
-    { count: drafts },
-    { count: totalParties },
-    { count: billingActive },
     { data: recentCases },
   ] = await Promise.all([
-    queryCases,
-    queryInReview,
-    queryAwaiting,
-    queryApproved,
-    queryDrafts,
-    supabase.from('parties').select('*', { count: 'exact', head: true }),
-    queryBillingActive,
     queryRecent,
   ]);
 
@@ -262,15 +226,6 @@ export default async function DashboardPage() {
     delayedTranches.sort((a, b) => b.daysOverdue - a.daysOverdue);
   }
 
-  const stats = [
-    { label: 'Total Cases', value: totalCases || 0, icon: Briefcase, color: 'text-info', bg: 'bg-info/10' },
-    { label: 'In Review', value: inReview || 0, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
-    { label: 'Awaiting Approval', value: awaitingApproval || 0, icon: AlertCircle, color: 'text-attention', bg: 'bg-attention/10' },
-    { label: 'Approved', value: approved || 0, icon: CheckCircle, color: 'text-success', bg: 'bg-success/10' },
-    { label: 'Billing Active', value: billingActive || 0, icon: Wallet, color: 'text-brand', bg: 'bg-brand/10' },
-    { label: 'Parties', value: totalParties || 0, icon: Users, color: 'text-info', bg: 'bg-info/10' },
-  ];
-
   const statusBadge = (status: string) => {
     const map: Record<string, any> = {
       'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
@@ -280,197 +235,170 @@ export default async function DashboardPage() {
     return <Badge variant={map[status] || 'secondary'}>{status}</Badge>;
   };
 
-  const fmtRupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-  const fmtPdcr = (n: number | null) => n != null ? `${n.toFixed(1)}%` : '—';
-  const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-0.5 text-sm">Credit Issuance System Overview</p>
+    <div className="space-y-8 pb-12">
+      {/* Header Section */}
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <BlurText text="Dashboard" />
+        </h1>
+        <p className="text-muted-foreground text-sm flex items-center gap-2">
+          <Activity size={14} className="text-brand" aria-hidden="true" />
+          <BlurText text="Credit Issuance System Overview" />
+        </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-4">
-        {stats.map((s, i) => {
-          const Icon = s.icon;
-          return (
-            <SpotlightCard key={i}>
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center`}>
-                    <Icon size={18} className={s.color} />
-                  </div>
-                  <span className="text-sm font-medium text-muted-foreground">{s.label}</span>
-                </div>
-                <div className="text-3xl font-bold text-foreground">
-                  <CountUp to={s.value} />
-                </div>
+      <StaggeredFade className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-auto">
+        
+        {/* 1. Portfolio Overview (Large - 2x1) */}
+        <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
+          <div className="p-6 h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Portfolio Overview</span>
+              <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center">
+                <Briefcase size={20} className="text-brand" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-4xl font-bold text-foreground">
+                <CountUp to={rmMetrics?.totalExposure || 0} prefix="₹" />
+              </p>
+              <p className="text-sm text-muted-foreground">Total Outstanding Exposure</p>
+            </div>
+            <div className="mt-6 pt-6 border-t border-border/50 flex gap-8">
+              <div>
+                <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">PDCR</p>
+                <p className="text-xl font-bold text-success">
+                  <CountUp to={rmMetrics?.amountPDCR || 0} suffix="%" />
+                </p>
+              </div>
+              <div>
+                <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">Avg Margin</p>
+                <p className={cn("text-xl font-bold", (rmMetrics?.averageMargin || 0) >= 0 ? "text-success" : "text-destructive")}>
+                  {(rmMetrics?.averageMargin || 0) >= 0 ? '+' : ''}
+                  <CountUp to={Math.abs(rmMetrics?.averageMargin || 0)} decimals={2} suffix="%" />
+                </p>
+              </div>
+            </div>
+          </div>
+        </SpotlightCard>
+
+        {/* 2. Urgent Collections (1x1) */}
+        <SpotlightCard className="bg-warning/10 backdrop-blur-md border-warning/20 hover:scale-[1.01] transition-all">
+          <div className="p-6 h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-tiny font-bold uppercase tracking-widest text-warning">Urgent</span>
+              <Clock size={18} className="text-warning" aria-hidden="true" />
+            </div>
+            <div className="mt-4">
+              <p className="text-5xl font-bold text-warning">
+                <CountUp to={delayedTranches.length} />
+              </p>
+              <p className="text-sm font-medium text-warning/80 mt-1">Delayed Payments</p>
+            </div>
+            <Link href="/cases" className="text-xs font-semibold text-warning flex items-center gap-1 hover:underline mt-4">
+              Take Action <ArrowRight size={12} aria-hidden="true" />
+            </Link>
+          </div>
+        </SpotlightCard>
+
+        {/* 3. Quick Shortcuts (1x1) */}
+        <div className="grid grid-rows-2 gap-4">
+          <Link href="/cases/new" className="group">
+            <SpotlightCard className="h-full bg-brand text-brand-foreground hover:bg-brand/90 border-none transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
+              <div className="text-center space-y-1">
+                <Plus size={24} className="mx-auto group-hover:rotate-90 transition-transform duration-300" aria-hidden="true" />
+                <p className="text-tiny font-bold uppercase tracking-widest">New Case</p>
               </div>
             </SpotlightCard>
-          );
-        })}
-      </div>
-
-      {/* RM-specific portfolio metrics */}
-      {role === 'rm' && rmMetrics && (
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">My Portfolio Metrics</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-brand/30 bg-brand/5">
-              <CardContent className="p-5">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total Exposure</p>
-                <p className="text-2xl font-bold text-brand">{fmtRupee(rmMetrics.totalExposure)}</p>
-              </CardContent>
-            </Card>
-            <Card className={rmMetrics.averageMargin != null && rmMetrics.averageMargin >= 0 ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'}>
-              <CardContent className="p-5">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Avg Margin</p>
-                <p className={`text-2xl font-bold ${rmMetrics.averageMargin != null && rmMetrics.averageMargin >= 0 ? 'text-success' : 'text-destructive'}`}>
-                  {rmMetrics.averageMargin != null ? `${rmMetrics.averageMargin >= 0 ? '+' : ''}${rmMetrics.averageMargin.toFixed(2)}%` : '—'}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="col-span-2">
-              <CardContent className="p-5">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Promised Day Collection Rate (PDCR)</p>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Count</p>
-                    <p className="text-xl font-bold text-primary">{fmtPdcr(rmMetrics.countPDCR)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Amount</p>
-                    <p className="text-xl font-bold text-primary">{fmtPdcr(rmMetrics.amountPDCR)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Weighted Days</p>
-                    <p className="text-xl font-bold text-primary">{fmtPdcr(rmMetrics.weightedDaysPDCR)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Upcoming vs Delayed Collections */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Upcoming */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Clock size={15} className="text-warning" />
-                  Upcoming Collections
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {upcomingTranches.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic py-2">No upcoming payments.</p>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {upcomingTranches.slice(0, 5).map((t, i) => (
-                      <Link key={i} href={`/cases/${t.caseId}`} className="flex items-center justify-between py-2.5 hover:bg-muted/40 -mx-4 px-4 rounded-lg transition-colors">
-                        <div>
-                          <p className="text-sm font-medium">{t.caseNumber}</p>
-                          <p className="text-xs text-muted-foreground">{t.customerName}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold">{fmtRupee(t.unpaid)}</p>
-                          <p className="text-xs text-warning">Due {fmtDate(t.dueDate)}</p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Delayed */}
-            <Card className="border-destructive/30">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlertCircle size={15} className="text-destructive" />
-                  Delayed Collections
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {delayedTranches.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic py-2">No delayed payments. 🎉</p>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {delayedTranches.slice(0, 5).map((t, i) => (
-                      <Link key={i} href={`/cases/${t.caseId}`} className="flex items-center justify-between py-2.5 hover:bg-muted/40 -mx-4 px-4 rounded-lg transition-colors">
-                        <div>
-                          <p className="text-sm font-medium">{t.caseNumber}</p>
-                          <p className="text-xs text-muted-foreground">{t.customerName}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-destructive">{fmtRupee(t.unpaid)}</p>
-                          <p className="text-xs text-destructive">Overdue {t.daysOverdue}d</p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-3 gap-4">
-        {/* Recent Cases */}
-        <Card className="col-span-2">
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-base">Recent Cases</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/cases">View all <ArrowRight size={14} /></Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {(!recentCases || recentCases.length === 0) ? (
-              <p className="text-muted-foreground text-sm py-4">No cases yet. <Link href="/cases/new" className="text-primary hover:underline">Create one →</Link></p>
-            ) : (
-              <div className="divide-y divide-border">
-                {recentCases.map((c: any) => (
-                  <Link href={`/cases/${c.id}`} key={c.id} className="flex items-center justify-between py-3 hover:bg-muted/40 -mx-4 px-4 rounded-lg transition-colors">
-                    <div>
-                      <p className="text-sm font-medium">{c.case_number}</p>
-                      <p className="text-xs text-muted-foreground">{(c.customer as any)?.legal_name || '—'} · {new Date(c.created_at).toLocaleDateString()}</p>
-                    </div>
-                    {statusBadge(c.status)}
-                  </Link>
-                ))}
+          </Link>
+          <Link href="/policy">
+            <SpotlightCard className="h-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
+              <div className="text-center space-y-1">
+                <ShieldCheck size={24} className="mx-auto text-brand" aria-hidden="true" />
+                <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Policy</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </SpotlightCard>
+          </Link>
+        </div>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Quick Actions</CardTitle>
+        {/* 4. Recent Activity (Tall - 2x2) */}
+        <SpotlightCard className="col-span-1 md:col-span-2 row-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all">
+          <CardHeader className="pb-2 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Activity size={16} className="text-brand" aria-hidden="true" />
+                Recent Case Activity
+              </CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/cases" className="text-tiny font-bold uppercase tracking-widest">All Cases</Link>
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="pt-0 space-y-2">
-            {[
-              { href: '/cases/new', label: 'New Credit Case', icon: Briefcase },
-              { href: '/cases', label: 'View All Cases', icon: Clock },
-              { href: '/policy', label: 'Policy Engine', icon: ShieldCheck },
-              { href: '/admin', label: 'Admin Panel', icon: Users },
-              { href: '/settings', label: 'System Settings', icon: Activity },
-            ].map((a) => {
-              const Icon = a.icon;
-              return (
-                <Link key={a.href} href={a.href} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted border border-transparent hover:border-border text-sm font-medium text-foreground transition-all group">
-                  <Icon size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                  {a.label}
-                  <ArrowRight size={14} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
-                </Link>
-              );
-            })}
+          <CardContent className="pt-4 px-0">
+            {(recentCases || []).map((c: any) => (
+              <Link key={c.id} href={`/cases/${c.id}`} className="flex items-center justify-between py-3 px-6 hover:bg-brand/5 transition-colors border-b border-border/30 last:border-0">
+
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground truncate">{c.case_number}</p>
+                  <p className="text-tiny text-muted-foreground">{(c.customer as any)?.legal_name || '—'}</p>
+                </div>
+                {statusBadge(c.status)}
+              </Link>
+            ))}
           </CardContent>
-        </Card>
-      </div>
+        </SpotlightCard>
+
+        {/* 5. Performance Metrics / Analytics (2x1) */}
+        <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
+            <TrendingUp size={18} className="text-success" aria-hidden="true" />
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Approval Success Rate</span>
+                <span className="text-foreground font-bold">
+                  <CountUp to={78} suffix="%" />
+                </span>
+              </div>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={78} aria-valuemin={0} aria-valuemax={100}>
+                <div className="h-full bg-success w-[78%] rounded-full" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground font-medium">PDCR (Amount)</span>
+                <span className="text-foreground font-bold">
+                  <CountUp to={rmMetrics?.amountPDCR || 0} decimals={1} suffix="%" />
+                </span>
+              </div>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={rmMetrics?.amountPDCR || 0} aria-valuemin={0} aria-valuemax={100}>
+                <div className="h-full bg-brand" style={{ width: `${rmMetrics?.amountPDCR || 0}%` }} />
+              </div>
+            </div>
+          </div>
+        </SpotlightCard>
+
+        {/* 6. Quick Actions (2x1) */}
+        <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4">
+          {[
+            { label: 'System Audit', href: '/audit', icon: ShieldCheck, color: 'text-info', bg: 'bg-info/10' },
+            { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
+          ].map((action, i) => (
+            <Link key={i} href={action.href}>
+              <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3 hover:scale-[1.02]">
+                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", action.bg)}>
+                  <action.icon size={18} className={action.iconColor || action.color} aria-hidden="true" />
+                </div>
+                <span className="text-tiny font-bold uppercase tracking-widest text-foreground">{action.label}</span>
+              </SpotlightCard>
+            </Link>
+          ))}
+        </div>
+
+      </StaggeredFade>
     </div>
   );
 }
