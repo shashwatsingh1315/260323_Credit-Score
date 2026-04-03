@@ -285,26 +285,26 @@ export default async function DashboardPage() {
   const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-0.5 text-sm">Credit Issuance System Overview</p>
+    <div className="space-y-10">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-1 text-sm tracking-wide">Credit Issuance System Overview</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-6">
         {stats.map((s, i) => {
           const Icon = s.icon;
           return (
             <SpotlightCard key={i}>
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-9 h-9 rounded-lg ${s.bg} flex items-center justify-center`}>
-                    <Icon size={18} className={s.color} />
+              <div className="p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center shadow-sm`}>
+                    <Icon size={20} className={s.color} />
                   </div>
-                  <span className="text-sm font-medium text-muted-foreground">{s.label}</span>
+                  <span className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{s.label}</span>
                 </div>
-                <div className="text-3xl font-bold text-foreground">
+                <div className="text-4xl font-extrabold tracking-tight text-foreground">
                   <CountUp to={s.value} />
                 </div>
               </div>
@@ -418,25 +418,25 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-6">
         {/* Recent Cases */}
-        <Card className="col-span-2">
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-base">Recent Cases</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/cases">View all <ArrowRight size={14} /></Link>
+        <Card className="col-span-2 shadow-md rounded-2xl border-border/60">
+          <CardHeader className="pb-4 flex-row items-center justify-between">
+            <CardTitle className="text-lg font-bold">Recent Cases</CardTitle>
+            <Button asChild variant="ghost" size="sm" className="font-semibold text-primary transition-all duration-300 ease-out">
+              <Link href="/cases">View all <ArrowRight size={16} className="ml-1" /></Link>
             </Button>
           </CardHeader>
           <CardContent className="pt-0">
             {(!recentCases || recentCases.length === 0) ? (
-              <p className="text-muted-foreground text-sm py-4">No cases yet. <Link href="/cases/new" className="text-primary hover:underline">Create one →</Link></p>
+              <p className="text-muted-foreground text-sm py-8 text-center italic">No cases yet. <Link href="/cases/new" className="text-primary hover:underline font-medium">Create one →</Link></p>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border/50">
                 {recentCases.map((c: any) => (
-                  <Link href={`/cases/${c.id}`} key={c.id} className="flex items-center justify-between py-3 hover:bg-muted/40 -mx-4 px-4 rounded-lg transition-colors">
+                  <Link href={`/cases/${c.id}`} key={c.id} className="flex items-center justify-between py-4 hover:bg-muted/30 -mx-6 px-6 transition-all duration-300 ease-out group">
                     <div>
-                      <p className="text-sm font-medium">{c.case_number}</p>
-                      <p className="text-xs text-muted-foreground">{(c.customer as any)?.legal_name || '—'} · {new Date(c.created_at).toLocaleDateString()}</p>
+                      <p className="text-base font-semibold group-hover:text-primary transition-colors">{c.case_number}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{(c.customer as any)?.legal_name || '—'} <span className="opacity-50 mx-1">·</span> {new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                     {statusBadge(c.status)}
                   </Link>
@@ -447,11 +447,11 @@ export default async function DashboardPage() {
         </Card>
 
         {/* Quick Actions */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Quick Actions</CardTitle>
+        <Card className="shadow-md rounded-2xl border-border/60">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-bold">Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-2">
+          <CardContent className="pt-0 space-y-3">
             {[
               { href: '/cases/new', label: 'New Credit Case', icon: Briefcase },
               { href: '/cases', label: 'View All Cases', icon: Clock },
@@ -461,10 +461,12 @@ export default async function DashboardPage() {
             ].map((a) => {
               const Icon = a.icon;
               return (
-                <Link key={a.href} href={a.href} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted border border-transparent hover:border-border text-sm font-medium text-foreground transition-all group">
-                  <Icon size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                <Link key={a.href} href={a.href} className="flex items-center gap-4 p-4 rounded-xl bg-muted/40 hover:bg-muted/80 border border-transparent hover:border-border/50 hover:shadow-sm text-sm font-semibold text-foreground transition-all duration-300 ease-out group">
+                  <div className="bg-background rounded-lg p-2 shadow-sm border border-border/50 group-hover:border-primary/30 transition-colors">
+                      <Icon size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
                   {a.label}
-                  <ArrowRight size={14} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                  <ArrowRight size={16} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
                 </Link>
               );
             })}

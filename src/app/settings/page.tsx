@@ -33,68 +33,71 @@ export default async function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Settings size={22} />
+    <div className="space-y-10 max-w-3xl pb-12">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
+            <Settings size={20} />
+          </div>
           System Settings
         </h1>
-        <p className="text-muted-foreground mt-0.5 text-sm">
+        <p className="text-sm font-medium text-muted-foreground">
           Global configuration parameters. Changes are effective immediately across all users.
         </p>
       </div>
 
-      <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 rounded-lg px-4 py-3 flex items-start gap-2 text-sm">
-        <ShieldAlert size={16} className="mt-0.5 shrink-0" />
-        <p>These settings affect live business logic. Modify with caution.</p>
+      <div className="bg-warning/10 border border-warning/30 text-warning rounded-xl px-5 py-4 flex items-start gap-3 shadow-sm">
+        <ShieldAlert size={20} className="mt-0.5 shrink-0" />
+        <p className="font-bold text-sm leading-relaxed">These settings affect live business logic and automated routing. Modify with extreme caution.</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6 pt-2">
         {(settings ?? []).map((s: any) => {
           const meta = settingMeta[s.key];
           return (
-            <Card key={s.key}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">
+            <Card key={s.key} className="rounded-2xl border-border/50 shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-4 border-b border-border/30 bg-muted/5">
+                <CardTitle className="text-base font-bold tracking-tight">
                   {meta?.label ?? s.key}
                 </CardTitle>
                 {meta?.description && (
-                  <p className="text-xs text-muted-foreground">{meta.description}</p>
+                  <p className="text-sm font-medium text-muted-foreground mt-1.5">{meta.description}</p>
                 )}
               </CardHeader>
-              <CardContent>
-                <form action={updateSystemSetting} className="flex items-center gap-3">
+              <CardContent className="p-6">
+                <form action={updateSystemSetting} className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <input type="hidden" name="key" value={s.key} />
-                  <div className="relative flex-1 max-w-xs">
+                  <div className="relative flex-1 max-w-sm">
                     <Input
                       type="number"
                       name="value"
                       defaultValue={s.value}
                       step="0.1"
                       min="0"
-                      className="pr-12"
+                      className="pr-16 h-12 rounded-xl text-lg font-semibold bg-background border-border/60 focus-visible:ring-1 focus-visible:ring-primary shadow-sm"
                       required
                     />
                     {meta?.unit && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold uppercase tracking-wider text-muted-foreground pointer-events-none">
                         {meta.unit}
                       </span>
                     )}
                   </div>
-                  <Button type="submit" size="sm">Save</Button>
+                  <Button type="submit" size="sm" className="h-12 px-8 rounded-xl font-bold shadow-sm w-full sm:w-auto">Save Changes</Button>
                 </form>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Last updated: {s.updated_at ? new Date(s.updated_at).toLocaleString('en-IN') : 'Never'}
-                </p>
+                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border/40">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Last updated:</span>
+                  <span className="text-[11px] font-semibold text-foreground/70">{s.updated_at ? new Date(s.updated_at).toLocaleString('en-IN') : 'Never'}</span>
+                </div>
               </CardContent>
             </Card>
           );
         })}
 
         {(!settings || settings.length === 0) && (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground text-sm">
-              No system settings found. Run the Phase 2 SQL migration first.
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardContent className="py-16 text-center">
+              <p className="text-sm font-medium text-muted-foreground opacity-60">No system settings found. Run the Phase 2 SQL migration first.</p>
             </CardContent>
           </Card>
         )}

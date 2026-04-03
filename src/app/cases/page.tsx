@@ -85,35 +85,35 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-10">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Credit Cases</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{cases?.length || 0} cases</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Credit Cases</h1>
+          <p className="text-sm text-muted-foreground tracking-wide mt-1">{cases?.length || 0} cases matching criteria</p>
         </div>
         {canCreateCase && (
-          <Button asChild>
-            <Link href="/cases/new"><PlusCircle size={16} /> New Case</Link>
+          <Button asChild className="h-12 px-6 rounded-xl font-bold shadow-md transition-all duration-300 ease-out hover:shadow-lg active:scale-[0.98]">
+            <Link href="/cases/new"><PlusCircle size={18} className="mr-2" /> New Case</Link>
           </Button>
         )}
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2 flex-wrap items-center">
-        <form className="flex gap-2 flex-1 min-w-0 max-w-xs">
+      <div className="flex flex-col gap-6 md:flex-row md:items-center">
+        <form className="flex-1 min-w-0 max-w-sm flex items-center relative">
           <input
             name="q"
             defaultValue={q}
             placeholder="Search case number..."
-            className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full h-12 pl-4 pr-24 rounded-xl bg-muted/40 border border-border/50 focus:bg-background focus:ring-1 focus:ring-primary transition-all duration-300 outline-none text-sm font-medium"
           />
           {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
-          <Button type="submit" size="sm" variant="secondary">Search</Button>
+          <Button type="submit" size="sm" variant="secondary" className="absolute right-1.5 h-9 px-4 rounded-lg font-semibold bg-background border border-border/50 shadow-sm hover:bg-muted transition-colors">Search</Button>
         </form>
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           {statuses.map(s => (
             <Link key={s} href={`/cases${s ? `?status=${s}` : ''}${q ? `${s ? '&' : '?'}q=${q}` : ''}`}>
-              <Button size="sm" variant={statusFilter === s ? 'default' : 'secondary'} className="text-xs">
+              <Button size="sm" variant={statusFilter === s ? 'default' : 'secondary'} className={`h-9 px-4 rounded-lg text-xs font-semibold tracking-wide transition-all duration-300 ease-out ${statusFilter === s ? 'shadow-sm' : 'bg-transparent border border-border/60 hover:bg-muted/50'}`}>
                 {s || 'All'}
               </Button>
             </Link>
@@ -123,52 +123,57 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
 
       {/* Cases Grid */}
       {!cases || cases.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center space-y-3">
-            <Briefcase size={40} className="mx-auto text-muted-foreground opacity-30" />
-            <p className="text-muted-foreground">No cases found.</p>
+        <Card className="shadow-md rounded-2xl border-border/60">
+          <CardContent className="py-24 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-muted mx-auto flex items-center justify-center">
+              <Briefcase size={28} className="text-muted-foreground opacity-50" />
+            </div>
+            <p className="text-muted-foreground font-medium text-lg">No cases found.</p>
             {canCreateCase && (
-              <Button asChild><Link href="/cases/new">Create your first case</Link></Button>
+              <Button asChild variant="outline" className="h-10 rounded-xl font-semibold"><Link href="/cases/new">Create your first case</Link></Button>
             )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-1 gap-4">
           {cases.map((c: any) => {
             const ts = getTrancheStatus(c);
             return (
-            <Link key={c.id} href={`/cases/${c.id}`}>
-              <Card className="hover:border-primary/50 transition-all hover:bg-accent/10 cursor-pointer">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Building2 size={16} className="text-primary" />
+            <Link key={c.id} href={`/cases/${c.id}`} className="group block outline-none">
+              <Card className="rounded-2xl border-border/50 shadow-sm transition-all duration-300 ease-out hover:shadow-md hover:border-primary/30 active:scale-[0.99] overflow-hidden">
+                <CardContent className="p-6 relative">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/0 group-hover:bg-primary transition-colors duration-300" />
+                  <div className="flex items-center gap-6">
+                    <div className="w-12 h-12 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center shrink-0 group-hover:bg-primary/5 transition-colors duration-300">
+                      <Building2 size={20} className="text-muted-foreground group-hover:text-primary transition-colors duration-300" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-sm">{c.case_number}</span>
-                        <Badge variant={STATUS_VARIANT[c.status] || 'secondary'} className="text-xs">{c.status}</Badge>
-                        {c.substatus && <Badge variant="secondary" className="text-xs">{c.substatus}</Badge>}
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="font-bold text-base text-foreground tracking-tight group-hover:text-primary transition-colors">{c.case_number}</span>
+                        <Badge variant={STATUS_VARIANT[c.status] || 'secondary'} className="text-xs px-2.5 py-0.5 rounded-md font-bold tracking-wide uppercase">{c.status}</Badge>
+                        {c.substatus && <Badge variant="secondary" className="text-xs px-2 rounded-md font-semibold text-muted-foreground bg-muted border-transparent">{c.substatus}</Badge>}
                         {ts && (
-                          <Badge variant={ts.type === 'delayed' ? 'destructive' : 'secondary'} className={ts.type === 'upcoming' ? 'bg-amber-400/20 text-amber-600 dark:text-amber-400 font-medium border-transparent text-[10px]' : 'text-[10px]'}>
+                          <Badge variant={ts.type === 'delayed' ? 'destructive' : 'secondary'} className={`text-[10px] px-2 rounded-md font-bold uppercase tracking-wider ${ts.type === 'upcoming' ? 'bg-warning/20 text-warning border-transparent' : ''}`}>
                             {ts.text}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {(c.customer as any)?.legal_name || (c.contractor as any)?.legal_name || '—'} ·{' '}
-                        {c.case_scenario?.replace(/_/g, ' ')} ·{' '}
-                        ₹{(c.bill_amount || 0).toLocaleString('en-IN')} ·{' '}
+                      <p className="text-sm text-muted-foreground font-medium">
+                        <span className="text-foreground">{(c.customer as any)?.legal_name || (c.contractor as any)?.legal_name || '—'}</span> <span className="opacity-50 mx-1.5">·</span>{' '}
+                        {c.case_scenario?.replace(/_/g, ' ')} <span className="opacity-50 mx-1.5">·</span>{' '}
+                        <span className="font-semibold text-foreground">₹{(c.bill_amount || 0).toLocaleString('en-IN')}</span> <span className="opacity-50 mx-1.5">·</span>{' '}
                         {['Approved', 'Accepted', 'Billing Active', 'Pending Write-Off Approval', 'Closed'].includes(c.status) 
-                          ? <span className="text-emerald-600 dark:text-emerald-400 font-medium">{c.review_cycles?.find((r: any) => r.is_active)?.approved_credit_days ?? c.review_cycles?.[0]?.approved_credit_days ?? '—'} approved days</span>
+                          ? <span className="text-success font-semibold">{c.review_cycles?.find((r: any) => r.is_active)?.approved_credit_days ?? c.review_cycles?.[0]?.approved_credit_days ?? '—'} approved days</span>
                           : `${c.composite_credit_days || 0} requested days`}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</p>
-                      <p className="text-xs text-muted-foreground">{(c.rm as any)?.full_name || '—'}</p>
+                    <div className="text-right shrink-0 flex flex-col justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{new Date(c.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs font-medium text-foreground">{(c.rm as any)?.full_name || '—'}</p>
                     </div>
-                    <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                    <div className="shrink-0 w-8 flex justify-end">
+                      <ChevronRight size={20} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all duration-300 ease-out" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>

@@ -41,7 +41,6 @@ const navItems = [
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (pathname === '/login' || pathname === '/reset-password') return <>{children}</>;
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,6 +68,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     }).catch(console.error);
   }, [pathname]);
 
+  if (pathname === '/login' || pathname === '/reset-password') return <>{children}</>;
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -95,15 +96,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 flex flex-col border-r border-border bg-card shrink-0">
+      <aside className="w-64 flex flex-col border-r border-border bg-background shrink-0">
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">C</div>
+        <div className="flex items-center gap-3 px-6 py-6 border-b border-transparent">
+          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm shadow-sm">C</div>
           <span className="font-semibold text-foreground tracking-tight">CreditFlow</span>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-8">
           {navItems.map((section) => {
             if (section.requiresAdmin && !isAdmin) return null;
             return (
@@ -118,10 +119,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                         key={link.href}
                         href={link.href}
                         className={cn(
-                          "flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors",
+                          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
                           active
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         )}
                       >
                         <Icon size={17} />
@@ -169,8 +170,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-14 border-b border-border flex items-center px-6 gap-4 shrink-0 bg-card/50 backdrop-blur">
-          <form onSubmit={handleSearch} className="flex-1 flex items-center gap-2 max-w-md bg-muted rounded-lg px-3 py-1.5 focus-within:ring-1 focus-within:ring-primary">
+        <header className="h-16 border-b border-border flex items-center px-8 gap-4 shrink-0 bg-background/80 backdrop-blur-md">
+          <form onSubmit={handleSearch} className="flex-1 flex items-center gap-2 max-w-md bg-muted/50 rounded-xl px-4 py-2 focus-within:bg-muted transition-colors">
             <Search size={16} className="text-muted-foreground shrink-0" />
             <input
               type="text"
@@ -187,7 +188,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </Button>
             
             {showNotifs && (
-              <div className="absolute top-full mt-2 right-0 w-80 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden flex flex-col max-h-96">
+              <div className="absolute top-full mt-3 right-0 w-80 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden flex flex-col max-h-96">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/30">
                   <h3 className="font-semibold text-sm">Notifications</h3>
                   {unreadCount > 0 && <Badge variant="secondary" className="text-xs">{unreadCount} unread</Badge>}

@@ -25,6 +25,18 @@
     --ring: 222.2 84% 4.9%;
     --radius: 0.75rem;
 
+    /* Legacy mapping */
+    --bg-primary: hsl(var(--background));
+    --bg-secondary: hsl(var(--background));
+    --bg-tertiary: hsl(var(--muted));
+    --text-primary: hsl(var(--foreground));
+    --text-secondary: hsl(var(--muted-foreground));
+    --text-muted: hsl(var(--muted-foreground));
+    --accent-primary: hsl(var(--accent));
+    --accent-hover: hsl(var(--accent));
+    --border-primary: hsl(var(--border));
+    --border-color: hsl(var(--border));
+
     --color-success: 142.1 70.6% 45.3%;
     --color-warning: 38 92% 50%;
     --color-destructive: 0 84.2% 60.2%;

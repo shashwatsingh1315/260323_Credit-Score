@@ -253,7 +253,7 @@ export default function NewCasePage() {
       </div>
 
       <div className={styles.wizard}>
-        <div className={styles.sidebar}>
+        <div className={cn(styles.sidebar, "space-y-2")}>
           {['Scenario & Parties', 'Commercial Terms', 'Tranche Builder', 'Context', 'Intake Questions'].map((label, i) => {
             const stepNum = i + 1;
             const isAccessible = stepNum <= step || (stepNum === step + 1 && canGoNext(step));
@@ -262,46 +262,48 @@ export default function NewCasePage() {
                 key={i} 
                 className={cn(
                   styles.step, 
-                  step === stepNum && styles.active, 
-                  step > stepNum && styles.done,
-                  !isAccessible && styles.disabled
+                  "p-4 rounded-xl transition-all duration-300 ease-out border border-transparent",
+                  step === stepNum && "bg-primary text-primary-foreground shadow-md",
+                  step > stepNum && "bg-muted text-foreground border-border/50",
+                  !isAccessible && "opacity-50 cursor-not-allowed",
+                  isAccessible && step !== stepNum && "hover:bg-muted/50 cursor-pointer"
                 )} 
                 onClick={() => isAccessible && setStep(stepNum)}
               >
-                <div className={styles.stepNum}>{step > stepNum ? '✓' : stepNum}</div>
-                <div className={styles.stepText}>{label}</div>
+                <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3", step === stepNum ? "bg-background/20 text-primary-foreground" : "bg-background border border-border/50")}>{step > stepNum ? '✓' : stepNum}</div>
+                <div className="text-sm font-semibold tracking-wide">{label}</div>
               </div>
             );
           })}
         </div>
 
-        <div className={`card ${styles.formContent}`}>
+        <div className="card flex-1 shadow-md rounded-2xl border-border/60 bg-card p-8">
           {/* Step 1: Scenario & Parties */}
           {step === 1 && (
             <div className={styles.formSection}>
-              <h2>Case Scenario & Parties</h2>
-              <p className={styles.helperText}>Select the billing/payment scenario and link relevant parties.</p>
+              <h2 className="text-2xl font-bold tracking-tight mb-2">Case Scenario & Parties</h2>
+              <p className="text-sm text-muted-foreground mb-8">Select the billing/payment scenario and link relevant parties.</p>
 
-              <div className={styles.inputGroup}>
-                <label>Case Scenario *</label>
-                <select value={scenario} onChange={e => setScenario(e.target.value)} className={styles.input}>
+              <div className="space-y-2 mb-6">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground ml-1">Case Scenario *</label>
+                <select value={scenario} onChange={e => setScenario(e.target.value)} className="w-full h-12 px-4 rounded-xl bg-muted/40 border border-border/50 focus:bg-background transition-colors outline-none text-sm font-medium">
                   {SCENARIOS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </div>
 
               {needsCustomer && (
-                <div className={styles.inputGroup}>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="mb-0">Customer Party *</label>
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Customer Party *</label>
                     <button
                       type="button"
                       onClick={() => { setPartyTypeForDialog('customer'); setPartyDialogOpen(true); }}
-                      className="text-xs flex items-center gap-1 text-primary hover:underline"
+                      className="text-xs font-bold flex items-center gap-1.5 text-primary hover:underline transition-all duration-300 ease-out"
                     >
-                      <UserPlus size={12} /> Add New
+                      <UserPlus size={14} /> Add New
                     </button>
                   </div>
-                  <select value={customerPartyId} onChange={e => setCustomerPartyId(e.target.value)} className={styles.input}>
+                  <select value={customerPartyId} onChange={e => setCustomerPartyId(e.target.value)} className="w-full h-12 px-4 rounded-xl bg-muted/40 border border-border/50 focus:bg-background transition-colors outline-none text-sm font-medium">
                     <option value="">-- Select Customer --</option>
                     {parties
                       .filter(p => !p.party_type || p.party_type === 'customer' || p.party_type === 'both')
@@ -311,18 +313,18 @@ export default function NewCasePage() {
               )}
 
               {needsContractor && (
-                <div className={styles.inputGroup}>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="mb-0">Contractor / Influencer Party *</label>
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contractor / Influencer Party *</label>
                     <button
                       type="button"
                       onClick={() => { setPartyTypeForDialog('contractor'); setPartyDialogOpen(true); }}
-                      className="text-xs flex items-center gap-1 text-primary hover:underline"
+                      className="text-xs font-bold flex items-center gap-1.5 text-primary hover:underline transition-all duration-300 ease-out"
                     >
-                      <UserPlus size={12} /> Add New
+                      <UserPlus size={14} /> Add New
                     </button>
                   </div>
-                  <select value={contractorPartyId} onChange={e => setContractorPartyId(e.target.value)} className={styles.input}>
+                  <select value={contractorPartyId} onChange={e => setContractorPartyId(e.target.value)} className="w-full h-12 px-4 rounded-xl bg-muted/40 border border-border/50 focus:bg-background transition-colors outline-none text-sm font-medium">
                     <option value="">-- Select Influencer --</option>
                     {parties
                       .filter(p => p.party_type === 'influencer' || p.party_type === 'both' || p.party_type === 'contractor')
@@ -331,16 +333,16 @@ export default function NewCasePage() {
                 </div>
               )}
 
-              <div className={styles.inputGroup}>
-                <label>KAM Assignee *</label>
-                <select value={kamUserId} onChange={e => setKamUserId(e.target.value)} className={styles.input}>
+              <div className="space-y-2 mb-8">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground ml-1">KAM Assignee *</label>
+                <select value={kamUserId} onChange={e => setKamUserId(e.target.value)} className="w-full h-12 px-4 rounded-xl bg-muted/40 border border-border/50 focus:bg-background transition-colors outline-none text-sm font-medium">
                   <option value="">-- Select KAM --</option>
                   {kams.map((k: any) => <option key={k.id} value={k.id}>{k.full_name}</option>)}
                 </select>
               </div>
 
-              <div className={styles.actions}>
-                <button type="button" className="btn-primary" onClick={() => setStep(2)} disabled={!canGoNext(1)} style={{ opacity: canGoNext(1) ? 1 : 0.5 }}>Continue</button>
+              <div className="flex justify-end pt-4 border-t border-border/50 mt-8">
+                <button type="button" className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow transition-all duration-300 ease-out hover:bg-primary/90 hover:shadow-md disabled:opacity-50 disabled:pointer-events-none" onClick={() => setStep(2)} disabled={!canGoNext(1)}>Continue</button>
               </div>
             </div>
           )}
@@ -348,23 +350,23 @@ export default function NewCasePage() {
           {/* Step 2: Commercial Terms */}
           {step === 2 && (
             <div className={styles.formSection}>
-              <h2>Commercial Terms</h2>
-              <p className={styles.helperText}>Bill amount and requested exposure are separate fields (Doc 04).</p>
+              <h2 className="text-2xl font-bold tracking-tight mb-2">Commercial Terms</h2>
+              <p className="text-sm text-muted-foreground mb-8">Bill amount and requested exposure are separate fields (Doc 04).</p>
 
-              <div className={styles.row}>
-                <div className={styles.inputGroup}>
-                  <label>Bill Amount (₹) *</label>
-                  <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" />
+              <div className="grid grid-cols-2 gap-6 mb-8">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground ml-1">Bill Amount (₹) *</label>
+                  <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-muted/40 border border-border/50 focus:bg-background transition-colors outline-none text-sm font-medium" placeholder="0" />
                 </div>
-                <div className={styles.inputGroup}>
-                  <label>Requested Exposure (₹) *</label>
-                  <input type="number" value={requestedExposure || ''} onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" />
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground ml-1">Requested Exposure (₹) *</label>
+                  <input type="number" value={requestedExposure || ''} onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-muted/40 border border-border/50 focus:bg-background transition-colors outline-none text-sm font-medium" placeholder="0" />
                 </div>
               </div>
 
-              <div className={styles.actions}>
-                <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)} style={{ opacity: canGoNext(2) ? 1 : 0.5 }}>Continue</button>
+              <div className="flex justify-between pt-4 border-t border-border/50 mt-8">
+                <button type="button" className="inline-flex items-center justify-center rounded-xl bg-muted px-6 py-2.5 text-sm font-bold text-foreground transition-all duration-300 ease-out hover:bg-muted/80" onClick={() => setStep(1)}>Back</button>
+                <button type="button" className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow transition-all duration-300 ease-out hover:bg-primary/90 hover:shadow-md disabled:opacity-50 disabled:pointer-events-none" onClick={() => setStep(3)} disabled={!canGoNext(2)}>Continue</button>
               </div>
             </div>
           )}
