@@ -25,16 +25,17 @@
     --ring: 222.2 84% 4.9%;
     --radius: 0.75rem;
 
-    --bg-primary: #f8fafc;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #f1f5f9;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --text-muted: #94a3b8;
-    --accent-primary: #cbd5e1;
-    --accent-hover: #e2e8f0;
-    --border-primary: #e2e8f0;
-    --border-color: #e2e8f0;
+    /* Legacy variables mapping to semantic HSL tokens */
+    --bg-primary: hsl(var(--muted));
+    --bg-secondary: hsl(var(--card));
+    --bg-tertiary: hsl(var(--accent));
+    --text-primary: hsl(var(--foreground));
+    --text-secondary: hsl(var(--muted-foreground));
+    --text-muted: hsl(var(--muted-foreground));
+    --accent-primary: hsl(var(--primary));
+    --accent-hover: hsl(var(--secondary));
+    --border-primary: hsl(var(--border));
+    --border-color: hsl(var(--border));
     
     --color-success: 142.1 70.6% 45.3%;
     --color-success-foreground: 144.9 80.4% 10%;
