@@ -253,7 +253,7 @@ export default async function DashboardPage() {
         
         {/* 1. Portfolio Overview (Large - 2x1) */}
         {isRm && (
-          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
+          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-border/20 hover:scale-[1.01] transition-all">
             <div className="p-6 h-full flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Portfolio Overview</span>
@@ -318,7 +318,7 @@ export default async function DashboardPage() {
             </SpotlightCard>
           </Link>
           <Link href="/policy">
-            <SpotlightCard className="h-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
+            <SpotlightCard className="h-full bg-card/70 backdrop-blur-md border-border/20 hover:bg-accent transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
               <div className="text-center space-y-1">
                 <ShieldCheck size={24} className="mx-auto text-brand" aria-hidden="true" />
                 <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Policy</p>
@@ -328,7 +328,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* 4. Recent Activity (Tall - 2x2) */}
-        <SpotlightCard className={cn("row-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all", isRm ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-3")}>
+        <SpotlightCard className={cn("row-span-2 bg-card/70 backdrop-blur-md border-border/20 hover:scale-[1.005] transition-all", isRm ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-3")}>
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -356,7 +356,7 @@ export default async function DashboardPage() {
 
         {/* 5. Performance Metrics / Analytics (2x1) */}
         {isRm && (
-          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
+          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-border/20 p-6 hover:scale-[1.01] transition-all">
             <div className="flex items-center justify-between mb-6">
               <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
               <TrendingUp size={18} className="text-success" aria-hidden="true" />
@@ -395,7 +395,7 @@ export default async function DashboardPage() {
             { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
           ].map((action, i) => (
             <Link key={i} href={action.href}>
-              <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3 hover:scale-[1.02]">
+              <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-border/20 bg-card/70 backdrop-blur-md flex items-center gap-3 hover:scale-[1.02]">
                 <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", action.bg)}>
                   <action.icon size={18} className={action.iconColor || action.color} aria-hidden="true" />
                 </div>
