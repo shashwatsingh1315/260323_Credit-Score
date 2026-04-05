@@ -3,13 +3,13 @@
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: var(--bg-primary);
+  background-color: hsl(var(--background));
 }
 
 .sidebar {
   width: 260px;
-  background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
+  background-color: hsl(var(--card));
+  border-right: 1px solid hsl(var(--border));
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
@@ -20,7 +20,7 @@
   display: flex;
   align-items: center;
   padding: 0 1.5rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .logo {
@@ -32,8 +32,8 @@
 .logoIcon {
   width: 32px;
   height: 32px;
-  background: var(--text-primary);
-  color: var(--bg-primary);
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -45,7 +45,7 @@
 .logoText {
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
   letter-spacing: -0.02em;
 }
 
@@ -68,7 +68,7 @@
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
   padding: 0 0.75rem;
   letter-spacing: 0.08em;
   margin-bottom: 0.25rem;
@@ -80,7 +80,7 @@
   gap: 0.75rem;
   padding: 0.625rem 0.75rem;
   border-radius: 6px;
-  color: var(--text-secondary);
+  color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.15s ease;
@@ -88,21 +88,21 @@
 
 .navItem:hover {
   background-color: rgba(255, 255, 255, 0.04);
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
 }
 
 .navItem.active {
   background-color: rgba(255, 255, 255, 0.07);
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
 }
 
 .navItem.active svg {
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
 }
 
 .sidebarFooter {
   padding: 1.25rem 1rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid hsl(var(--border));
 }
 
 .userInfo {
@@ -112,7 +112,7 @@
   padding: 0.5rem;
   border-radius: 6px;
   background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-color);
+  border: 1px solid hsl(var(--border));
 }
 
 .userDetails {
@@ -124,7 +124,7 @@
 .userName {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
@@ -132,7 +132,7 @@
 
 .userRole {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
 }
 
 .mainContent {
@@ -152,14 +152,14 @@
   background-color: rgba(8, 8, 8, 0.9);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid hsl(var(--border));
   z-index: 10;
 }
 
 .searchBar {
   display: flex;
   align-items: center;
-  background-color: var(--bg-tertiary);
+  background-color: hsl(var(--muted));
   border-radius: 6px;
   padding: 0.5rem 1rem;
   width: 280px;
@@ -168,26 +168,26 @@
 }
 
 .searchBar:focus-within {
-  border-color: var(--accent-primary);
+  border-color: hsl(var(--primary));
   width: 360px;
 }
 
 .searchIcon {
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
   margin-right: 0.5rem;
 }
 
 .searchInput {
   background: none;
   border: none;
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
   outline: none;
   font-size: 0.875rem;
   width: 100%;
 }
 
 .searchInput::placeholder {
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
 }
 
 .headerActions {
@@ -198,7 +198,7 @@
 
 .iconBtn {
   position: relative;
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
   transition: color 0.15s ease;
   display: flex;
   align-items: center;
@@ -206,7 +206,7 @@
 }
 
 .iconBtn:hover {
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
 }
 
 .notificationDot {
@@ -215,9 +215,9 @@
   right: -2px;
   width: 7px;
   height: 7px;
-  background-color: var(--danger);
+  background-color: hsl(var(--destructive));
   border-radius: 50%;
-  border: 2px solid var(--bg-primary);
+  border: 2px solid hsl(var(--background));
 }
 
 .pageContent {

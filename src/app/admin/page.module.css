@@ -15,23 +15,23 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
 }
 
 .currentBreadcrumb {
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
   font-weight: 500;
 }
 
 .title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
   letter-spacing: -0.02em;
 }
 
 .subtitle {
-  color: var(--text-secondary);
+  color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
 }
 
@@ -61,15 +61,15 @@
 }
 
 .cardHeader p {
-  color: var(--text-secondary);
+  color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
 }
 
 .iconWrapper {
-  background-color: var(--bg-tertiary);
+  background-color: hsl(var(--muted));
   padding: 0.75rem;
   border-radius: 8px;
-  color: var(--accent-primary);
+  color: hsl(var(--primary));
 }
 
 .importForm {
@@ -87,13 +87,13 @@
 .inputGroup label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .input {
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  background-color: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
   padding: 0.75rem;
   border-radius: 8px;
   font-family: inherit;
@@ -102,24 +102,24 @@
 }
 
 .input:focus {
-  border-color: var(--accent-primary);
+  border-color: hsl(var(--primary));
 }
 
 .uploadArea {
-  border: 1px dashed var(--border-color);
+  border: 1px dashed hsl(var(--border));
   border-radius: 8px;
   padding: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--bg-tertiary);
+  background-color: hsl(var(--muted));
   transition: border-color 0.15s ease;
   position: relative;
 }
 
 .uploadArea:hover {
-  border-color: var(--accent-primary);
+  border-color: hsl(var(--primary));
 }
 
 .fileInput {
@@ -141,13 +141,13 @@
 }
 
 .fileIcon {
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
   margin-bottom: 0.5rem;
 }
 
 .helperText {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
 }
 
 .jobList {
@@ -161,9 +161,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.875rem 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
-  background-color: var(--bg-tertiary);
+  background-color: hsl(var(--muted));
 }
 
 .jobInfo {
@@ -174,12 +174,12 @@
 
 .jobInfo strong {
   font-size: 0.875rem;
-  color: var(--text-primary);
+  color: hsl(var(--foreground));
 }
 
 .jobInfo span {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: hsl(var(--muted-foreground));
 }
 
 .jobStatus {
