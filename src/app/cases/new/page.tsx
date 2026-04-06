@@ -340,7 +340,7 @@ export default function NewCasePage() {
               </div>
 
               <div className={styles.actions}>
-                <button type="button" className="btn-primary" onClick={() => setStep(2)} disabled={!canGoNext(1)} style={{ opacity: canGoNext(1) ? 1 : 0.5 }}>Continue</button>
+                <button type="button" onClick={() => setStep(2)} disabled={!canGoNext(1)} className={cn("btn-primary", canGoNext(1) ? "opacity-100" : "opacity-50")}>Continue</button>
               </div>
             </div>
           )}
@@ -364,7 +364,7 @@ export default function NewCasePage() {
 
               <div className={styles.actions}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)} style={{ opacity: canGoNext(2) ? 1 : 0.5 }}>Continue</button>
+                <button type="button" onClick={() => setStep(3)} disabled={!canGoNext(2)} className={cn("btn-primary", canGoNext(2) ? "opacity-100" : "opacity-50")}>Continue</button>
               </div>
             </div>
           )}
@@ -416,7 +416,7 @@ export default function NewCasePage() {
 
               <div className={styles.actions}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={!canGoNext(3)} style={{ opacity: canGoNext(3) ? 1 : 0.5 }}>Continue</button>
+                <button type="button" onClick={() => setStep(4)} disabled={!canGoNext(3)} className={cn("btn-primary", canGoNext(3) ? "opacity-100" : "opacity-50")}>Continue</button>
               </div>
             </div>
           )}
@@ -462,7 +462,7 @@ export default function NewCasePage() {
 
               <div className={styles.actions}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(5)} disabled={!canGoNext(4)} style={{ opacity: canGoNext(4) ? 1 : 0.5 }}>Continue</button>
+                <button type="button" onClick={() => setStep(5)} disabled={!canGoNext(4)} className={cn("btn-primary", canGoNext(4) ? "opacity-100" : "opacity-50")}>Continue</button>
               </div>
             </div>
           )}

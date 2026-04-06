@@ -44,7 +44,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 rounded-lg px-4 py-3 flex items-start gap-2 text-sm">
+      <div className="bg-warning/10 border border-warning/30 text-warning-foreground rounded-lg px-4 py-3 flex items-start gap-2 text-sm">
         <ShieldAlert size={16} className="mt-0.5 shrink-0" />
         <p>These settings affect live business logic. Modify with caution.</p>
       </div>
