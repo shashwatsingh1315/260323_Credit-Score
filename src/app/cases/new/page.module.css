@@ -59,11 +59,11 @@
 }
 
 .step:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: hsl(var(--foreground) / 0.04);
 }
 
 .step.active {
-  background: rgba(255, 255, 255, 0.07);
+  background: hsl(var(--foreground) / 0.07);
 }
 
 .step.done .stepNum {
@@ -263,7 +263,7 @@
   color: var(--danger);
   font-size: 0.8125rem;
   padding: 0.75rem 1rem;
-  background: rgba(248, 113, 113, 0.08);
+  background: hsl(var(--destructive) / 0.08);
   border-radius: 8px;
 }
 

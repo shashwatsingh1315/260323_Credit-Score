@@ -10,7 +10,7 @@
 .headerRow { display: flex; align-items: flex-start; justify-content: space-between; }
 .title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
 .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem; text-transform: capitalize; }
-.statusBadge { padding: 0.375rem 1rem; background: rgba(255,255,255,0.06); border-radius: 6px; font-size: 0.875rem; font-weight: 600; color: var(--accent-primary); }
+.statusBadge { padding: 0.375rem 1rem; background: hsl(var(--foreground) / 0.06); border-radius: 6px; font-size: 0.875rem; font-weight: 600; color: var(--accent-primary); }
 .substatus { font-weight: 400; color: var(--text-muted); }
 
 /* Tabs */
@@ -47,9 +47,9 @@
 .taskRow:last-child { border-bottom: none; }
 .taskInfo { display: flex; flex-direction: column; gap: 0.25rem; }
 .taskStatus { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; padding: 0.125rem 0.5rem; border-radius: 4px; display: inline-block; width: fit-content; }
-.taskStatus.pending { color: var(--warning); background: rgba(251, 191, 36, 0.1); }
-.taskStatus.completed { color: var(--success); background: rgba(52, 211, 153, 0.1); }
-.taskStatus.inprogress { color: var(--accent-primary); background: rgba(200, 200, 200, 0.08); }
+.taskStatus.pending { color: var(--warning); background: hsl(var(--color-warning) / 0.1); }
+.taskStatus.completed { color: var(--success); background: hsl(var(--color-success) / 0.1); }
+.taskStatus.inprogress { color: var(--accent-primary); background: hsl(var(--foreground) / 0.08); }
 .taskDesc { font-size: 0.875rem; color: var(--text-primary); }
 .taskMeta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.5rem; align-items: center; }
 .waitingBadge { color: var(--warning); font-weight: 500; }
@@ -61,15 +61,15 @@
 .roundHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 .roundHeader h3 { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); }
 .roundStatus { font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.625rem; border-radius: 4px; text-transform: capitalize; }
-.roundStatus.open { color: var(--warning); background: rgba(251, 191, 36, 0.1); }
-.roundStatus.approved { color: var(--success); background: rgba(52, 211, 153, 0.1); }
-.roundStatus.rejected { color: var(--danger); background: rgba(248, 113, 113, 0.1); }
-.roundStatus.returned_for_revision { color: var(--warning); background: rgba(251, 191, 36, 0.08); }
+.roundStatus.open { color: var(--warning); background: hsl(var(--color-warning) / 0.1); }
+.roundStatus.approved { color: var(--success); background: hsl(var(--color-success) / 0.1); }
+.roundStatus.rejected { color: var(--danger); background: hsl(var(--destructive) / 0.1); }
+.roundStatus.returned_for_revision { color: var(--warning); background: hsl(var(--color-warning) / 0.08); }
 .decisionRow { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border-primary); }
 .decisionBadge { font-size: 0.6875rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 4px; }
-.decisionBadge.approve { color: var(--success); background: rgba(52, 211, 153, 0.1); }
-.decisionBadge.reject { color: var(--danger); background: rgba(248, 113, 113, 0.1); }
-.decisionBadge.return_for_revision { color: var(--warning); background: rgba(251, 191, 36, 0.08); }
+.decisionBadge.approve { color: var(--success); background: hsl(var(--color-success) / 0.1); }
+.decisionBadge.reject { color: var(--danger); background: hsl(var(--destructive) / 0.1); }
+.decisionBadge.return_for_revision { color: var(--warning); background: hsl(var(--color-warning) / 0.08); }
 .decisionComment { font-size: 0.8125rem; color: var(--text-muted); }
 .approvalForm { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .input { padding: 0.75rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: 8px; color: var(--text-primary); font-size: 0.875rem; outline: none; }
@@ -89,6 +89,6 @@
 /* Footer */
 .footerActions { display: flex; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-primary); }
 .withdrawBtn { background: none; border: 1px solid var(--danger); color: var(--danger); padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.8125rem; cursor: pointer; transition: background 0.15s; }
-.withdrawBtn:hover { background: rgba(248, 113, 113, 0.08); }
+.withdrawBtn:hover { background: hsl(var(--destructive) / 0.08); }
 
 .emptyState { text-align: center; padding: 2rem; color: var(--text-muted); }
