@@ -175,8 +175,8 @@ export default async function DashboardPage() {
   ]);
 
   // Fetch upcoming & delayed tranches for RM view
-  let upcomingTranches: any[] = [];
-  let delayedTranches: any[] = [];
+  const upcomingTranches: any[] = [];
+  const delayedTranches: any[] = [];
   let rmMetrics: { totalExposure: number; averageMargin: number | null; countPDCR: number | null; amountPDCR: number | null; weightedDaysPDCR: number | null } | null = null;
 
   if (role === 'rm' && user) {
