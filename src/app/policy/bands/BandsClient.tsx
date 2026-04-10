@@ -19,12 +19,12 @@ interface ScoreBand {
 }
 
 const fallbackColors = [
-  'hsl(var(--color-success))',
-  'hsl(var(--color-info))',
-  'hsl(var(--color-warning))',
-  'hsl(var(--color-destructive))',
-  'hsl(var(--color-brand))',
-  'hsl(var(--color-attention))'
+  '--color-success',
+  '--color-info',
+  '--color-warning',
+  '--destructive',
+  '--color-brand',
+  '--color-attention'
 ];
 
 export default function BandsClient({ initialBands, activePolicyId }: { initialBands: ScoreBand[], activePolicyId: string | null }) {
@@ -59,9 +59,9 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
                 <div className="flex-1 relative h-7 rounded overflow-hidden bg-muted">
                   <div
                     className="h-full rounded flex items-center pl-2.5"
-                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%`, background: fallbackColors[i % fallbackColors.length] + '60', borderLeft: `3px solid ${fallbackColors[i % fallbackColors.length]}` }}
+                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%`, background: `hsla(var(${fallbackColors[i % fallbackColors.length]}) / 0.6)`, borderLeft: `3px solid hsl(var(${fallbackColors[i % fallbackColors.length]}))` }}
                   >
-                    <span className="text-xs font-semibold" style={{ color: fallbackColors[i % fallbackColors.length] }}>{b.band_name}</span>
+                    <span className="text-xs font-semibold" style={{ color: `hsl(var(${fallbackColors[i % fallbackColors.length]}))` }}>{b.band_name}</span>
                   </div>
                 </div>
                 <div className="text-xs font-semibold w-14 text-right">{b.approved_credit_days}d</div>
@@ -95,7 +95,7 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
                 <TableCell><Badge variant="info">{b.approved_credit_days} days</Badge></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded" style={{ background: fallbackColors[i % fallbackColors.length] }} />
+                    <span className="w-4 h-4 rounded" style={{ background: `hsl(var(${fallbackColors[i % fallbackColors.length]}))` }} />
                     <span className="text-xs text-muted-foreground">{fallbackColors[i % fallbackColors.length]}</span>
                   </div>
                 </TableCell>

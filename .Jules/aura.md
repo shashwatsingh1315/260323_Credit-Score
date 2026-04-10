@@ -1,0 +1,3 @@
+## 2025-02-20 - Invalid HSL string concatenation for alpha values
+**Learning:** Concatenating a string hex or generic `hsl(var(--color))` string with a hardcoded alpha value like `+ '60'` generates invalid CSS (e.g., `hsl(var(--color-success))60`). Tailwind's opacity modifiers (`bg-primary/50`) also fail if the CSS variables in `tailwind.config.js` aren't defined with the `/ <alpha-value>` placeholder.
+**Action:** Always construct standard `hsla()` strings natively using division syntax when building inline styles (e.g., `hsla(var(--color-success) / 0.6)`). Additionally, ensure all colors in `tailwind.config.js` utilize the `<alpha-value>` token: `hsl(var(--primary) / <alpha-value>)`.
