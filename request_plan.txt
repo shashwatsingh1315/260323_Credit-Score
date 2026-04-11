@@ -1,0 +1,7 @@
+I've reviewed the prompt and the codebase. As "Aura", the Design System & UX Architect agent, my goal is to refactor the UI by establishing a rigorous, design-token-based foundation.
+I have access to the tailwind.config.js and globals.css file which defines the current token scales for colors (`hsl(var(--background))`, `hsl(var(--foreground))`, etc.), and notice some legacy utility classes (`.btn-primary`, `.card`, etc.) and CSS modules using legacy variables (`var(--bg-primary)` instead of `hsl(var(--background))`).
+I need to:
+1. Create `DESIGN_STYLE.md` documenting the design system baseline.
+2. Update CSS Modules (like `src/components/Shell.module.css`) to use semantic HSL design tokens (e.g., `hsl(var(--background))` instead of `var(--bg-primary)`).
+3. Replace inline styles (`style={{ opacity: ... }}`) and legacy classnames with Tailwind utilities and design tokens where applicable (e.g. `src/app/cases/new/page.tsx` hardcoded inline styles).
+4. Remove legacy hardcoded colors (`--bg-primary`, etc) from globals.css after updating them. Or maybe keep them as stated in memory: "Legacy utility classes (e.g., `.card`, `.btn-primary`, `.badge`) in `src/app/globals.css` must be preserved to support unmigrated pages and prevent layout breakage, but their underlying styles should be updated to use modern semantic HSL tokens with `<alpha-value>` support." and "CSS modules (`*.module.css`) must explicitly use the global semantic HSL tokens mapped via CSS `hsl()`"

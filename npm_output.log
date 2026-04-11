@@ -1,0 +1,27 @@
+
+> app@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+- Environments: .env.local
+✓ Ready in 553ms
+- Experiments (use with caution):
+  ✓ authInterrupts
+
+○ Compiling / ...
+ GET / 200 in 10.4s (next.js: 7.4s, application-code: 2.9s)
+ POST / 200 in 32ms (next.js: 6ms, application-code: 26ms)
+  └─ ƒ getImpersonationRole() in 4ms src/utils/auth-actions.ts
+ POST / 200 in 25ms (next.js: 6ms, application-code: 19ms)
+  └─ ƒ fetchMyNotifications() in 5ms src/components/actions.ts
+ POST / 200 in 29ms (next.js: 5ms, application-code: 23ms)
+  └─ ƒ fetchSessionInfo() in 6ms src/components/actions.ts
+ GET /cases/new 401 in 1989ms (next.js: 1799ms, application-code: 190ms)
+ POST /cases/new 200 in 22ms (next.js: 4ms, application-code: 19ms)
+  └─ ƒ getImpersonationRole() in 2ms src/utils/auth-actions.ts
+ POST /cases/new 200 in 17ms (next.js: 4ms, application-code: 13ms)
+  └─ ƒ fetchMyNotifications() in 4ms src/components/actions.ts
+ POST /cases/new 200 in 18ms (next.js: 3ms, application-code: 14ms)
+  └─ ƒ fetchSessionInfo() in 3ms src/components/actions.ts
