@@ -33,6 +33,7 @@ const navItems = [
     section: 'System',
     requiresAdmin: true,
     links: [
+      { href: '/collections', label: 'Collections', icon: FileText },
       { href: '/admin', label: 'Admin', icon: Shield },
       { href: '/settings', label: 'System Settings', icon: Settings },
     ],

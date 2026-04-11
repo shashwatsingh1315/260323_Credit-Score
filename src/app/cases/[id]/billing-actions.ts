@@ -142,14 +142,13 @@ export async function handleSaveBillingDetails(formData: FormData) {
 
   const caseId = formData.get('caseId') as string;
   const billingDate = formData.get('billingDate') as string;
-  const decidedAmount = Math.round(parseFloat(formData.get('decidedAmount') as string));
   const promisedAmount = Math.round(parseFloat(formData.get('promisedAmount') as string));
 
-  if (!billingDate || isNaN(decidedAmount) || isNaN(promisedAmount)) {
-    throw new Error('Billing date, decided amount, and promised amount are required.');
+  if (!billingDate || isNaN(promisedAmount)) {
+    throw new Error('Billing date and promised amount are required.');
   }
-  if (decidedAmount <= 0 || promisedAmount <= 0) {
-    throw new Error('Amounts must be positive whole rupees.');
+  if (promisedAmount <= 0) {
+    throw new Error('Amount must be positive whole rupees.');
   }
 
   const supabase = await createClient();
@@ -166,7 +165,6 @@ export async function handleSaveBillingDetails(formData: FormData) {
 
   const { error } = await supabase.from('credit_cases').update({
     billing_date: billingDate,
-    decided_bill_amount: decidedAmount,
     promised_bill_amount: promisedAmount,
     actual_bill_amount: 0,
     status: 'Billing Active',
@@ -178,7 +176,7 @@ export async function handleSaveBillingDetails(formData: FormData) {
     case_id: caseId,
     event_type: 'billing_details_saved',
     actor_id: user.id,
-    description: `Billing initialized. Decided: ₹${decidedAmount.toLocaleString('en-IN')}, Promised: ₹${promisedAmount.toLocaleString('en-IN')}, Billing Date: ${billingDate}.`,
+    description: `Billing initialized. Promised: ₹${promisedAmount.toLocaleString('en-IN')}, RM Handover Date: ${billingDate}.`,
   });
 
   revalidatePath(`/cases/${caseId}`);
@@ -714,4 +712,52 @@ export async function updateSystemSetting(formData: FormData) {
   });
 
   revalidatePath('/settings');
+}
+
+/**
+ * KAM saves the decided bill amount.
+ * Only callable before the first repayment is logged.
+ */
+export async function handleSaveDecidedAmount(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can set the Decided Amount.');
+  }
+
+  const caseId = formData.get('caseId') as string;
+  const decidedAmount = Math.round(parseFloat(formData.get('decidedAmount') as string));
+
+  if (isNaN(decidedAmount) || decidedAmount <= 0) {
+    throw new Error('Decided amount must be a positive whole number (rupees).');
+  }
+
+  const supabase = await createClient();
+
+  // Guard: locked if any payments exist
+  const { count } = await supabase
+    .from('repayments')
+    .select('*', { count: 'exact', head: true })
+    .eq('case_id', caseId);
+
+  if ((count ?? 0) > 0) {
+    throw new Error('Billing is locked. Issue a Credit Note to adjust amounts.');
+  }
+
+  const { error } = await supabase
+    .from('credit_cases')
+    .update({ decided_bill_amount: decidedAmount })
+    .eq('id', caseId);
+
+  if (error) throw new Error(error.message);
+
+  await logAuditEvent({
+    case_id: caseId,
+    event_type: 'decided_amount_saved',
+    actor_id: user.id,
+    description: `Decided Bill Amount set to ₹${decidedAmount.toLocaleString('en-IN')} by KAM.`,
+  });
+
+  revalidatePath(`/cases/${caseId}`);
 }

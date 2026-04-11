@@ -275,6 +275,7 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
         raw_input_value: answer?.raw_input_value || null,
         grade_value: answer?.grade_value != null ? answer.grade_value : null,
         reason: answer?.reason || null,
+        sla_deadline: p.sla_days ? new Date(Date.now() + p.sla_days * 86400000).toISOString() : null,
       });
     }
   }

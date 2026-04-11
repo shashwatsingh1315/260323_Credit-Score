@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { updateSystemSetting } from '@/app/cases/[id]/billing-actions';
-import { Settings, ShieldAlert } from 'lucide-react';
+import { Settings, ShieldAlert, ListChecks } from 'lucide-react';
+import RcaReasonManager from './RcaReasonManager';
+import DelayReasonManager from './DelayReasonManager';
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -18,6 +20,18 @@ export default async function SettingsPage() {
     .from('system_settings')
     .select('*')
     .order('key');
+
+  const { data: rcaReasons } = await supabase
+    .from('admin_enumerations')
+    .select('*')
+    .eq('category', 'reason_for_credit')
+    .order('sort_order');
+
+  const { data: delayReasons } = await supabase
+    .from('admin_enumerations')
+    .select('*')
+    .eq('category', 'delay_reason')
+    .order('sort_order');
 
   const settingMeta: Record<string, { label: string; description: string; unit: string }> = {
     WRITE_OFF_SLIPPAGE_PERCENTAGE: {
@@ -98,6 +112,40 @@ export default async function SettingsPage() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      <div className="pt-6">
+        <h2 className="text-xl font-bold text-foreground flex items-center gap-2 mb-4">
+          <ListChecks size={20} />
+          Dropdown Enumerations
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-3 border-b mb-3">
+              <CardTitle className="text-base">Reason for Credit (RCA)</CardTitle>
+              <p className="text-xs text-muted-foreground">Used in the New Case wizard.</p>
+            </CardHeader>
+            <CardContent>
+              <form action={async (fd) => {
+                'use server';
+                const { updateSystemSetting } = await import('@/app/cases/[id]/billing-actions'); // import here or move to separate action if needed
+              }}>
+                <RcaReasonManager reasons={rcaReasons || []} />
+              </form>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-3 border-b mb-3">
+              <CardTitle className="text-base">SLA Delay Reasons</CardTitle>
+              <p className="text-xs text-muted-foreground">Used by operators when completing an overdue task.</p>
+            </CardHeader>
+            <CardContent>
+               <DelayReasonManager reasons={delayReasons || []} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

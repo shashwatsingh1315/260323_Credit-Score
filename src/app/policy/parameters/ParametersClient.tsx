@@ -24,6 +24,8 @@ interface Parameter {
   signal_cost: string;
   signal_lag: string;
   weight: number; 
+  sla_days?: number;
+  require_reasoning?: boolean;
   rubric_guidance: string; 
   auto_band_config?: any;
   is_active: boolean;
@@ -275,6 +277,14 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
               <div className="space-y-1">
                 <Label>Cost (1-5)</Label>
                 <Input name="signal_cost" type="number" min="1" max="5" defaultValue={editing?.signal_cost || 3} />
+              </div>
+              <div className="space-y-1">
+                <Label>SLA Days</Label>
+                <Input name="sla_days" type="number" min="0" max="30" defaultValue={editing?.sla_days || ''} placeholder="Leave empty for no SLA" />
+              </div>
+              <div className="flex items-center gap-2 pt-6">
+                <input type="checkbox" name="require_reasoning" id="require_reasoning" value="true" defaultChecked={editing?.require_reasoning || false} className="w-4 h-4 rounded border-gray-300" />
+                <Label htmlFor="require_reasoning">Require Mandatory Reasoning</Label>
               </div>
               <div className="col-span-2 space-y-1">
                 <Label>Rubric Guidance (Description & Ratings)</Label>

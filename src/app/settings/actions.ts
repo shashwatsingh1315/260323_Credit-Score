@@ -1,0 +1,58 @@
+"use server";
+import { createClient } from '@/utils/supabase/server';
+import { getCurrentUser, isAdmin } from '@/utils/auth';
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+
+export async function addRcaReason(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect('/unauthorized');
+
+  const value = (formData.get('value') as string)?.trim();
+  if (!value) return { error: 'Value is required' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('admin_enumerations').insert({
+    category: 'reason_for_credit',
+    value,
+    is_active: true,
+    sort_order: 100,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath('/settings');
+  return { success: true };
+}
+
+export async function toggleRcaReason(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect('/unauthorized');
+
+  const id = formData.get('id') as string;
+  const is_active = formData.get('is_active') === 'true';
+
+  const supabase = await createClient();
+  await supabase.from('admin_enumerations').update({ is_active }).eq('id', id);
+  revalidatePath('/settings');
+  return { success: true };
+}
+
+export async function addDelayReason(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect('/unauthorized');
+
+  const value = (formData.get('value') as string)?.trim();
+  if (!value) return { error: 'Value is required' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('admin_enumerations').insert({
+    category: 'delay_reason',
+    value,
+    is_active: true,
+    sort_order: 100,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath('/settings');
+  return { success: true };
+}
