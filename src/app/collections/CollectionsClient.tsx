@@ -85,7 +85,7 @@ export default function CollectionsClient({ collections, stats, escalations }: {
           </Card>
         ) : (
           filtered.map((c) => {
-            const overdueDays = Math.floor((new Date().getTime() - new Date(c.ledger?.billingDate).getTime()) / 86400000) - (c.composite_credit_days || 0);
+            const overdueDays = Math.floor((new Date().getTime() - new Date(c.ledger?.billing_date).getTime()) / 86400000) - (c.composite_credit_days || 0);
             const isEscalated = (c.escalation_level ?? 0) > 0;
             const targetRole = escalations.find(e => e.escalation_level === (c.escalation_level ?? 0) + 1)?.escalate_to_role || 'founder_admin';
 

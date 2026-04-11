@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '@/utils/supabase';
+import { createClient } from '@/utils/supabase/server';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import CollectionsClient from './CollectionsClient';
 
@@ -14,7 +14,7 @@ export default async function CollectionsPage() {
     );
   }
 
-  const supabase = getSupabaseAdmin();
+  const supabase = await createClient();
 
   const { data: cases } = await supabase
     .from('credit_cases')

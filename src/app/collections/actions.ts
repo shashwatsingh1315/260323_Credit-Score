@@ -1,6 +1,7 @@
 "use server";
-import { getSupabaseAdmin } from '@/utils/supabase';
-import { getImpersonationRole, getSessionUser } from '@/utils/auth-actions';
+import { createClient } from '@/utils/supabase/server';
+import { getImpersonationRole } from '@/utils/auth-actions';
+import { getCurrentUser } from '@/utils/auth';
 import { revalidatePath } from 'next/cache';
 
 // Trigger an escalation manually
@@ -9,8 +10,8 @@ export async function handleEscalateCase(fd: FormData) {
   const targetRole = fd.get('targetRole') as string;
   if (!caseId || !targetRole) return;
 
-  const supabase = getSupabaseAdmin();
-  const user = await getSessionUser();
+  const supabase = await createClient();
+  const user = await getCurrentUser();
 
   const { data: c } = await supabase.from('credit_cases').select('escalation_level').eq('id', caseId).single();
   
