@@ -92,6 +92,33 @@ export async function fetchParties() {
 }
 
 /**
+ * Fetch a single party with historical case data for auto-fill.
+ */
+export async function fetchPartyDetails(partyId: string) {
+  if (!partyId) return null;
+  const supabase = await createClient();
+  const { data: party } = await supabase
+    .from('parties')
+    .select('id, legal_name, customer_code, industry_category, party_type, influencer_subtype, gstin, address_line1, city, state, pincode')
+    .eq('id', partyId)
+    .single();
+
+  if (!party) return null;
+
+  // Fetch last case for this party (as customer or contractor) to pre-fill bill amounts
+  const { data: lastCase } = await supabase
+    .from('credit_cases')
+    .select('bill_amount, requested_exposure_amount, composite_credit_days, product_category, deal_size_bucket')
+    .or(`customer_party_id.eq.${partyId},contractor_party_id.eq.${partyId}`)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return { ...party, lastCase };
+}
+
+
+/**
  * Server action: Fetch branches.
  */
 /**

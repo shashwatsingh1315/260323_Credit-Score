@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
-import { handleNewCase, fetchParties,  fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds, fetchKams } from './actions';
+import { handleNewCase, fetchParties, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds, fetchKams, fetchPartyDetails } from './actions';
 import { PartyDialog } from '@/components/admin/PartyDialog';
 import styles from './page.module.css';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,8 @@ export default function NewCasePage() {
   const [error, setError] = useState('');
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
   const [partyTypeForDialog, setPartyTypeForDialog] = useState<'customer' | 'contractor'>('customer');
+  const [customerDetails, setCustomerDetails] = useState<any>(null);
+  const [contractorDetails, setContractorDetails] = useState<any>(null);
 
   const refreshParties = async (newParty?: any) => {
     const p = await fetchParties();
@@ -52,6 +54,27 @@ export default function NewCasePage() {
   const [contractorPartyId, setContractorPartyId] = useState('');
   const [billAmount, setBillAmount] = useState(0);
   const [requestedExposure, setRequestedExposure] = useState(0);
+
+  // Auto-fetch party details on selection (M1)
+  const handleCustomerSelect = async (id: string) => {
+    setCustomerPartyId(id);
+    if (id) {
+      const details = await fetchPartyDetails(id);
+      setCustomerDetails(details);
+    } else {
+      setCustomerDetails(null);
+    }
+  };
+
+  const handleContractorSelect = async (id: string) => {
+    setContractorPartyId(id);
+    if (id) {
+      const details = await fetchPartyDetails(id);
+      setContractorDetails(details);
+    } else {
+      setContractorDetails(null);
+    }
+  };
   const [tranches, setTranches] = useState<Tranche[]>([
     { type: 'percentage', value: 100, days_after_billing: 30 },
   ]);
@@ -187,7 +210,16 @@ export default function NewCasePage() {
 
     // Check if required tasks are answered before submitting
     if (action === 'submit') {
-      const missingTasks = rmTasks.filter(t => t.is_required && !rmTaskAnswers[t.id]?.raw_input_value && rmTaskAnswers[t.id]?.grade_value === undefined);
+      // A task is considered incomplete only if BOTH raw_input_value AND grade_value are missing
+      // (grade_select tasks only fill grade_value; numeric/text tasks only fill raw_input_value)
+      const missingTasks = rmTasks.filter(t => {
+        if (!t.is_required) return false;
+        const ans = rmTaskAnswers[t.id];
+        if (!ans) return true;
+        const hasGrade = ans.grade_value != null && ans.grade_value !== '';
+        const hasRaw = ans.raw_input_value != null && String(ans.raw_input_value).trim() !== '';
+        return !hasGrade && !hasRaw;
+      });
       if (missingTasks.length > 0) {
         setError(`Please answer all required RM intake questions before submitting: ${missingTasks.map(t => t.name).join(', ')}`);
         setSubmitting(false);
@@ -301,12 +333,21 @@ export default function NewCasePage() {
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={customerPartyId} onChange={e => setCustomerPartyId(e.target.value)} className={styles.input}>
+                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={styles.input}>
                     <option value="">-- Select Customer --</option>
                     {parties
                       .filter(p => !p.party_type || p.party_type === 'customer' || p.party_type === 'both')
                       .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
                   </select>
+                  {customerDetails && (
+                    <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
+                      <p><span className="font-semibold text-foreground">Industry:</span> {customerDetails.industry_category || '—'}</p>
+                      {customerDetails.city && <p><span className="font-semibold text-foreground">City:</span> {customerDetails.city}, {customerDetails.state}</p>}
+                      {customerDetails.lastCase && (
+                        <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{customerDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {customerDetails.lastCase.composite_credit_days}d credit</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -322,12 +363,21 @@ export default function NewCasePage() {
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={contractorPartyId} onChange={e => setContractorPartyId(e.target.value)} className={styles.input}>
+                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={styles.input}>
                     <option value="">-- Select Influencer --</option>
                     {parties
                       .filter(p => p.party_type === 'influencer' || p.party_type === 'both' || p.party_type === 'contractor')
                       .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.influencer_subtype ? `[${p.influencer_subtype}]` : ''}</option>)}
                   </select>
+                  {contractorDetails && (
+                    <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
+                      <p><span className="font-semibold text-foreground">Sub-type:</span> {contractorDetails.influencer_subtype || '—'}</p>
+                      {contractorDetails.city && <p><span className="font-semibold text-foreground">City:</span> {contractorDetails.city}, {contractorDetails.state}</p>}
+                      {contractorDetails.lastCase && (
+                        <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{contractorDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {contractorDetails.lastCase.composite_credit_days}d credit</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

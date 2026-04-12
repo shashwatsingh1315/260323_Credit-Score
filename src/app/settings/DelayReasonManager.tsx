@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
-import { addDelayReason, toggleRcaReason } from './actions';
+import { addDelayReason, toggleDelayReason } from './actions';
 import { toast } from 'sonner';
 
 interface Props { reasons: { id: string; value: string; is_active: boolean }[] }
@@ -25,7 +25,7 @@ export default function DelayReasonManager({ reasons }: Props) {
       {reasons.map(r => (
         <div key={r.id} className="flex items-center justify-between border rounded-lg px-4 py-2">
           <span className="text-sm">{r.value}</span>
-          <form action={toggleRcaReason}>
+          <form action={toggleDelayReason}>
             <input type="hidden" name="id" value={r.id} />
             <input type="hidden" name="is_active" value={String(!r.is_active)} />
             <Button type="submit" size="sm" variant="ghost" className={r.is_active ? 'text-destructive' : 'text-success'}>

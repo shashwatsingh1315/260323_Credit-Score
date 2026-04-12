@@ -20,7 +20,8 @@ import { Label } from '@/components/ui/label';
 import {
   handleProgressStage, handleCompleteTask, handleWithdraw,
   handleCreateApprovalRound, handleApprovalDecision, handleAddComment,
-  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleAssignTask
+  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleAssignTask,
+  handleBoardVote
 } from './actions';
 import { cn } from '@/lib/utils';
 
@@ -31,10 +32,13 @@ interface CaseWorkspaceProps {
     tasks: any[];
     auditEvents: any[];
     approvalRounds: any[];
+    boardRounds: any[];
     comments: any[];
     users?: any[];
     ledger: any | null;
     stageSummaries?: { stage: number; score: number | null; completedAt: string | null }[];
+    rcaReasons?: { value: string }[];
+    delayReasons?: { value: string }[];
   };
 }
 
@@ -552,9 +556,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                     <p className="text-sm">{task.description}</p>
                                 <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
                                   {task.status !== 'Completed' && (activeRole === 'founder_admin' || activeRole === 'kam') ? (
-                                    <form action={handleAssignTask} className="flex items-center gap-2">
-                                      <input type="hidden" name="taskId" value={task.id} />
-                                      <input type="hidden" name="caseId" value={c.id} />
+                                    <div className="flex items-center gap-1">
                                       {(() => {
                                         const requiredRole = task.param?.default_owning_role;
                                         const filtered = data.users?.filter((u: any) =>
@@ -568,22 +570,26 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                             {showWarning ? (
                                               <span className="text-xs text-destructive">No {requiredRole} users found</span>
                                             ) : (
-                                              <select
-                                                name="assigneeId"
-                                                defaultValue={task.assigned_to || ""}
-                                                onChange={(e) => e.target.form?.requestSubmit()}
-                                                className="h-6 text-xs bg-background border border-input rounded px-1"
-                                              >
-                                                <option value="">Unassigned</option>
-                                                {filtered.map((u: any) => (
-                                                  <option key={u.id} value={u.id}>{u.full_name}</option>
-                                                ))}
-                                              </select>
+                                              <form action={handleAssignTask} className="flex items-center gap-1">
+                                                <input type="hidden" name="taskId" value={task.id} />
+                                                <input type="hidden" name="caseId" value={c.id} />
+                                                <select
+                                                  name="assigneeId"
+                                                  defaultValue={task.assigned_to || ""}
+                                                  className="h-6 text-xs bg-background border border-input rounded px-1"
+                                                >
+                                                  <option value="">Unassigned</option>
+                                                  {filtered.map((u: any) => (
+                                                    <option key={u.id} value={u.id}>{u.full_name}</option>
+                                                  ))}
+                                                </select>
+                                                <Button type="submit" size="sm" variant="ghost" className="h-6 text-xs px-1">Assign</Button>
+                                              </form>
                                             )}
                                           </>
                                         );
                                       })()}
-                                    </form>
+                                    </div>
                                   ) : (
                                     <span>{task.assigned?.full_name || 'Unassigned'}</span>
                                   )}
@@ -591,7 +597,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                   {task.reason && <span>· {task.reason}</span>}
                                 </div>
                               </div>
-                              {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
+                                  {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
                                 <form action={handleCompleteTask} className="flex items-center gap-2 shrink-0">
                                   <input type="hidden" name="taskId" value={task.id} />
                                   <input type="hidden" name="caseId" value={c.id} />

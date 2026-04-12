@@ -1,6 +1,5 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
 import { revalidatePath } from 'next/cache';
 
@@ -30,5 +29,5 @@ export async function handleEscalateCase(fd: FormData) {
   }
 
   revalidatePath('/collections');
-  return { success: true };
 }
+

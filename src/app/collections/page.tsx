@@ -16,35 +16,34 @@ export default async function CollectionsPage() {
 
   const supabase = await createClient();
 
+  // Use billing_date directly from credit_cases (C5/H4 fix: no longer relies on case_ledgers join)
   const { data: cases } = await supabase
     .from('credit_cases')
     .select(`
-      id, status, bill_amount, composite_credit_days, escalation_level,
-      customer:customer_id(legal_name),
-      ledger:case_ledgers(billing_date, actual_amount, is_locked)
+      id, case_number, status, bill_amount, composite_credit_days, escalation_level,
+      billing_date, decided_bill_amount, actual_bill_amount,
+      customer:parties!credit_cases_customer_party_id_fkey(legal_name)
     `)
     .in('status', ['Billing Active', 'Pending Write-Off Approval']);
 
+  // Fetch escalation config from admin settings
   const { data: escalations } = await supabase
-    .from('escalations')
+    .from('escalation_thresholds')
     .select('*')
     .order('escalation_level', { ascending: true });
 
+  const now = new Date();
+
   const overdueCases = (cases || []).filter(c => {
-    if (!c.ledger?.[0]?.billing_date) return false;
-    const l = c.ledger[0];
-    if (l.is_locked) return false;
-    const passedDays = Math.floor((new Date().getTime() - new Date(l.billing_date).getTime()) / 86400000);
+    if (!c.billing_date) return false;
+    const passedDays = Math.floor((now.getTime() - new Date(c.billing_date).getTime()) / 86400000);
     return passedDays > (c.composite_credit_days || 0);
-  }).map(c => ({
-    ...c,
-    ledger: c.ledger?.[0]
-  }));
+  });
 
   const stats = {
-    totalOverdue: overdueCases.reduce((sum, c) => sum + (c.bill_amount || 0), 0),
+    totalOverdue: overdueCases.reduce((sum, c) => sum + (c.decided_bill_amount || c.bill_amount || 0), 0),
     countOverdue: overdueCases.length,
-    totalEscalated: overdueCases.filter(c => (c.escalation_level ?? 0) > 0).reduce((sum, c) => sum + (c.bill_amount || 0), 0),
+    totalEscalated: overdueCases.filter(c => (c.escalation_level ?? 0) > 0).reduce((sum, c) => sum + (c.decided_bill_amount || c.bill_amount || 0), 0),
     countEscalated: overdueCases.filter(c => (c.escalation_level ?? 0) > 0).length,
   };
 
