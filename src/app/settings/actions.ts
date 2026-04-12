@@ -93,3 +93,45 @@ export async function deleteDelayReason(formData: FormData): Promise<void> {
   await supabase.from('admin_enumerations').delete().eq('id', id).eq('category', 'delay_reason');
   revalidatePath('/settings');
 }
+
+// ID GENERATION LOGIC ACTIONS
+
+export async function addCityCode(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect('/unauthorized');
+
+  let code = (formData.get('code') as string)?.trim().toUpperCase();
+  const name = (formData.get('name') as string)?.trim();
+
+  if (!code || code.length !== 3) return { error: 'Code must be exactly 3 characters' };
+  if (!name) return { error: 'Name is required' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('city_codes').insert({ code, name });
+
+  if (error) return { error: error.message };
+  revalidatePath('/settings');
+  return { success: true };
+}
+
+export async function deleteCityCode(id: string) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect('/unauthorized');
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('city_codes').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/settings');
+  return { success: true };
+}
+
+export async function updateIdPrefix(entity_type: string, prefix: string) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect('/unauthorized');
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('id_prefixes').update({ prefix }).eq('entity_type', entity_type);
+  if (error) return { error: error.message };
+  revalidatePath('/settings');
+  return { success: true };
+}
