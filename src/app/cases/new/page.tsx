@@ -25,8 +25,8 @@ export default function NewCasePage() {
   const [parties, setParties] = useState<any[]>([]);
   const [kams, setKams] = useState<any[]>([]);
   const [kamUserId, setKamUserId] = useState<string>('');
-  const [productCategories, setProductCategories] = useState<any[]>([]);
   const [dealBuckets, setDealBuckets] = useState<any[]>([]);
+  const [creditReasons, setCreditReasons] = useState<any[]>([]);
   const [routingThresholds, setRoutingThresholds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -78,7 +78,6 @@ export default function NewCasePage() {
   const [tranches, setTranches] = useState<Tranche[]>([
     { type: 'percentage', value: 100, days_after_billing: 30 },
   ]);
-  const [productCategory, setProductCategory] = useState('');
   const [dealSizeBucket, setDealSizeBucket] = useState('');
   const [commercialNotes, setCommercialNotes] = useState('');
   const [justification, setJustification] = useState('');
@@ -99,18 +98,18 @@ export default function NewCasePage() {
 
   useEffect(() => {
     async function load() {
-      const [p, k, pc, ds, rts] = await Promise.all([
+      const [p, k, ds, rts, cr] = await Promise.all([
         fetchParties(),
         fetchKams(),
-        fetchEnumerations('product_category'),
         fetchEnumerations('deal_size_bucket'),
         fetchActiveRoutingThresholds(),
+        fetchEnumerations('reason_for_credit'),
       ]);
       setParties(p);
       setKams(k);
-      setProductCategories(pc);
       setDealBuckets(ds);
       setRoutingThresholds(rts);
+      setCreditReasons(cr);
       setLoading(false);
     }
     load();
@@ -235,7 +234,6 @@ export default function NewCasePage() {
     fd.set('requestedExposure', requestedExposure.toString());
     fd.set('tranches', JSON.stringify(tranches));
     if (kamUserId) fd.set('kamUserId', kamUserId);
-    fd.set('productCategory', productCategory);
     fd.set('dealSizeBucket', dealSizeBucket);
     fd.set('commercialNotes', commercialNotes);
     fd.set('justification', justification);
@@ -252,7 +250,7 @@ export default function NewCasePage() {
 
   const canGoNext = (currentStep: number) => {
     if (currentStep === 1) return (needsCustomer ? !!customerPartyId : true) && (needsContractor ? !!contractorPartyId : true) && !!scenario;
-    if (currentStep === 2) return billAmount > 0 && requestedExposure > 0;
+    if (currentStep === 2) return billAmount > 0 && requestedExposure > 0 && requestedExposure <= billAmount;
     if (currentStep === 3) return tranchesReconcile;
     if (currentStep === 4) return justification.trim().length > 0;
     return true;
@@ -264,7 +262,7 @@ export default function NewCasePage() {
       if (rule.context_rule?.exposure_min && requestedExposure < rule.context_rule.exposure_min) matches = false;
       if (rule.context_rule?.case_scenario && rule.context_rule.case_scenario !== scenario) matches = false;
       if (rule.context_rule?.deal_size_bucket && rule.context_rule.deal_size_bucket !== dealSizeBucket) matches = false;
-      if (rule.context_rule?.product_category && rule.context_rule.product_category !== productCategory) matches = false;
+      // Removed product_category match as it is removed from UI
       if (matches) return rule.target_stage;
     }
     return 1; // Default
@@ -407,8 +405,24 @@ export default function NewCasePage() {
                   <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" />
                 </div>
                 <div className={styles.inputGroup}>
-                  <label>Requested Exposure (₹) *</label>
-                  <input type="number" value={requestedExposure || ''} onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" />
+                  <div className="flex justify-between items-center">
+                    <label className="mb-0">Requested Exposure (₹) *</label>
+                    {billAmount > 0 && (
+                      <span className={cn("text-xs font-medium", requestedExposure > billAmount ? "text-destructive" : "text-primary")}>
+                        {((requestedExposure / billAmount) * 100).toFixed(1)}% of bill
+                      </span>
+                    )}
+                  </div>
+                  <input 
+                    type="number" 
+                    value={requestedExposure || ''} 
+                    onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} 
+                    className={cn(styles.input, requestedExposure > billAmount && "border-destructive focus:border-destructive")} 
+                    placeholder="0" 
+                  />
+                  {requestedExposure > billAmount && (
+                    <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
+                  )}
                 </div>
               </div>
 
@@ -475,16 +489,9 @@ export default function NewCasePage() {
           {step === 4 && (
             <div className={styles.formSection}>
               <h2>Context & Justification</h2>
-              <p className={styles.helperText}>Provide category context and strategic justification.</p>
+              <p className={styles.helperText}>Provide strategic justification for this credit request.</p>
 
               <div className={styles.row}>
-                <div className={styles.inputGroup}>
-                  <label>Product Category</label>
-                  <select value={productCategory} onChange={e => setProductCategory(e.target.value)} className={styles.input}>
-                    <option value="">-- Select --</option>
-                    {productCategories.map(c => <option key={c.id} value={c.value}>{c.value}</option>)}
-                  </select>
-                </div>
                 <div className={styles.inputGroup}>
                   <label>Deal Size Bucket</label>
                   <select value={dealSizeBucket} onChange={e => setDealSizeBucket(e.target.value)} className={styles.input}>
@@ -501,7 +508,10 @@ export default function NewCasePage() {
 
               <div className={styles.inputGroup}>
                 <label>Strategic Justification *</label>
-                <textarea value={justification} onChange={e => setJustification(e.target.value)} rows={4} className={styles.input} placeholder="Detail the business case for this credit request..." />
+                <select value={justification} onChange={e => setJustification(e.target.value)} className={styles.input}>
+                  <option value="">-- Select Reason for Credit (RCA) --</option>
+                  {creditReasons.map(r => <option key={r.id} value={r.value}>{r.value}</option>)}
+                </select>
               </div>
 
               <div className="mt-6 p-4 bg-muted rounded-md text-sm border">
