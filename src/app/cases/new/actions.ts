@@ -223,6 +223,7 @@ export async function fetchRmIntakeTasks(scenario: string) {
     return true;
   });
 
+  return applicableParams;
 }
 
 /**
