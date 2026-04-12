@@ -7,11 +7,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { handleMergeParties } from './actions';
 import { Shuffle } from 'lucide-react';
 
+import { useRouter } from 'next/navigation';
+
 export default function AliasesClient({ parties }: { parties: any[] }) {
   const [primaryId, setPrimaryId] = useState('');
   const [duplicateId, setDuplicateId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
 
   const handleMerge = async () => {
     if (!primaryId || !duplicateId) {
@@ -32,6 +35,7 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
       fd.set('duplicate_id', duplicateId);
       await handleMergeParties(fd);
       setDuplicateId('');
+      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {

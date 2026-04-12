@@ -6,17 +6,24 @@ import { Plus } from 'lucide-react';
 import { addDelayReason, toggleDelayReason } from './actions';
 import { toast } from 'sonner';
 
+import { useRouter } from 'next/navigation';
+
 interface Props { reasons: { id: string; value: string; is_active: boolean }[] }
 
 export default function DelayReasonManager({ reasons }: Props) {
   const [newReason, setNewReason] = useState('');
+  const router = useRouter();
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const fd = new FormData();
     fd.set('value', newReason);
     const res = await addDelayReason(fd);
-    if (res?.success) { toast.success('Delay reason added'); setNewReason(''); }
+    if (res?.success) { 
+      toast.success('Delay reason added'); 
+      setNewReason(''); 
+      router.refresh();
+    }
     else toast.error(res?.error || 'Failed');
   };
 

@@ -42,11 +42,11 @@ export async function upsertParty(formData: FormData) {
       const { data, error } = await supabase.from('parties').insert(payload).select('id, legal_name, customer_code').single();
       if (error) throw error;
       await logAuditEvent({ event_type: 'party_upserted', actor_id: user.id, description: `Party '${payload.legal_name}' saved.` });
-      revalidatePath('/admin/parties');
+      revalidatePath('/admin');
       return { success: true, party: data };
     }
     await logAuditEvent({ event_type: 'party_upserted', actor_id: user.id, description: `Party '${payload.legal_name}' saved.` });
-    revalidatePath('/admin/parties');
+    revalidatePath('/admin');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -61,7 +61,7 @@ export async function deactivateParty(formData: FormData) {
   const supabase = await createClient();
   await supabase.from('parties').update({ is_active: false }).eq('id', formData.get('id'));
   await logAuditEvent({ event_type: 'party_deactivated', actor_id: user.id, description: `Party ${formData.get('id')} deactivated.` });
-  revalidatePath('/admin/parties');
+  revalidatePath('/admin');
 }
 
 export async function fetchAllUsers() {
@@ -84,7 +84,7 @@ export async function assignRole(formData: FormData) {
     const role = formData.get('role') as string;
     await supabase.from('user_roles').upsert({ user_id: userId, role }, { onConflict: 'user_id,role' });
     await logAuditEvent({ event_type: 'role_assigned', actor_id: user.id, description: `Role '${role}' assigned to ${userId}.` });
-    revalidatePath('/admin/users');
+    revalidatePath('/admin');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -100,7 +100,7 @@ export async function revokeRole(formData: FormData) {
     const role = formData.get('role') as string;
     await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role);
     await logAuditEvent({ event_type: 'role_revoked', actor_id: user.id, description: `Role '${role}' revoked from ${userId}.` });
-    revalidatePath('/admin/users');
+    revalidatePath('/admin');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -214,7 +214,7 @@ export async function adminCreateUser(formData: FormData) {
     });
 
     await logAuditEvent({ event_type: 'user_created', actor_id: user.id, description: `Created new user ${email} with role ${role}` });
-    revalidatePath('/admin/users');
+    revalidatePath('/admin');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -247,7 +247,7 @@ export async function adminDeleteUser(formData: FormData) {
     if (error) throw new Error(error.message);
 
     await logAuditEvent({ event_type: 'user_deleted', actor_id: user.id, description: `Deleted user ${targetUserId}` });
-    revalidatePath('/admin/users');
+    revalidatePath('/admin');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
