@@ -87,9 +87,10 @@ class IdEngine {
     const pan = this.cleanStr(params.panName);
     const nick = this.cleanStr(params.nickname);
     
-    let nameSegment = pan;
-    // Case-insensitive check: only append if Nickname exists and differs
-    if (nick && nick.toLowerCase() !== pan.toLowerCase()) {
+    const firstName = pan.split(' ')[0];
+    let nameSegment = firstName;
+    // Case-insensitive check: only append if Nickname exists and differs from first name
+    if (nick && nick.toLowerCase() !== firstName.toLowerCase()) {
       nameSegment += `(${nick})`;
     }
 

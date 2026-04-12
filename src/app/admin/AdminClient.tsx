@@ -383,7 +383,7 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
           <form onSubmit={handleImportSubmit} className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Upload a CSV file with the following headers: <code>legal_name, customer_code, party_type, gstin, pan, city, credit_limit</code>
+                Upload a CSV file with the following headers: <code>legal_name, customer_code, party_type, gstin, pan, address, credit_limit</code>
               </p>
               <Input type="file" name="file" accept=".csv" required className="cursor-pointer" />
             </div>

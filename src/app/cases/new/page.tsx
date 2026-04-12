@@ -400,7 +400,7 @@ export default function NewCasePage() {
                   {customerDetails && (
                     <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Industry:</span> {customerDetails.industry_category || '—'}</p>
-                      {customerDetails.city && <p><span className="font-semibold text-foreground">City:</span> {customerDetails.city}, {customerDetails.state}</p>}
+                      {customerDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {customerDetails.address}</p>}
                       {customerDetails.lastCase && (
                         <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{customerDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {customerDetails.lastCase.composite_credit_days}d credit</p>
                       )}
@@ -430,7 +430,7 @@ export default function NewCasePage() {
                   {contractorDetails && (
                     <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Sub-type:</span> {contractorDetails.influencer_subtype || '—'}</p>
-                      {contractorDetails.city && <p><span className="font-semibold text-foreground">City:</span> {contractorDetails.city}, {contractorDetails.state}</p>}
+                      {contractorDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {contractorDetails.address}</p>}
                       {contractorDetails.lastCase && (
                         <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{contractorDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {contractorDetails.lastCase.composite_credit_days}d credit</p>
                       )}

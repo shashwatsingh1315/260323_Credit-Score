@@ -8,7 +8,7 @@ import { parsePartiesCsv } from '@/utils/csv';
 
 export async function fetchParties(search?: string) {
   const supabase = await createClient();
-  let query = supabase.from('parties').select('*').order('legal_name').limit(100);
+  let query = supabase.from('parties').select('id, legal_name, display_name, customer_code, industry_category, party_type, influencer_subtype, address, is_active, gst_number, pan_number').order('legal_name').limit(100);
   if (search) query = query.ilike('legal_name', `%${search}%`);
   const { data } = await query;
   return data || [];
@@ -33,8 +33,6 @@ export async function upsertParty(formData: FormData) {
       contact_phone: formData.get('contact_phone') as string || null,
       display_name: formData.get('nickname') as string || null,
       address: [formData.get('city'), formData.get('state')].filter(Boolean).join(', ') || null,
-      city: formData.get('city') as string || null,
-      state: formData.get('state') as string || null,
       industry_category: formData.get('industry_sector') as string || null,
       is_active: true,
     };

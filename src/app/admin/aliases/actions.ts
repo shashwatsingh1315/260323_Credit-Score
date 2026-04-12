@@ -7,7 +7,7 @@ export async function fetchPartiesWithAliases() {
   const supabase = await createClient();
   const { data } = await supabase
     .from('parties')
-    .select('*, aliases:party_aliases(*)')
+    .select('id, legal_name, customer_code, party_type, address, aliases:party_aliases(*)')
     .order('legal_name');
   return data || [];
 }

@@ -4,6 +4,7 @@ import { getCurrentUser, isAdmin, hasAnyRole, logAuditEvent } from '@/utils/auth
 import { createCaseDraft, submitCase, calculateCompositeDays, validateTranches } from '@/utils/engine';
 import { redirect } from 'next/navigation';
 import { idEngine, IdGenerationParams } from '@/utils/idEngine';
+
 /**
  * Server action: Create a new case draft / submit case.
  */
@@ -106,7 +107,7 @@ export async function fetchPartyDetails(partyId: string) {
   const supabase = await createClient();
   const { data: party } = await supabase
     .from('parties')
-    .select('id, legal_name, customer_code, industry_category, party_type, influencer_subtype, gstin, address_line1, city, state, pincode')
+    .select('id, legal_name, customer_code, industry_category, party_type, influencer_subtype, gst_number, pan_number, address, display_name, contact_phone')
     .eq('id', partyId)
     .single();
 
@@ -244,6 +245,7 @@ export async function generateSiteIdPreview(cityCode: string, siteDateIso: strin
     .from('credit_cases')
     .select('id', { count: 'exact' })
     .eq('rm_user_id', user.id)
+    .eq('case_attributes->>city_code', cityCode)
     .gte('created_at', startOfMonth)
     .lte('created_at', endOfMonth);
 
