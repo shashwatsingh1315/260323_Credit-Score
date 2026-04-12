@@ -167,6 +167,9 @@ export async function fetchCaseDetail(caseId: string) {
     }
   }
 
+  // Fetch Phase-2 ledger data (billing, repayments, credit notes, tranche waterfall)
+  const ledger = await fetchLedgerData(caseId);
+
   return { 
     case: caseData, 
     cycle, 

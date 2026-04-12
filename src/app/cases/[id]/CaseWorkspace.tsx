@@ -39,7 +39,7 @@ interface CaseWorkspaceProps {
     stageSummaries?: { 
       stage: number; 
       score: number | null; 
-      completedAt: string | null;
+      completedAt?: string | null;
       status?: string;
       bandName?: string;
       approvedDays?: number;
