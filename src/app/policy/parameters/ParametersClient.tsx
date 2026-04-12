@@ -32,7 +32,7 @@ interface Parameter {
   policy_version_id: string;
 }
 
-export default function ParametersClient({ initialParams }: { initialParams: Parameter[] }) {
+export default function ParametersClient({ initialParams, activePolicy }: { initialParams: Parameter[], activePolicy: any }) {
   const [params, setParams] = useState(initialParams);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Parameter | null>(null);
@@ -128,7 +128,14 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
       <div className="flex items-center gap-3">
         <Link href="/policy"><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">Scoring Parameters</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">Scoring Parameters</h1>
+            {activePolicy && (
+              <Badge variant="success" className="h-5">
+                {activePolicy.version_label}
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">Define and weight parameters used in scoring assessments</p>
         </div>
         <Button size="sm" onClick={openNew}><Plus size={15} /> Add Parameter</Button>
@@ -214,6 +221,7 @@ export default function ParametersClient({ initialParams }: { initialParams: Par
           </DialogHeader>
           <form action={upsertParameter} onSubmit={() => setOpen(false)} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
+            <input type="hidden" name="policy_version_id" value={activePolicy?.id} />
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="col-span-2 space-y-1">
                 <Label>Parameter Name</Label>
