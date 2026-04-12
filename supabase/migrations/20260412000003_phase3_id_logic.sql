@@ -23,8 +23,8 @@ CREATE POLICY "Admins can manage city codes" ON public.city_codes
     FOR ALL
     USING (
         EXISTS (
-            SELECT 1 FROM public.users
-            WHERE users.id = auth.uid() AND users.role = 'admin'
+            SELECT 1 FROM public.user_roles
+            WHERE user_roles.user_id = auth.uid() AND user_roles.role = 'founder_admin'
         )
     );
 
@@ -38,8 +38,8 @@ CREATE POLICY "Admins can manage id prefixes" ON public.id_prefixes
     FOR ALL
     USING (
         EXISTS (
-            SELECT 1 FROM public.users
-            WHERE users.id = auth.uid() AND users.role = 'admin'
+            SELECT 1 FROM public.user_roles
+            WHERE user_roles.user_id = auth.uid() AND user_roles.role = 'founder_admin'
         )
     );
 
