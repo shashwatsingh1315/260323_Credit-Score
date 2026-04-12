@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
-import { Briefcase, Clock, TrendingUp, Users, ShieldCheck, ArrowRight, Activity, Plus } from 'lucide-react';
+import { Briefcase, Clock, TrendingUp, Users, ShieldCheck, ArrowRight, Activity, Plus, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -172,6 +172,7 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   const role = await getImpersonationRole();
   const isRm = role === 'rm';
+  const isAdmin = role === 'founder_admin';
 
   let queryRecent = supabase.from('credit_cases')
     .select('id, case_number, status, case_scenario, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
@@ -181,10 +182,21 @@ export default async function DashboardPage() {
   if (role === 'rm' && user) queryRecent = queryRecent.eq('rm_user_id', user.id);
   if (role === 'kam' && user) queryRecent = queryRecent.eq('kam_user_id', user.id);
 
+  // Fetch notifications for non-RM users
+  let queryNotifications = supabase
+    .from('notifications')
+    .select('id, title, message, is_read, created_at')
+    .eq('user_id', user?.id || '')
+    .eq('is_read', false)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
   const [
     { data: recentCases },
+    { data: userNotifications },
   ] = await Promise.all([
     queryRecent,
+    !isRm && user ? queryNotifications : Promise.resolve({ data: null }),
   ]);
 
   // Fetch upcoming & delayed tranches for RM view
@@ -269,11 +281,12 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <StaggeredFade className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-auto">
+      {/* Bento grid: responsive sizing for 1920×1080@150% (1280px) → 3-col, normal display → 4-col */}
+      <StaggeredFade className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-max">
         
-        {/* 1. Portfolio Overview (Large - 2x1) */}
+        {/* 1. Portfolio Overview (2×1) — responsive: 2 cols at 3-col layout, 2 cols at 4-col */}
         {isRm && (
-          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
+          <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
             <div className="p-6 h-full flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Portfolio Overview</span>
@@ -353,8 +366,34 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* 4. Recent Activity (Tall - 2x2) */}
-        <SpotlightCard className={cn("row-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all", isRm ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-3")}>
+        {/* 3.5. My Tasks — for non-RM users only */}
+        {!isRm && (
+          <SpotlightCard className="col-span-1 md:col-span-1 lg:col-span-1 row-span-2 bg-brand/5 backdrop-blur-md border-brand/20 hover:scale-[1.005] transition-all">
+            <CardHeader className="pb-2 border-b border-border/50">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-brand" aria-hidden="true" />
+                My Tasks
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {!userNotifications || userNotifications.length === 0 ? (
+                <p className="text-xs text-muted-foreground">All caught up!</p>
+              ) : (
+                <div className="space-y-2">
+                  {userNotifications.slice(0, 4).map((n: any) => (
+                    <div key={n.id} className="p-2 text-xs border-l-2 border-brand/40 bg-brand/10 rounded">
+                      <p className="font-medium text-foreground line-clamp-1">{n.title}</p>
+                      <p className="text-muted-foreground text-tiny line-clamp-2 mt-0.5">{n.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </SpotlightCard>
+        )}
+
+        {/* 4. Recent Activity (2×2 for RM, wider for Others) */}
+        <SpotlightCard className={cn("row-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all", isRm ? "col-span-1 md:col-span-2 lg:col-span-2" : "col-span-1 md:col-span-1 lg:col-span-2")}>
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -381,9 +420,9 @@ export default async function DashboardPage() {
           </CardContent>
         </SpotlightCard>
 
-        {/* 5. Performance Metrics / Analytics (2x1) */}
+        {/* 5. Efficiency Funnel (2×1) */}
         {isRm && (
-          <SpotlightCard className="col-span-1 md:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
+          <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
             <div className="flex items-center justify-between mb-6">
               <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
               <TrendingUp size={18} className="text-success" aria-hidden="true" />
@@ -417,22 +456,24 @@ export default async function DashboardPage() {
           </SpotlightCard>
         )}
 
-        {/* 6. Quick Actions (2x1) */}
-        <div className={cn("grid grid-cols-2 gap-4", isRm ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-4")}>
-          {[
-            { label: 'System Audit', href: '/audit', icon: ShieldCheck, iconColor: 'text-info', bg: 'bg-info/10' },
-            { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
-          ].map((action, i) => (
-            <Link key={i} href={action.href}>
-              <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3 hover:scale-[1.02]">
-                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", action.bg)}>
-                  <action.icon size={18} className={action.iconColor} aria-hidden="true" />
-                </div>
-                <span className="text-tiny font-bold uppercase tracking-widest text-foreground">{action.label}</span>
-              </SpotlightCard>
-            </Link>
-          ))}
-        </div>
+        {/* 6. Quick Actions — only admin users see System Audit & Admin Panel */}
+        {isAdmin && (
+          <div className={cn("grid grid-cols-2 gap-4", isRm ? "col-span-1 md:col-span-2 lg:col-span-2" : "col-span-1 md:col-span-3 lg:col-span-4")}>
+            {[
+              { label: 'System Audit', href: '/audit', icon: ShieldCheck, iconColor: 'text-info', bg: 'bg-info/10' },
+              { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
+            ].map((action, i) => (
+              <Link key={i} href={action.href}>
+                <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3 hover:scale-[1.02]">
+                  <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", action.bg)}>
+                    <action.icon size={18} className={action.iconColor} aria-hidden="true" />
+                  </div>
+                  <span className="text-tiny font-bold uppercase tracking-widest text-foreground">{action.label}</span>
+                </SpotlightCard>
+              </Link>
+            ))}
+          </div>
+        )}
 
       </StaggeredFade>
     </div>
