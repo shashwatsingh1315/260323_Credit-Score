@@ -36,7 +36,14 @@ interface CaseWorkspaceProps {
     comments: any[];
     users?: any[];
     ledger: any | null;
-    stageSummaries?: { stage: number; score: number | null; completedAt: string | null }[];
+    stageSummaries?: { 
+      stage: number; 
+      score: number | null; 
+      completedAt?: string | null;
+      status?: string;
+      bandName?: string;
+      approvedDays?: number;
+    }[];
     rcaReasons?: { value: string }[];
     delayReasons?: { value: string }[];
   };
@@ -45,6 +52,7 @@ interface CaseWorkspaceProps {
 const STATUS_VARIANT: Record<string, any> = {
   'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
   'Approved': 'success', 'Rejected': 'destructive', 'Withdrawn': 'secondary',
+  'Completed': 'secondary', 'In Progress': 'info', 'Pending': 'outline',
 };
 
 const isTaskOverdue = (task: any) => {
@@ -496,9 +504,16 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                 const isCurrent = cycle.active_stage === stage;
                 const isPast = cycle.active_stage > stage;
                 const sc = stageScore(stage);
+                const summary = data.stageSummaries?.find(s => s.stage === stage);
+                
+                const displayScore = summary?.score ?? sc;
+                const displayStatus = summary?.status || (isPast ? 'Completed' : isCurrent ? 'In Progress' : 'Pending');
+                const bandName = summary?.bandName;
+                const approvedDays = summary?.approvedDays;
+
                 return (
                   <Card key={stage} className={cn(isCurrent && "border-primary/60")}>
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-3 text-card-foreground">
                       <div className="flex items-center gap-3">
                         {isPast
                           ? <CheckCircle size={18} className="text-emerald-400 shrink-0" />
@@ -506,12 +521,29 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                             ? <Clock size={18} className="text-amber-400 shrink-0" />
                             : <AlertCircle size={18} className="text-muted-foreground shrink-0" />
                         }
-                        <CardTitle className="text-base flex-1">Stage {stage}</CardTitle>
-                        <span className="text-xs text-muted-foreground">{st.filter((t: any) => t.status === 'Completed').length}/{st.length} tasks</span>
-                        {sc != null && (
-                          <Badge variant="info" className="flex items-center gap-1">
-                            <Award size={12} /> Score: {sc}
-                          </Badge>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-base">Stage {stage}</CardTitle>
+                            <Badge variant={STATUS_VARIANT[displayStatus] || 'secondary'} className="text-[10px] h-4 px-1.5 uppercase font-bold tracking-wider">
+                              {displayStatus}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {st.filter((t: any) => t.status === 'Completed').length}/{st.length} tasks completed
+                          </p>
+                        </div>
+
+                        {displayScore != null && (
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant="outline" className="flex items-center gap-1 border-primary/30 text-primary bg-primary/5">
+                              <Award size={12} /> Score: {displayScore}/100
+                            </Badge>
+                            {bandName && bandName !== 'No Band' && (
+                              <span className="text-[10px] font-medium text-muted-foreground">
+                                {bandName} ({approvedDays} days)
+                              </span>
+                            )}
+                          </div>
                         )}
                         {isCurrent && stageComplete(stage) && cycle.active_stage < 3 && (
                           <form action={handleProgressStage}>

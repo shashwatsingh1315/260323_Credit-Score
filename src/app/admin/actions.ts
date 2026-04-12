@@ -251,3 +251,51 @@ export async function adminDeleteUser(formData: FormData) {
     return { success: false, error: e.message };
   }
 }
+
+export async function fetchActiveRoster() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('committee_rosters')
+    .select('*')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+export async function updateCommitteeRoster(formData: FormData) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || !isAdmin(user)) return { success: false, error: 'Unauthorized' };
+
+    const supabase = await createClient();
+    const memberIdsRaw = formData.get('memberIds') as string;
+    const memberIds = JSON.parse(memberIdsRaw);
+
+    // Get current roster to see if we update or insert
+    const { data: existing } = await supabase.from('committee_rosters').select('id').eq('is_active', true).limit(1).maybeSingle();
+
+    if (existing) {
+      await supabase.from('committee_rosters')
+        .update({ member_ids: memberIds, updated_at: new Date().toISOString() })
+        .eq('id', existing.id);
+    } else {
+      await supabase.from('committee_rosters').insert({
+        name: 'Default Board',
+        member_ids: memberIds,
+        is_active: true
+      });
+    }
+
+    await logAuditEvent({
+      event_type: 'roster_updated',
+      actor_id: user.id,
+      description: `Committee roster updated with ${memberIds.length} members.`
+    });
+
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}

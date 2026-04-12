@@ -125,10 +125,65 @@ export async function fetchCaseDetail(caseId: string) {
     .select('id, full_name, roles:user_roles(role)')
     .order('full_name');
 
+  // Fetch stage summaries for RM visibility
+  const stageSummaries = [];
+  if (cycle) {
+    for (const s of [1, 2, 3]) {
+      const scoring = await import('@/utils/scoring');
+      const scoreResult = await scoring.calculateFinalCaseScore({
+        reviewCycleId: cycle.id,
+        caseScenario: caseData.case_scenario,
+        upToStage: s,
+      });
+
+      const bandResult = await scoring.mapScoreToCreditDays({
+        policyVersionId: cycle.policy_snapshot_id,
+        score: scoreResult.finalScore,
+      });
+
+      // Derive status for this stage
+      const stageRounds = approvalRounds.filter(r => r.stage === s);
+      let status = 'Pending';
+      if (stageRounds.some(r => r.status === 'approved')) {
+        status = 'Approved';
+      } else if (stageRounds.some(r => r.status === 'rejected')) {
+        status = 'Rejected';
+      } else if (stageRounds.some(r => r.status === 'open')) {
+        status = 'Awaiting Approval';
+      } else if (cycle.active_stage === s) {
+        status = 'In Progress';
+      } else if (cycle.active_stage > s) {
+        status = 'Completed';
+      }
+
+      stageSummaries.push({
+        stage: s,
+        score: scoreResult.finalScore,
+        bandName: bandResult?.bandName || 'No Band',
+        approvedDays: bandResult?.approvedDays || 0,
+        status,
+        isCurrent: cycle.active_stage === s
+      });
+    }
+  }
+
   // Fetch Phase-2 ledger data (billing, repayments, credit notes, tranche waterfall)
   const ledger = await fetchLedgerData(caseId);
 
-  return { case: caseData, cycle, tasks, auditEvents: auditEvents || [], approvalRounds, boardRounds, comments: comments || [], users: users || [], ledger, rcaReasons: rcaReasons || [], delayReasons: delayReasons || [] };
+  return { 
+    case: caseData, 
+    cycle, 
+    tasks, 
+    auditEvents: auditEvents || [], 
+    approvalRounds, 
+    boardRounds, 
+    comments: comments || [], 
+    users: users || [], 
+    ledger, 
+    rcaReasons: rcaReasons || [], 
+    delayReasons: delayReasons || [],
+    stageSummaries
+  };
 }
 
 export async function handleProgressStage(formData: FormData) {

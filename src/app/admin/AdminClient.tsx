@@ -10,8 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PartyDialog } from '@/components/admin/PartyDialog';
-import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser } from './actions';
-import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload } from 'lucide-react';
+import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster } from './actions';
+import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ROLES = ['rm', 'kam', 'accounts', 'bdo', 'ordinary_approver', 'board_member', 'founder_admin'];
@@ -20,14 +20,17 @@ interface AdminClientProps {
   users: any[];
   parties: any[];
   auditLog: any[];
+  activeRoster?: any;
 }
 
-export default function AdminClient({ users, parties, auditLog }: AdminClientProps) {
+export default function AdminClient({ users, parties, auditLog, activeRoster }: AdminClientProps) {
   const [partyOpen, setPartyOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [rosterMemberIds, setRosterMemberIds] = useState<string[]>(activeRoster?.member_ids || []);
+  const [isSavingRoster, setIsSavingRoster] = useState(false);
 
   const handleImportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -64,6 +67,20 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
     }
   };
 
+  const handleUpdateRoster = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingRoster(true);
+    const formData = new FormData();
+    formData.append('memberIds', JSON.stringify(rosterMemberIds));
+    const res = await updateCommitteeRoster(formData);
+    setIsSavingRoster(false);
+    if (res.success) {
+      toast.success('Committee roster updated');
+    } else {
+      toast.error(res.error || 'Failed to update roster');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -76,6 +93,7 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
           <TabsList>
             <TabsTrigger value="parties"><Building2 size={15} /> Party Master</TabsTrigger>
             <TabsTrigger value="users"><UserCog size={15} /> Users & Roles</TabsTrigger>
+            <TabsTrigger value="roster"><Users size={15} /> Committee Roster</TabsTrigger>
             <TabsTrigger value="audit"><History size={15} /> Global Audit Log</TabsTrigger>
           </TabsList>
 
@@ -247,6 +265,84 @@ export default function AdminClient({ users, parties, auditLog }: AdminClientPro
                 ))}
               </TableBody>
             </Table>
+          </Card>
+        </TabsContent>
+
+        {/* ─── Committee Roster ─── */}
+        <TabsContent value="roster" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldCheck size={16} className="text-primary" /> Active Committee Roster
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Manage the permanent voting board members for Ambiguity Board reviews.</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold">Current Members</h3>
+                  <div className="divide-y border rounded-lg">
+                    {rosterMemberIds.length === 0 && (
+                      <div className="p-4 text-center text-sm text-muted-foreground italic">No members assigned.</div>
+                    )}
+                    {rosterMemberIds.map(mid => {
+                      const u = users.find(x => x.id === mid);
+                      return (
+                        <div key={mid} className="flex items-center justify-between p-3">
+                          <div>
+                            <p className="text-sm font-medium">{u?.full_name || 'Unknown User'}</p>
+                            <p className="text-xs text-muted-foreground">{u?.email || mid}</p>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive"
+                            onClick={() => setRosterMemberIds(prev => prev.filter(id => id !== mid))}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="pt-2">
+                    <form onSubmit={handleUpdateRoster} className="flex gap-2">
+                      <Button type="submit" disabled={isSavingRoster}>
+                        {isSavingRoster ? 'Saving...' : 'Save Roster Changes'}
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setRosterMemberIds(activeRoster?.member_ids || [])}>
+                        Reset
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold">Eligible Board Members</h3>
+                  <div className="max-h-[400px] overflow-y-auto divide-y border rounded-lg">
+                    {users
+                      .filter(u => u.roles?.some((r: any) => r.role === 'board_member' || r.role === 'founder_admin'))
+                      .filter(u => !rosterMemberIds.includes(u.id))
+                      .map(u => (
+                        <div key={u.id} className="flex items-center justify-between p-3 hover:bg-muted/30 transition-colors">
+                          <div>
+                            <p className="text-sm font-medium">{u.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{u.email}</p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-xs"
+                            onClick={() => setRosterMemberIds(prev => [...prev, u.id])}
+                          >
+                            Add to Roster
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
