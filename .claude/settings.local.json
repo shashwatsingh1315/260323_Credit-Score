@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"/c/Users/ShashwatSingh/OneDrive - Sinhal Udyog pvt ltd/Downloads/6\\) Codex/2\\) Tejas/260327_Credit Scoring System - Antigravity/260323_Credit-Score/supabase/migrations\" -type f -name \"*.sql\")",
+      "Bash(wc -l \"/c/Users/ShashwatSingh/OneDrive - Sinhal Udyog pvt ltd/Downloads/6\\) Codex/2\\) Tejas/260327_Credit Scoring System - Antigravity/260323_Credit-Score/supabase/migrations/20260323000002_credit_matrix_seed.sql\")",
+      "Bash(head -150 \"/c/Users/ShashwatSingh/OneDrive - Sinhal Udyog pvt ltd/Downloads/6\\) Codex/2\\) Tejas/260327_Credit Scoring System - Antigravity/260323_Credit-Score/supabase/migrations/20260323000002_credit_matrix_seed.sql\")",
+      "Bash(tail -169 \"/c/Users/ShashwatSingh/OneDrive - Sinhal Udyog pvt ltd/Downloads/6\\) Codex/2\\) Tejas/260327_Credit Scoring System - Antigravity/260323_Credit-Score/supabase/migrations/20260323000002_credit_matrix_seed.sql\")"
+    ]
+  }
+}

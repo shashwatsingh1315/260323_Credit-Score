@@ -99,6 +99,8 @@ export async function upsertParameter(formData: FormData) {
     signal_strength: formData.get('signal_strength') as string || '3',
     signal_cost: formData.get('signal_cost') as string || '3',
     signal_lag: formData.get('signal_lag') as string || 'Leading',
+    sla_days: parseInt(formData.get('sla_days') as string) || null,
+    require_reasoning: formData.get('require_reasoning') === 'true',
   };
 
   const policyVersionId = formData.get('policy_version_id') as string;

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
   handleSaveBillingDetails,
+  handleSaveDecidedAmount,
   handleLogPayment,
   handleEditPayment,
   handleDeletePayment,
@@ -257,18 +258,13 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                   wrap(() => handleSaveBillingDetails(fd));
                   setShowBillingEdit(false);
                 }}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
               >
                 <input type="hidden" name="caseId" value={caseId} />
                 <div className="space-y-1">
-                  <Label>Billing Date *</Label>
+                  <Label>RM Handover Date *</Label>
                   <Input type="date" name="billingDate" value={billingDate}
                     onChange={e => setBillingDate(e.target.value)} required />
-                </div>
-                <div className="space-y-1">
-                  <Label>Decided Amount (₹) *</Label>
-                  <Input type="number" name="decidedAmount" value={decidedAmt}
-                    onChange={e => setDecidedAmt(e.target.value)} placeholder="0" min="1" required />
                 </div>
                 <div className="space-y-1">
                   <Label>Promised Amount (₹) *</Label>
@@ -277,11 +273,28 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                 </div>
                 <div className="col-span-full flex gap-2">
                   <Button type="submit" size="sm" disabled={isPending}>
-                    {isPending ? 'Saving…' : 'Save Billing Details'}
+                    {isPending ? 'Saving…' : 'Save'}
                   </Button>
                   <Button type="button" variant="ghost" size="sm"
                     onClick={() => setShowBillingEdit(false)}>Cancel</Button>
                 </div>
+              </form>
+            </>
+          )}
+
+          {/* KAM FORM: decided_bill_amount */}
+          {!billing.isLocked && isKam && billing.billingDate && (
+            <>
+              <Separator />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">KAM Entry</p>
+              <form action={async (fd) => { fd.set('caseId', caseId); wrap(() => handleSaveDecidedAmount(fd)); }}
+                className="flex items-end gap-3">
+                <input type="hidden" name="caseId" value={caseId} />
+                <div className="space-y-1 flex-1 max-w-xs">
+                  <Label>Decided Amount (₹) *</Label>
+                  <Input type="number" name="decidedAmount" value={decidedAmt} onChange={e => setDecidedAmt(e.target.value)} placeholder="0" min="1" required />
+                </div>
+                <Button type="submit" size="sm" disabled={isPending}>{isPending ? 'Saving…' : 'Save Decided Amount'}</Button>
               </form>
             </>
           )}

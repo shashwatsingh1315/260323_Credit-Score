@@ -57,11 +57,25 @@ export async function fetchCaseDetail(caseId: string) {
     .eq('is_active', true)
     .single();
 
+  const { data: rcaReasons } = await supabase
+    .from('admin_enumerations')
+    .select('value')
+    .eq('category', 'reason_for_credit')
+    .eq('is_active', true)
+    .order('sort_order');
+
+  const { data: delayReasons } = await supabase
+    .from('admin_enumerations')
+    .select('value')
+    .eq('category', 'delay_reason')
+    .eq('is_active', true)
+    .order('sort_order');
+
   let tasks: any[] = [];
   if (cycle) {
     const { data: taskData, error } = await supabase
       .from('stage_tasks')
-      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name)')
+      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name, require_reasoning, sla_days, weight)')
       .eq('review_cycle_id', cycle.id)
       .order('stage').order('created_at');
 
@@ -79,6 +93,7 @@ export async function fetchCaseDetail(caseId: string) {
     .limit(50);
 
   let approvalRounds: any[] = [];
+  let boardRounds: any[] = [];
   if (cycle) {
     const { data: rounds } = await supabase
       .from('approval_rounds')
@@ -86,6 +101,17 @@ export async function fetchCaseDetail(caseId: string) {
       .eq('review_cycle_id', cycle.id)
       .order('created_at', { ascending: false });
     approvalRounds = rounds || [];
+
+    // Fetch board rounds for each approval round that is an ambiguity_board or appeal
+    if (approvalRounds.length > 0) {
+      const roundIds = approvalRounds.map((r: any) => r.id);
+      const { data: br } = await supabase
+        .from('board_rounds')
+        .select('*, votes:board_votes(*, voter:profiles!board_votes_voter_id_fkey(full_name, id))')
+        .in('approval_round_id', roundIds)
+        .order('created_at', { ascending: false });
+      boardRounds = br || [];
+    }
   }
 
   const { data: comments } = await supabase
@@ -102,7 +128,7 @@ export async function fetchCaseDetail(caseId: string) {
   // Fetch Phase-2 ledger data (billing, repayments, credit notes, tranche waterfall)
   const ledger = await fetchLedgerData(caseId);
 
-  return { case: caseData, cycle, tasks, auditEvents: auditEvents || [], approvalRounds, comments: comments || [], users: users || [], ledger };
+  return { case: caseData, cycle, tasks, auditEvents: auditEvents || [], approvalRounds, boardRounds, comments: comments || [], users: users || [], ledger, rcaReasons: rcaReasons || [], delayReasons: delayReasons || [] };
 }
 
 export async function handleProgressStage(formData: FormData) {
@@ -197,6 +223,13 @@ export async function handleCompleteTask(formData: FormData) {
   if (gradeValue !== null && isNaN(gradeValue)) gradeValue = null;
   const reason = formData.get('reason') as string || null;
   const rawInput = formData.get('rawInput') as string || null;
+  const delayReason = formData.get('delayReason') as string || null;
+
+  const now = new Date();
+  const isOverdue = task.sla_deadline && new Date(task.sla_deadline) < now;
+  if (isOverdue && !delayReason) {
+    throw new Error('A delay reason is required because this task is past its SLA deadline.');
+  }
 
   if (gradeValue === null && rawInput !== null && task.param) {
     const p = task.param;
@@ -215,13 +248,14 @@ export async function handleCompleteTask(formData: FormData) {
   await supabase.from('stage_tasks').update({
     status: 'Completed',
     completed_by: user.id,
-    completed_at: new Date().toISOString(),
+    completed_at: now.toISOString(),
     grade_value: gradeValue,
     reason,
     raw_input_value: rawInput,
+    delay_reason: delayReason,
   }).eq('id', taskId);
 
-  await logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}` });
+  await logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}${delayReason ? ` Delay reason: ${delayReason}.` : ''}` });
   
   if (gradeValue != null) {
     if (task?.review_cycle_id) {
@@ -489,11 +523,43 @@ export async function handleAddComment(formData: FormData) {
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const content = formData.get('content') as string;
+  const mentionedUserIdsRaw = formData.get('mentionedUserIds') as string;
+  const mentionedUserIds: string[] = mentionedUserIdsRaw
+    ? JSON.parse(mentionedUserIdsRaw)
+    : [];
 
   if (!content?.trim()) return;
 
-  await supabase.from('case_comments').insert({ case_id: caseId, author_id: user.id, body: content.trim() });
-  await logAuditEvent({ case_id: caseId, event_type: 'comment_added', actor_id: user.id, description: 'Comment added.' });
+  const { data: comment } = await supabase.from('case_comments').insert({
+    case_id: caseId,
+    author_id: user.id,
+    body: content.trim(),
+    mentioned_user_ids: mentionedUserIds,
+  }).select('id').single();
+
+  // Notify mentioned users
+  if (mentionedUserIds.length > 0) {
+    const { data: caseRow } = await supabase
+      .from('credit_cases')
+      .select('case_number')
+      .eq('id', caseId)
+      .single();
+
+    const notifRows = mentionedUserIds.map(uid => ({
+      user_id: uid,
+      title: `You were mentioned in ${caseRow?.case_number}`,
+      message: `${user.full_name} tagged you: "${content.trim().slice(0, 80)}…"`,
+      link_url: `/cases/${caseId}`,
+    }));
+    await supabase.from('notifications').insert(notifRows);
+  }
+
+  await logAuditEvent({
+    case_id: caseId,
+    event_type: 'comment_added',
+    actor_id: user.id,
+    description: `Comment added.${mentionedUserIds.length > 0 ? ` Tagged ${mentionedUserIds.length} user(s).` : ''}`,
+  });
   revalidatePath(`/cases/${caseId}`);
 }
 
@@ -554,6 +620,41 @@ export async function handleCounterOffer(formData: FormData) {
       description: `Counter-offer declined by customer.`
     });
   }
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function handleBoardVote(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['board_member', 'founder_admin'])) {
+    throw new Error('Only Board Members or Admin can cast board votes.');
+  }
+
+  const supabase = await createClient();
+  const boardRoundId = formData.get('boardRoundId') as string;
+  const caseId = formData.get('caseId') as string;
+  const decision = formData.get('decision') as string;
+  const comment = formData.get('comment') as string || '';
+
+  // Upsert: board members can update their vote within the window
+  const { error } = await supabase.from('board_votes').upsert({
+    board_round_id: boardRoundId,
+    voter_id: user.id,
+    decision,
+    comment,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'board_round_id,voter_id' });
+
+  if (error) throw new Error(error.message);
+
+  await logAuditEvent({
+    case_id: caseId,
+    event_type: 'board_vote',
+    actor_id: user.id,
+    description: `Board vote: ${decision}.${comment ? ' ' + comment : ''}`,
+  });
 
   revalidatePath(`/cases/${caseId}`);
 }

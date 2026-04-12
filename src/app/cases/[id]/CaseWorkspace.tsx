@@ -7,6 +7,7 @@ import {
   BarChart3, TrendingUp, Award, Printer, Scale, Wallet
 } from 'lucide-react';
 import LedgerTab from './LedgerTab';
+import MentionInput from '@/components/MentionInput';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +20,8 @@ import { Label } from '@/components/ui/label';
 import {
   handleProgressStage, handleCompleteTask, handleWithdraw,
   handleCreateApprovalRound, handleApprovalDecision, handleAddComment,
-  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleAssignTask
+  handleSelectiveUnlock, handleCounterOffer, handleChangePersona, handleAssignTask,
+  handleBoardVote
 } from './actions';
 import { cn } from '@/lib/utils';
 
@@ -30,16 +32,24 @@ interface CaseWorkspaceProps {
     tasks: any[];
     auditEvents: any[];
     approvalRounds: any[];
+    boardRounds: any[];
     comments: any[];
     users?: any[];
     ledger: any | null;
     stageSummaries?: { stage: number; score: number | null; completedAt: string | null }[];
+    rcaReasons?: { value: string }[];
+    delayReasons?: { value: string }[];
   };
 }
 
 const STATUS_VARIANT: Record<string, any> = {
   'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
   'Approved': 'success', 'Rejected': 'destructive', 'Withdrawn': 'secondary',
+};
+
+const isTaskOverdue = (task: any) => {
+  if (!task.sla_deadline || task.status === 'Completed') return false;
+  return new Date(task.sla_deadline) < new Date();
 };
 
 export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
@@ -366,6 +376,41 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
               </Card>
             )}
 
+            {/* Relaxation / Negotiation History */}
+            {(activeRole === 'rm' || activeRole === 'founder_admin') && (() => {
+              const relaxationEvents = data.auditEvents.filter((e: any) =>
+                e.event_type === 'counter_offer_accepted' ||
+                e.event_type === 'counter_offer_dropped' ||
+                e.event_type === 'tranches_restructured'
+              );
+              if (!relaxationEvents.length) return null;
+              return (
+                <Card className="col-span-2 border-primary/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <TrendingUp size={15} className="text-primary" />
+                      Relaxation / Negotiation History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {relaxationEvents.map((e: any) => (
+                        <div key={e.id} className="flex items-start justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
+                          <div>
+                            <p className="font-medium capitalize">{e.event_type.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{e.description}</p>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0 ml-4">
+                            {new Date(e.created_at).toLocaleDateString('en-IN')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             <Card className="col-span-2 border-border">
               <CardHeader className="pb-3 border-b border-border/50"><CardTitle className="text-base text-foreground">Party History & Exposure</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-2 gap-6 pt-4">
@@ -493,30 +538,58 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                             <div key={task.id} className="flex items-center gap-3 py-2.5">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5">
-                                  <Badge variant={task.status === 'Completed' ? 'success' : 'secondary'} className="text-xs">
-                                    {task.status}
-                                  </Badge>
-                                  {task.task_type === 'scoring' && <Badge variant="info" className="text-xs">Scoring</Badge>}
-                                  {task.is_waiting && <Badge variant="warning" className="text-xs">⏸ Waiting</Badge>}
-                                </div>
-                                <p className="text-sm">{task.description}</p>
+                                      <Badge variant={task.status === 'Completed' ? 'success' : 'secondary'} className="text-xs">
+                                        {task.status}
+                                      </Badge>
+                                      {task.task_type === 'scoring' && <Badge variant="info" className="text-xs">Scoring</Badge>}
+                                      {task.is_waiting && <Badge variant="warning" className="text-xs">⏸ Waiting</Badge>}
+                                      {task.sla_deadline && task.status !== 'Completed' && (() => {
+                                        const isOverdue = isTaskOverdue(task);
+                                        const diffDays = Math.ceil((new Date(task.sla_deadline).getTime() - new Date().getTime()) / 86400000);
+                                        return (
+                                          <Badge variant={isOverdue ? 'destructive' : 'warning'} className="text-xs">
+                                            {isOverdue ? `⚠ Overdue by ${Math.abs(diffDays)}d` : `SLA: ${diffDays}d left`}
+                                          </Badge>
+                                        );
+                                      })()}
+                                    </div>
+                                    <p className="text-sm">{task.description}</p>
                                 <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
                                   {task.status !== 'Completed' && (activeRole === 'founder_admin' || activeRole === 'kam') ? (
-                                    <form action={handleAssignTask} className="flex items-center gap-2">
-                                      <input type="hidden" name="taskId" value={task.id} />
-                                      <input type="hidden" name="caseId" value={c.id} />
-                                      <select
-                                        name="assigneeId"
-                                        defaultValue={task.assigned_to || ""}
-                                        onChange={(e) => e.target.form?.requestSubmit()}
-                                        className="h-6 text-xs bg-background border border-input rounded px-1"
-                                      >
-                                        <option value="">Unassigned</option>
-                                        {data.users?.map((u: any) => (
-                                          <option key={u.id} value={u.id}>{u.full_name}</option>
-                                        ))}
-                                      </select>
-                                    </form>
+                                    <div className="flex items-center gap-1">
+                                      {(() => {
+                                        const requiredRole = task.param?.default_owning_role;
+                                        const filtered = data.users?.filter((u: any) =>
+                                          !requiredRole ||
+                                          u.roles?.some((r: any) => r.role === requiredRole) ||
+                                          u.roles?.some((r: any) => r.role === 'founder_admin')
+                                        ) ?? [];
+                                        const showWarning = requiredRole && filtered.length === 0;
+                                        return (
+                                          <>
+                                            {showWarning ? (
+                                              <span className="text-xs text-destructive">No {requiredRole} users found</span>
+                                            ) : (
+                                              <form action={handleAssignTask} className="flex items-center gap-1">
+                                                <input type="hidden" name="taskId" value={task.id} />
+                                                <input type="hidden" name="caseId" value={c.id} />
+                                                <select
+                                                  name="assigneeId"
+                                                  defaultValue={task.assigned_to || ""}
+                                                  className="h-6 text-xs bg-background border border-input rounded px-1"
+                                                >
+                                                  <option value="">Unassigned</option>
+                                                  {filtered.map((u: any) => (
+                                                    <option key={u.id} value={u.id}>{u.full_name}</option>
+                                                  ))}
+                                                </select>
+                                                <Button type="submit" size="sm" variant="ghost" className="h-6 text-xs px-1">Assign</Button>
+                                              </form>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
                                   ) : (
                                     <span>{task.assigned?.full_name || 'Unassigned'}</span>
                                   )}
@@ -524,7 +597,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                   {task.reason && <span>· {task.reason}</span>}
                                 </div>
                               </div>
-                              {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
+                                  {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
                                 <form action={handleCompleteTask} className="flex items-center gap-2 shrink-0">
                                   <input type="hidden" name="taskId" value={task.id} />
                                   <input type="hidden" name="caseId" value={c.id} />
@@ -565,10 +638,34 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                           className="w-24 h-8 text-xs"
                                         />
                                       )}
-                                      <Input name="reason" placeholder="Reason" className="w-28 h-8 text-xs" />
+                                      {task.param?.require_reasoning ? (
+                                        <div className="flex flex-col gap-1 w-32 shrink-0">
+                                          <select name="reason" className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs shadow-sm" required>
+                                            <option value="">-- Reason *</option>
+                                            {data.rcaReasons?.map((r: any) => (
+                                              <option key={r.value} value={r.value}>{r.value}</option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      ) : (
+                                        <Input name="reason" placeholder="Reason (optional)" className="w-28 h-8 text-xs shrink-0" />
+                                      )}
                                     </>
                                   )}
-                                  <Button type="submit" size="sm">Complete</Button>
+
+                                  {isTaskOverdue(task) && (
+                                    <div className="flex flex-col gap-1 shrink-0">
+                                      <Badge variant="destructive" className="text-[10px] uppercase py-0 leading-3">SLA Breached</Badge>
+                                      <select name="delayReason" className="flex h-8 w-32 rounded-md border border-destructive bg-destructive/10 text-destructive px-2 text-xs shadow-sm" required>
+                                        <option value="">Delay reason *</option>
+                                        {data.delayReasons?.map((r: any) => (
+                                          <option key={r.value} value={r.value}>{r.value}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  )}
+
+                                  <Button type="submit" size="sm" className="shrink-0">Complete</Button>
                                 </form>
                               )}
                             </div>
@@ -590,49 +687,131 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
 
         {/* Approvals Tab */}
         <TabsContent value="approvals">
+
+          {/* Ambiguity Warning Banner */}
+          {cycle?.is_ambiguous && (
+            <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertCircle size={16} className="text-amber-500" />
+                <h3 className="font-semibold text-sm text-amber-600 dark:text-amber-400">
+                  Ambiguous Case — Board Review Required
+                </h3>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 opacity-90">
+                This case was force-readied with missing items. A board round must be convened before a final decision.
+              </p>
+              {(activeRole === 'founder_admin' || activeRole === 'kam') && (
+                <form action={handleCreateApprovalRound} className="mt-3">
+                  <input type="hidden" name="caseId" value={c.id} />
+                  <input type="hidden" name="cycleId" value={cycle.id} />
+                  <input type="hidden" name="stage" value={cycle.active_stage} />
+                  <input type="hidden" name="roundType" value="ambiguity_board" />
+                  <Button type="submit" size="sm" variant="outline" className="border-amber-500 text-amber-600">
+                    Convene Ambiguity Board
+                  </Button>
+                </form>
+              )}
+            </div>
+          )}
+
           {data.approvalRounds.length === 0 ? (
-            <Card><CardContent className="py-10 text-center text-muted-foreground">No approval rounds yet. Complete all tasks for a stage and click "Request Approval".</CardContent></Card>
+            <Card><CardContent className="py-10 text-center text-muted-foreground text-sm">
+              No approval rounds yet. Complete all required tasks for a stage, then click "Request Approval" in the Stages tab.
+            </CardContent></Card>
           ) : (
             <div className="space-y-4">
-              {data.approvalRounds.map((round: any) => (
-                <Card key={round.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Round #{round.round_number || 1} — Stage {round.stage}</CardTitle>
-                      <Badge variant={round.status === 'approved' ? 'success' : round.status === 'rejected' ? 'destructive' : round.status === 'open' ? 'warning' : 'secondary'}>
-                        {round.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0 space-y-3">
-                    {round.decisions?.map((d: any) => (
-                      <div key={d.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/40">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium">{d.approver?.full_name || 'Unknown'}</span>
-                            <Badge variant={d.decision === 'approve' ? 'success' : d.decision === 'reject' ? 'destructive' : 'warning'} className="text-xs capitalize">
-                              {d.decision?.replace(/_/g, ' ')}
+              {data.approvalRounds.map((round: any) => {
+                const boardRound = data.boardRounds?.find((br: any) => br.approval_round_id === round.id);
+                const canDecide = ['ordinary_approver', 'board_member', 'founder_admin'].includes(activeRole);
+                const canBoardVote = ['board_member', 'founder_admin'].includes(activeRole);
+
+                return (
+                  <Card key={round.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">
+                          Round #{round.round_number || 1} — Stage {round.stage}
+                          <Badge variant="secondary" className="ml-2 text-xs capitalize">
+                            {round.round_type?.replace('_', ' ')}
+                          </Badge>
+                        </CardTitle>
+                        <Badge variant={
+                          round.status === 'approved' ? 'success' :
+                          round.status === 'rejected' ? 'destructive' :
+                          round.status === 'open' ? 'warning' : 'secondary'
+                        }>
+                          {round.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-3">
+                      {/* Existing decisions */}
+                      {round.decisions?.map((d: any) => (
+                        <div key={d.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/40">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium">{d.approver?.full_name || 'Unknown'}</span>
+                              <Badge variant={d.decision === 'approve' ? 'success' : d.decision === 'reject' ? 'destructive' : 'warning'} className="text-xs capitalize">
+                                {d.decision?.replace(/_/g, ' ')}
+                              </Badge>
+                            </div>
+                            {d.comment && <p className="text-sm text-muted-foreground">{d.comment}</p>}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Ordinary/Appeal approval form */}
+                      {round.status === 'open' && round.round_type !== 'ambiguity_board' && canDecide && (
+                        <form action={handleApprovalDecision} className="space-y-3 pt-2 border-t border-border">
+                          <input type="hidden" name="roundId" value={round.id} />
+                          <input type="hidden" name="caseId" value={c.id} />
+                          <p className="text-xs text-muted-foreground font-semibold">YOUR DECISION</p>
+                          <Input name="comment" placeholder="Comment (optional)" />
+                          <div className="flex gap-2">
+                            <Button type="submit" name="decision" value="approve" className="bg-success hover:bg-success/90">Approve</Button>
+                            <Button type="submit" name="decision" value="reject" variant="outline" className="border-destructive text-destructive">Reject</Button>
+                            <Button type="submit" name="decision" value="return_for_revision" variant="outline">Return for Revision</Button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* Board voting section (ambiguity_board rounds) */}
+                      {round.round_type === 'ambiguity_board' && boardRound && (
+                        <div className="mt-3 border-t border-border pt-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-muted-foreground">BOARD VOTES</p>
+                            <Badge variant={boardRound.status === 'closed' ? 'success' : 'warning'} className="text-xs">
+                              {boardRound.status} | Window closes: {new Date(boardRound.vote_window_end).toLocaleDateString('en-IN')}
                             </Badge>
                           </div>
-                          {d.comment && <p className="text-sm text-muted-foreground">{d.comment}</p>}
+                          {boardRound.votes?.map((v: any) => (
+                            <div key={v.id} className="flex items-center gap-2 text-sm">
+                              <span className="font-medium">{v.voter?.full_name}</span>
+                              <Badge variant={v.decision === 'approve' ? 'success' : v.decision === 'reject' ? 'destructive' : 'secondary'} className="text-xs capitalize">
+                                {v.decision}
+                              </Badge>
+                              {v.comment && <span className="text-muted-foreground text-xs">— {v.comment}</span>}
+                            </div>
+                          ))}
+                          {/* Board vote form */}
+                          {boardRound.status === 'open' && canBoardVote && (
+                            <form action={handleBoardVote} className="space-y-2 border-t border-border pt-2">
+                              <input type="hidden" name="boardRoundId" value={boardRound.id} />
+                              <input type="hidden" name="caseId" value={c.id} />
+                              <Input name="comment" placeholder="Vote comment (optional)" className="h-8 text-xs" />
+                              <div className="flex gap-2">
+                                <Button type="submit" name="decision" value="approve" size="sm" className="bg-success hover:bg-success/90">Vote Approve</Button>
+                                <Button type="submit" name="decision" value="reject" size="sm" variant="outline" className="border-destructive text-destructive">Vote Reject</Button>
+                                <Button type="submit" name="decision" value="abstain" size="sm" variant="ghost">Abstain</Button>
+                              </div>
+                            </form>
+                          )}
                         </div>
-                      </div>
-                    ))}
-                    {round.status === 'open' && (
-                      <form action={handleApprovalDecision} className="space-y-3 pt-2">
-                        <input type="hidden" name="roundId" value={round.id} />
-                        <input type="hidden" name="caseId" value={c.id} />
-                        <Input name="comment" placeholder="Comment (optional)" />
-                        <div className="flex gap-2">
-                          <Button type="submit" name="decision" value="approve">Approve</Button>
-                          <Button type="submit" name="decision" value="reject" variant="outline" className="border-destructive text-destructive hover:bg-destructive/10">Reject</Button>
-                          <Button type="submit" name="decision" value="return_for_revision" variant="outline">Return for Revision</Button>
-                        </div>
-                      </form>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -656,12 +835,11 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
         <TabsContent value="comments">
           <div className="space-y-4">
             <Card className="print:hidden">
-            <CardContent className="p-4 bg-muted/30">
-              <form action={handleAddComment} className="flex gap-2 items-start">
-                  <input type="hidden" name="caseId" value={c.id} />
-                  <Input name="content" placeholder="Add a comment..." className="flex-1" required />
-                  <Button type="submit" size="sm">Post</Button>
-                </form>
+              <CardContent className="p-4 bg-muted/30">
+                <MentionInput
+                  caseId={c.id}
+                  users={data.users ?? []}
+                />
               </CardContent>
             </Card>
             {data.comments.length === 0 ? (
@@ -675,7 +853,13 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                         <span className="text-sm font-medium">{cm.author?.full_name || 'Unknown'}</span>
                         <span className="text-xs text-muted-foreground">{new Date(cm.created_at).toLocaleString()}</span>
                       </div>
-                      <p className="text-sm">{cm.body}</p>
+                      <p className="text-sm">
+                        {cm.body.split(/(@\w[\w\s]*?)(?=\s|$|@)/g).map((part: string, i: number) => (
+                          part.startsWith('@')
+                            ? <span key={i} className="text-primary font-medium">{part}</span>
+                            : <span key={i}>{part}</span>
+                        ))}
+                      </p>
                     </CardContent>
                   </Card>
                 ))}

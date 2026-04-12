@@ -141,6 +141,8 @@ export async function submitCase(caseId: string, rmUserId: string) {
     throw new Error('No active policy version found. Cannot submit case.');
   }
 
+  let createdCycleId: string | null = null;
+
   try {
     // Update case status
     const { error: updateErr } = await supabase
@@ -153,12 +155,20 @@ export async function submitCase(caseId: string, rmUserId: string) {
 
     if (updateErr) throw updateErr;
 
+    // Determine correct cycle_number (in case of re-submission)
+    const { count: existingCycleCount } = await supabase
+      .from('review_cycles')
+      .select('*', { count: 'exact', head: true })
+      .eq('case_id', caseId);
+
+    const cycleNumber = (existingCycleCount ?? 0) + 1;
+
     // Create review cycle
     const { data: cycle, error: cycleErr } = await supabase
       .from('review_cycles')
       .insert({
         case_id: caseId,
-        cycle_number: 1,
+        cycle_number: cycleNumber,
         policy_snapshot_id: activePolicy.id,
         active_stage: 1,
         is_active: true,
@@ -167,8 +177,9 @@ export async function submitCase(caseId: string, rmUserId: string) {
       .maybeSingle();
 
     if (cycleErr || !cycle) throw cycleErr || new Error("Failed to create review cycle");
-    
-    // Generate all tasks for Cycle 1
+    createdCycleId = cycle.id;
+
+    // Generate all tasks for this Cycle
     await generateAllCycleTasks(cycle.id, activePolicy.id, caseId);
 
     await logAuditEvent({
@@ -176,7 +187,7 @@ export async function submitCase(caseId: string, rmUserId: string) {
       review_cycle_id: cycle.id,
       event_type: 'submission',
       actor_id: rmUserId,
-      description: 'Case submitted for review. Review Cycle 1 opened and all tasks generated.',
+      description: `Case submitted for review. Review Cycle ${cycleNumber} opened and all tasks generated.`,
     });
 
     const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, kam_user_id').eq('id', caseId).maybeSingle();
@@ -186,9 +197,16 @@ export async function submitCase(caseId: string, rmUserId: string) {
 
     return cycle;
   } catch (error) {
-    // Basic rollback attempt
-    await supabase.from('review_cycles').delete().eq('case_id', caseId);
-    await supabase.from('credit_cases').update({ status: 'Draft', submitted_at: null }).eq('id', caseId);
+    // Targeted rollback: only delete the specific cycle just created (not historical cycles)
+    if (createdCycleId) {
+      await supabase.from('stage_tasks').delete().eq('review_cycle_id', createdCycleId);
+      await supabase.from('review_cycles').delete().eq('id', createdCycleId);
+    }
+    // Revert case status only if it was changed from Draft
+    await supabase.from('credit_cases')
+      .update({ status: 'Draft', submitted_at: null })
+      .eq('id', caseId)
+      .eq('status', 'In Review'); // Guard: only revert if we set it
     throw error;
   }
 }
@@ -218,8 +236,8 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
     allowedSubjects.push('customer', 'contractor');
   }
 
-  // 3. Fetch active parameters for this stage and policy
-  const [{ data: params }, { count: existingCount }] = await Promise.all([
+  // 3. Fetch active parameters for this stage and policy + already-created task parameter IDs
+  const [{ data: params }, { data: existingTasks }] = await Promise.all([
     supabase
       .from('parameter_definitions')
       .select('*')
@@ -229,12 +247,16 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
       .in('subject_type', allowedSubjects),
     supabase
       .from('stage_tasks')
-      .select('*', { count: 'exact', head: true })
+      .select('parameter_id')
       .eq('review_cycle_id', cycleId)
       .eq('stage', stage)
   ]);
 
-  if (existingCount && existingCount > 0) return; // Tasks already generated for this stage
+  // Build a set of already-created parameter IDs to allow per-param backfill
+  const alreadyCreatedParamIds = new Set((existingTasks ?? []).map((t: any) => t.parameter_id));
+
+  // If ALL params are already created, skip entirely
+  if (params && params.length > 0 && params.every((p: any) => alreadyCreatedParamIds.has(p.id))) return;
   if (!params || params.length === 0) return;
 
   // 4. Evaluate conditional logic (Doc 06)
@@ -257,7 +279,8 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
       }
     }
 
-    if (isApplicable) {
+    if (isApplicable && !alreadyCreatedParamIds.has(p.id)) {
+      // Skip if this specific parameter's task already exists (backfill protection)
       const isRmTask = p.default_owning_role?.toLowerCase() === 'rm';
       const draftAnswers = caseData.case_attributes?.draft_rm_answers || {};
       const answer = isRmTask ? draftAnswers[p.id] : null;
@@ -275,6 +298,7 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
         raw_input_value: answer?.raw_input_value || null,
         grade_value: answer?.grade_value != null ? answer.grade_value : null,
         reason: answer?.reason || null,
+        sla_deadline: p.sla_days ? new Date(Date.now() + p.sla_days * 86400000).toISOString() : null,
       });
     }
   }
