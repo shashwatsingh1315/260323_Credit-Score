@@ -36,7 +36,14 @@ interface CaseWorkspaceProps {
     comments: any[];
     users?: any[];
     ledger: any | null;
-    stageSummaries?: { stage: number; score: number | null; completedAt: string | null }[];
+    stageSummaries?: { 
+      stage: number; 
+      score: number | null; 
+      completedAt: string | null;
+      status?: string;
+      bandName?: string;
+      approvedDays?: number;
+    }[];
     rcaReasons?: { value: string }[];
     delayReasons?: { value: string }[];
   };
