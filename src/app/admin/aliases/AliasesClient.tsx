@@ -79,8 +79,8 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
 
               {error && <p className="text-xs text-destructive font-medium bg-destructive/10 p-2 rounded">{error}</p>}
 
-              <Button onClick={handleMerge} disabled={loading || !primaryId || !duplicateId} className="w-full bg-brand hover:bg-brand/90">
-                {loading ? 'Merging...' : 'Confirm Merge'}
+              <Button onClick={handleMerge} disabled={isPending || !primaryId || !duplicateId} className="w-full bg-brand hover:bg-brand/90">
+                {isPending ? 'Merging...' : 'Confirm Merge'}
               </Button>
             </CardContent>
           </Card>
