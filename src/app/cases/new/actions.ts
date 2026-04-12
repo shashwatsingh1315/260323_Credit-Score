@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser, isAdmin, hasAnyRole, logAuditEvent } from '@/utils/auth';
 import { createCaseDraft, submitCase, calculateCompositeDays, validateTranches } from '@/utils/engine';
 import { redirect } from 'next/navigation';
-
+import { idEngine, IdGenerationParams } from '@/utils/idEngine';
 /**
  * Server action: Create a new case draft / submit case.
  */
@@ -60,7 +60,10 @@ export async function handleNewCase(formData: FormData) {
     proposed_tranches: tranches,
     case_attributes: {
       deal_size_bucket: dealSizeBucket,
-      draft_rm_answers: rmTaskAnswers
+      draft_rm_answers: rmTaskAnswers,
+      site_address: formData.get('siteAddress'),
+      city_code: formData.get('cityCode'),
+      site_id: formData.get('generatedSiteId'),
     },
     commercial_notes: `${commercialNotes}\n\nStrategic Justification: ${justification}`,
     rm_user_id: user.id,
@@ -86,6 +89,12 @@ export async function fetchParties() {
     .eq('is_active', true)
     .order('legal_name')
     .limit(200);
+  return data || [];
+}
+
+export async function fetchCityCodes() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('city_codes').select('*').order('name');
   return data || [];
 }
 
@@ -214,5 +223,50 @@ export async function fetchRmIntakeTasks(scenario: string) {
     return true;
   });
 
-  return applicableParams;
+}
+
+/**
+ * Auto-generate a Site ID (Lead) for the preview / formulation.
+ */
+export async function generateSiteIdPreview(cityCode: string, siteDateIso: string) {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const siteDate = new Date(siteDateIso);
+  
+  // Calculate sequence number for RM in current month
+  const supabase = await createClient();
+  const startOfMonth = new Date(siteDate.getFullYear(), siteDate.getMonth(), 1).toISOString();
+  const endOfMonth = new Date(siteDate.getFullYear(), siteDate.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+  const { count } = await supabase
+    .from('credit_cases')
+    .select('id', { count: 'exact' })
+    .eq('rm_user_id', user.id)
+    .gte('created_at', startOfMonth)
+    .lte('created_at', endOfMonth);
+
+  const sequence = (count ?? 0) + 1;
+
+  // Attempt to split user full name.
+  const parts = user.full_name.split(' ');
+  const first = parts[0];
+  const last = parts.length > 1 ? parts[parts.length - 1] : undefined;
+
+  const id = await idEngine.generateLeadSiteId({
+    cityCode,
+    siteDate,
+    rmFirstName: first,
+    rmLastName: last,
+    siteSequenceNumber: sequence
+  });
+  return id;
+}
+
+export async function generatePartyIdPreview(params: IdGenerationParams & { type: 'contractor' | 'interior' }) {
+  if (params.type === 'contractor') {
+    return await idEngine.generateContractorId(params);
+  } else {
+    return await idEngine.generateInteriorId(params);
+  }
 }

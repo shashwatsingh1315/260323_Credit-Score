@@ -30,7 +30,11 @@ export async function upsertParty(formData: FormData) {
       influencer_subtype: formData.get('influencer_subtype') as string || null,
       gst_number: formData.get('gstin') as string || null,
       pan_number: formData.get('pan') as string || null,
+      contact_phone: formData.get('contact_phone') as string || null,
+      display_name: formData.get('nickname') as string || null,
       address: [formData.get('city'), formData.get('state')].filter(Boolean).join(', ') || null,
+      city: formData.get('city') as string || null,
+      state: formData.get('state') as string || null,
       industry_category: formData.get('industry_sector') as string || null,
       is_active: true,
     };

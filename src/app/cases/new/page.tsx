@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
-import { handleNewCase, fetchParties, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds, fetchKams, fetchPartyDetails } from './actions';
+import { handleNewCase, fetchParties, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds, fetchKams, fetchPartyDetails, fetchCityCodes, generateSiteIdPreview } from './actions';
 import { PartyDialog } from '@/components/admin/PartyDialog';
 import styles from './page.module.css';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,14 @@ export default function NewCasePage() {
   const [partyTypeForDialog, setPartyTypeForDialog] = useState<'customer' | 'contractor'>('customer');
   const [customerDetails, setCustomerDetails] = useState<any>(null);
   const [contractorDetails, setContractorDetails] = useState<any>(null);
+  const [cityCodes, setCityCodes] = useState<any[]>([]);
+
+  // Site Generation State
+  const [siteAddress, setSiteAddress] = useState('');
+  const [cityCode, setCityCode] = useState('');
+  const [generatedSiteId, setGeneratedSiteId] = useState('');
+  const [siteDate] = useState(new Date().toISOString());
+
 
   const refreshParties = async (newParty?: any) => {
     const p = await fetchParties();
@@ -97,19 +105,34 @@ export default function NewCasePage() {
   }, [scenario]);
 
   useEffect(() => {
+    async function getSiteId() {
+      if (cityCode) {
+        const id = await generateSiteIdPreview(cityCode, siteDate);
+        setGeneratedSiteId(id || '');
+      } else {
+        setGeneratedSiteId('');
+      }
+    }
+    getSiteId();
+  }, [cityCode, siteDate]);
+
+
+  useEffect(() => {
     async function load() {
-      const [p, k, ds, rts, cr] = await Promise.all([
+      const [p, k, ds, rts, cr, cc] = await Promise.all([
         fetchParties(),
         fetchKams(),
         fetchEnumerations('deal_size_bucket'),
         fetchActiveRoutingThresholds(),
         fetchEnumerations('reason_for_credit'),
+        fetchCityCodes(),
       ]);
       setParties(p);
       setKams(k);
       setDealBuckets(ds);
       setRoutingThresholds(rts);
       setCreditReasons(cr);
+      setCityCodes(cc);
       setLoading(false);
     }
     load();
@@ -239,6 +262,9 @@ export default function NewCasePage() {
     fd.set('justification', justification);
     fd.set('rmTaskAnswers', JSON.stringify(rmTaskAnswers));
     fd.set('action', action);
+    fd.set('siteAddress', siteAddress);
+    fd.set('cityCode', cityCode);
+    fd.set('generatedSiteId', generatedSiteId);
 
     try {
       await handleNewCase(fd);
@@ -249,7 +275,13 @@ export default function NewCasePage() {
   };
 
   const canGoNext = (currentStep: number) => {
-    if (currentStep === 1) return (needsCustomer ? !!customerPartyId : true) && (needsContractor ? !!contractorPartyId : true) && !!scenario;
+    if (currentStep === 1) {
+       return (needsCustomer ? !!customerPartyId : true) && 
+              (needsContractor ? !!contractorPartyId : true) && 
+              !!scenario && 
+              !!siteAddress && 
+              !!cityCode;
+    }
     if (currentStep === 2) return billAmount > 0 && requestedExposure > 0 && requestedExposure <= billAmount;
     if (currentStep === 3) return tranchesReconcile;
     if (currentStep === 4) return justification.trim().length > 0;
@@ -317,6 +349,34 @@ export default function NewCasePage() {
                 <select value={scenario} onChange={e => setScenario(e.target.value)} className={styles.input}>
                   {SCENARIOS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className={styles.inputGroup}>
+                  <label>City Code *</label>
+                  <select value={cityCode} onChange={e => setCityCode(e.target.value)} className={styles.input}>
+                    <option value="">-- Select City --</option>
+                    {cityCodes.map(c => <option key={c.id} value={c.code}>{c.name} ({c.code})</option>)}
+                  </select>
+                </div>
+                <div className={styles.inputGroup}>
+                  <label>Generated Site ID (Preview)</label>
+                  <div className="flex h-9 w-full rounded-md border border-input bg-muted/50 px-3 py-1 text-sm shadow-sm opacity-80 items-center font-mono font-semibold text-primary">
+                    {generatedSiteId || 'Select city...'}
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.inputGroup}>
+                <label>Site Address *</label>
+                <textarea 
+                  value={siteAddress} 
+                  onChange={e => setSiteAddress(e.target.value)} 
+                  className={styles.input} 
+                  rows={2} 
+                  placeholder="Street address of the site..." 
+                  required 
+                />
               </div>
 
               {needsCustomer && (
