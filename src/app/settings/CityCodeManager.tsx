@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { addCityCode, deleteCityCode } from './actions';
 import { Trash2 } from 'lucide-react';
 
+import { useRouter } from 'next/navigation';
+
 type CityCode = {
   id: string;
   code: string;
@@ -16,6 +18,7 @@ type CityCode = {
 export default function CityCodeManager({ cityCodes }: { cityCodes: CityCode[] }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleAdd(formData: FormData) {
     setLoading(true);
@@ -23,6 +26,8 @@ export default function CityCodeManager({ cityCodes }: { cityCodes: CityCode[] }
     const result = await addCityCode(formData);
     if (result && result.error) {
       setError(result.error);
+    } else {
+      router.refresh();
     }
     setLoading(false);
   }
@@ -32,6 +37,8 @@ export default function CityCodeManager({ cityCodes }: { cityCodes: CityCode[] }
       const result = await deleteCityCode(id);
       if (result && result.error) {
         setError(result.error);
+      } else {
+        router.refresh();
       }
     }
   }

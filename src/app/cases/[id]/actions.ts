@@ -128,8 +128,8 @@ export async function fetchCaseDetail(caseId: string) {
   // Fetch stage summaries for RM visibility
   const stageSummaries = [];
   if (cycle) {
-    for (const s of [1, 2, 3]) {
-      const scoring = await import('@/utils/scoring');
+    const scoring = await import('@/utils/scoring');
+    const stageData = await Promise.all([1, 2, 3].map(async (s) => {
       const scoreResult = await scoring.calculateFinalCaseScore({
         reviewCycleId: cycle.id,
         caseScenario: caseData.case_scenario,
@@ -156,15 +156,16 @@ export async function fetchCaseDetail(caseId: string) {
         status = 'Completed';
       }
 
-      stageSummaries.push({
+      return {
         stage: s,
         score: scoreResult.finalScore,
         bandName: bandResult?.bandName || 'No Band',
         approvedDays: bandResult?.approvedDays || 0,
         status,
         isCurrent: cycle.active_stage === s
-      });
-    }
+      };
+    }));
+    stageSummaries.push(...stageData);
   }
 
   // Fetch Phase-2 ledger data (billing, repayments, credit notes, tranche waterfall)
