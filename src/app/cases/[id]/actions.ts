@@ -493,6 +493,7 @@ export async function handleApprovalDecision(formData: FormData) {
 
   await supabase.from('approval_decisions').insert({ approval_round_id: roundId, approver_id: user.id, decision, comment });
 
+  let isFullyApproved = false;
   if (decision === 'reject') {
     await supabase.from('approval_rounds').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', roundId);
     await supabase.from('credit_cases').update({ status: 'Rejected' }).eq('id', caseId);
@@ -501,8 +502,8 @@ export async function handleApprovalDecision(formData: FormData) {
     await supabase.from('credit_cases').update({ status: 'In Review', substatus: 'Returned for revision' }).eq('id', caseId);
   } else {
     const { data: allDecisions } = await supabase.from('approval_decisions').select('decision').eq('approval_round_id', roundId);
-    const allApproved = allDecisions?.every((d: any) => d.decision === 'approve');
-    if (allApproved) {
+    isFullyApproved = allDecisions?.every((d: any) => d.decision === 'approve') || false;
+    if (isFullyApproved) {
       await supabase.from('approval_rounds').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', roundId);
       await supabase.from('credit_cases').update({ status: 'Approved' }).eq('id', caseId);
     }
@@ -516,12 +517,8 @@ export async function handleApprovalDecision(formData: FormData) {
       await sendNotification(creditCase.rm_user_id, 'Case Rejected', `Case ${creditCase.case_number} has been rejected.`);
     } else if (decision === 'return_for_revision') {
       await sendNotification(creditCase.rm_user_id, 'Case Returned', `Case ${creditCase.case_number} was returned for revision.`);
-    } else {
-      const { data: allDecisions } = await supabase.from('approval_decisions').select('decision').eq('approval_round_id', roundId);
-      const allApproved = allDecisions?.every((d: any) => d.decision === 'approve');
-      if (allApproved) {
-        await sendNotification(creditCase.rm_user_id, 'Case Approved', `Case ${creditCase.case_number} has been fully approved.`);
-      }
+    } else if (isFullyApproved) {
+      await sendNotification(creditCase.rm_user_id, 'Case Approved', `Case ${creditCase.case_number} has been fully approved.`);
     }
   }
 

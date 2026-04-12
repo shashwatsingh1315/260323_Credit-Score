@@ -25,7 +25,7 @@ async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
     .in('status', ['Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled']);
 
   if (!cases || cases.length === 0) {
-    return { totalExposure: 0, averageMargin: null, countPDCR: null, amountPDCR: null, weightedDaysPDCR: null };
+    return { totalExposure: 0, averageMargin: null, countPDCR: null, amountPDCR: null, weightedDaysPDCR: null, approvalSuccessRate: null };
   }
 
   // ── Total Active Exposure ─────────────────────────────────────────────────
@@ -149,7 +149,20 @@ async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
     ? Math.min(100, (totalWeightedActualDays / totalWeightedProposedDays) * 100)
     : null;
 
-  return { totalExposure, averageMargin, countPDCR, amountPDCR, weightedDaysPDCR };
+  // ── Approval Success Rate ─────────────────────────────────────────────────
+  const { data: statusCounts } = await supabase
+    .from('credit_cases')
+    .select('status')
+    .eq('rm_user_id', rmUserId)
+    .not('status', 'eq', 'Draft');
+
+  const totalNonDraft = statusCounts?.length || 0;
+  const approvedCount = statusCounts?.filter((c: any) => 
+    ['Approved', 'Billing Active', 'Pending Write-Off Approval', 'Closed'].includes(c.status)
+  ).length || 0;
+  const approvalSuccessRate = totalNonDraft > 0 ? (approvedCount / totalNonDraft) * 100 : 0;
+
+  return { totalExposure, averageMargin, countPDCR, amountPDCR, weightedDaysPDCR, approvalSuccessRate };
 }
 
 // ── Dashboard Page ────────────────────────────────────────────────────────────
@@ -177,7 +190,14 @@ export default async function DashboardPage() {
   // Fetch upcoming & delayed tranches for RM view
   let upcomingTranches: any[] = [];
   let delayedTranches: any[] = [];
-  let rmMetrics: { totalExposure: number; averageMargin: number | null; countPDCR: number | null; amountPDCR: number | null; weightedDaysPDCR: number | null } | null = null;
+  let rmMetrics: { 
+    totalExposure: number; 
+    averageMargin: number | null; 
+    countPDCR: number | null; 
+    amountPDCR: number | null; 
+    weightedDaysPDCR: number | null;
+    approvalSuccessRate: number | null;
+  } | null = null;
 
   if (role === 'rm' && user) {
     rmMetrics = await computeRmPortfolioMetrics(supabase, user.id);
@@ -366,11 +386,11 @@ export default async function DashboardPage() {
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground font-medium">Approval Success Rate</span>
                   <span className="text-foreground font-bold">
-                    <CountUp to={78} suffix="%" />
+                    <CountUp to={Math.round(rmMetrics?.approvalSuccessRate || 0)} suffix="%" />
                   </span>
                 </div>
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={78} aria-valuemin={0} aria-valuemax={100}>
-                  <div className="h-full bg-success w-[78%] rounded-full" />
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(rmMetrics?.approvalSuccessRate || 0)} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="h-full bg-success rounded-full" style={{ width: `${Math.round(rmMetrics?.approvalSuccessRate || 0)}%` }} />
                 </div>
               </div>
               <div className="space-y-2">

@@ -32,6 +32,12 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
     }
   }, [open, editingParty]);
 
+  useEffect(() => {
+    if (selectedType === 'customer' && codeRef.current && !editingParty) {
+      codeRef.current.value = '';
+    }
+  }, [selectedType, editingParty]);
+
   const handleGenerate = async () => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
@@ -142,30 +148,30 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
                 </div>
                 <div className="space-y-1">
                   <Label>Nickname (Market Name)</Label>
-                  <Input name="nickname" defaultValue={editingParty?.nickname || ''} placeholder="Optional" />
+                  <Input name="nickname" defaultValue={editingParty?.display_name || ''} placeholder="Optional" />
                 </div>
               </div>
             )}
             
             <div className="space-y-1">
               <Label>GSTIN</Label>
-              <Input name="gstin" defaultValue={editingParty?.gstin} placeholder="22AAAAA0000A1Z5" />
+              <Input name="gstin" defaultValue={editingParty?.gst_number} placeholder="22AAAAA0000A1Z5" />
             </div>
             <div className="space-y-1">
               <Label>PAN</Label>
-              <Input name="pan" defaultValue={editingParty?.pan} placeholder="AAAAA0000A" />
+              <Input name="pan" defaultValue={editingParty?.pan_number} placeholder="AAAAA0000A" />
             </div>
             <div className="space-y-1">
               <Label>City (3-letters for ID Code)</Label>
-              <Input name="city" defaultValue={editingParty?.city} placeholder="e.g. Raipur or RPR" />
+              <Input name="city" defaultValue={editingParty?.address?.split(', ')[0] || ''} placeholder="e.g. Raipur or RPR" />
             </div>
             <div className="space-y-1">
               <Label>State</Label>
-              <Input name="state" defaultValue={editingParty?.state} />
+              <Input name="state" defaultValue={editingParty?.address?.split(', ')[1] || ''} />
             </div>
             <div className="space-y-1">
               <Label>Industry Sector</Label>
-              <Input name="industry_sector" defaultValue={editingParty?.industry_sector} />
+              <Input name="industry_sector" defaultValue={editingParty?.industry_category} />
             </div>
             <div className="space-y-1">
               <Label>Credit Limit (₹)</Label>

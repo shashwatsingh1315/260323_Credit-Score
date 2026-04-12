@@ -407,7 +407,7 @@ export async function handleDeletePayment(formData: FormData) {
     field_diffs: { deleted_payment: original },
   });
 
-  // Revert status to Billing Active if case was auto-closed before this deletion
+  // Re-fetch after delete (trigger has updated actual_bill_amount)
   const { data: caseRow } = await supabase
     .from('credit_cases')
     .select('status, actual_bill_amount, promised_bill_amount')
