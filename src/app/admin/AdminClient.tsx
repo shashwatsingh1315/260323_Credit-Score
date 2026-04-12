@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
   const [userOpen, setUserOpen] = useState(false);
   const [rosterMemberIds, setRosterMemberIds] = useState<string[]>(activeRoster?.member_ids || []);
   const [isSavingRoster, setIsSavingRoster] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const handleImportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -49,22 +50,26 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
   const handleCreateUserSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const res = await adminCreateUser(formData);
-    if (res?.success) {
-      toast.success('User created successfully');
-      setUserOpen(false);
-    } else {
-      toast.error(res?.error || 'Failed to create user');
-    }
+    startTransition(async () => {
+      const res = await adminCreateUser(formData);
+      if (res?.success) {
+        toast.success('User created successfully');
+        setUserOpen(false);
+      } else {
+        toast.error(res?.error || 'Failed to create user');
+      }
+    });
   };
 
   const handleRoleAction = async (formData: FormData, action: (fd: FormData) => Promise<any>, successMsg: string) => {
-    const res = await action(formData);
-    if (res?.success) {
-      toast.success(successMsg);
-    } else {
-      toast.error(res?.error || 'Action failed');
-    }
+    startTransition(async () => {
+      const res = await action(formData);
+      if (res?.success) {
+        toast.success(successMsg);
+      } else {
+        toast.error(res?.error || 'Action failed');
+      }
+    });
   };
 
   const handleUpdateRoster = async (e: React.FormEvent) => {
