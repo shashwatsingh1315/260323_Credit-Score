@@ -41,8 +41,8 @@ const navItems = [
 ];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
+  // ALL hooks must be declared before any conditional return (Rules of Hooks).
   const pathname = usePathname();
-  if (pathname === '/login' || pathname === '/reset-password') return <>{children}</>;
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,7 +52,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [sessionUser, setSessionUser] = useState<{ id: string, full_name: string, roles: string[] } | null>(null);
   const [loadingNotifs, setLoadingNotifs] = useState(true);
 
+  const isAuthPage = pathname === '/login' || pathname === '/reset-password';
+
   useEffect(() => {
+    if (isAuthPage) return; // skip data fetching on auth pages
     getImpersonationRole().then(r => {
       if (r) setActiveRole(r);
     }).catch(console.error);
@@ -69,6 +72,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       if (u) setSessionUser(u);
     }).catch(console.error);
   }, [pathname]);
+
+  if (isAuthPage) return <>{children}</>;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +159,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               onChange={async (e) => {
                 setActiveRole(e.target.value);
                 await switchImpersonationRole(e.target.value);
+                router.refresh();
               }}
               className="w-full bg-muted border border-border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
             >

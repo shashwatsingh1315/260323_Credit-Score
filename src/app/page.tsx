@@ -291,15 +291,21 @@ export default async function DashboardPage() {
                 <div>
                   <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">PDCR</p>
                   <p className="text-xl font-bold text-success">
-                    <CountUp to={rmMetrics?.amountPDCR || 0} suffix="%" />
+                    {rmMetrics?.amountPDCR != null
+                      ? <CountUp to={rmMetrics.amountPDCR} suffix="%" />
+                      : <span className="text-muted-foreground">—</span>}
                   </p>
                 </div>
                 <div>
                   <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground mb-1">Avg Margin</p>
-                  <p className={cn("text-xl font-bold", (rmMetrics?.averageMargin || 0) >= 0 ? "text-success" : "text-destructive")}>
-                    {(rmMetrics?.averageMargin || 0) >= 0 ? '+' : ''}
-                    <CountUp to={Math.abs(rmMetrics?.averageMargin || 0)} decimals={2} suffix="%" />
-                  </p>
+                  {rmMetrics?.averageMargin != null ? (
+                    <p className={cn("text-xl font-bold", rmMetrics.averageMargin >= 0 ? "text-success" : "text-destructive")}>
+                      {rmMetrics.averageMargin >= 0 ? '+' : ''}
+                      <CountUp to={Math.abs(rmMetrics.averageMargin)} decimals={2} suffix="%" />
+                    </p>
+                  ) : (
+                    <p className="text-xl font-bold text-muted-foreground">—</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -361,9 +367,10 @@ export default async function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-4 px-0">
-            {(recentCases || []).map((c: any) => (
+            {(recentCases || []).length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">No cases yet</p>
+            ) : (recentCases || []).map((c: any) => (
               <Link key={c.id} href={`/cases/${c.id}`} className="flex items-center justify-between py-3 px-6 hover:bg-brand/5 transition-colors border-b border-border/30 last:border-0">
-
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground truncate">{c.case_number}</p>
                   <p className="text-tiny text-muted-foreground">{(c.customer as any)?.legal_name || '—'}</p>
@@ -397,11 +404,13 @@ export default async function DashboardPage() {
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground font-medium">PDCR (Amount)</span>
                   <span className="text-foreground font-bold">
-                    <CountUp to={rmMetrics?.amountPDCR || 0} decimals={1} suffix="%" />
+                    {rmMetrics?.amountPDCR != null
+                      ? <CountUp to={rmMetrics.amountPDCR} decimals={1} suffix="%" />
+                      : '—'}
                   </span>
                 </div>
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={rmMetrics?.amountPDCR || 0} aria-valuemin={0} aria-valuemax={100}>
-                  <div className="h-full bg-brand" style={{ width: `${rmMetrics?.amountPDCR || 0}%` }} />
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={rmMetrics?.amountPDCR ?? 0} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="h-full bg-brand" style={{ width: `${rmMetrics?.amountPDCR ?? 0}%` }} />
                 </div>
               </div>
             </div>
@@ -411,13 +420,13 @@ export default async function DashboardPage() {
         {/* 6. Quick Actions (2x1) */}
         <div className={cn("grid grid-cols-2 gap-4", isRm ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-4")}>
           {[
-            { label: 'System Audit', href: '/audit', icon: ShieldCheck, color: 'text-info', bg: 'bg-info/10' },
+            { label: 'System Audit', href: '/audit', icon: ShieldCheck, iconColor: 'text-info', bg: 'bg-info/10' },
             { label: 'Admin Panel', href: '/admin', icon: Users, iconColor: 'text-brand', bg: 'bg-brand/10' },
           ].map((action, i) => (
             <Link key={i} href={action.href}>
               <SpotlightCard className="h-full hover:bg-accent transition-all p-4 border-white/20 bg-card/70 backdrop-blur-md flex items-center gap-3 hover:scale-[1.02]">
                 <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", action.bg)}>
-                  <action.icon size={18} className={action.iconColor || action.color} aria-hidden="true" />
+                  <action.icon size={18} className={action.iconColor} aria-hidden="true" />
                 </div>
                 <span className="text-tiny font-bold uppercase tracking-widest text-foreground">{action.label}</span>
               </SpotlightCard>
