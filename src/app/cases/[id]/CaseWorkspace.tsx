@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import {
   ChevronRight, Clock, CheckCircle, AlertCircle,
@@ -66,6 +66,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
   const tasks = data.tasks;
 
   const [activeRole, setActiveRole] = useState<string>('');
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     getImpersonationRole().then(r => setActiveRole(r || 'viewer'));
@@ -630,7 +631,14 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                 </div>
                               </div>
                                   {task.status === 'Pending' && isCurrent && (activeRole === 'founder_admin' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
-                                <form action={handleCompleteTask} className="flex items-center gap-2 shrink-0">
+                                <form 
+                                  action={(fd) => {
+                                    startTransition(async () => {
+                                      await handleCompleteTask(fd);
+                                    });
+                                  }} 
+                                  className="flex items-center gap-2 shrink-0"
+                                >
                                   <input type="hidden" name="taskId" value={task.id} />
                                   <input type="hidden" name="caseId" value={c.id} />
                                   {task.task_type === 'scoring' && (
@@ -647,7 +655,7 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                               <option value="0">No</option>
                                             </>
                                           ) : (
-                                            Array.from({ length: 10 }, (_, i) => (
+                                            Array.from({ length: 5 }, (_, i) => (
                                               <option key={i + 1} value={i + 1}>{i + 1}</option>
                                             ))
                                           )}
@@ -697,7 +705,9 @@ export default function CaseWorkspace({ data }: CaseWorkspaceProps) {
                                     </div>
                                   )}
 
-                                  <Button type="submit" size="sm" className="shrink-0">Complete</Button>
+                                  <Button type="submit" size="sm" className="shrink-0" disabled={isPending}>
+                                    {isPending ? 'Saving...' : 'Complete'}
+                                  </Button>
                                 </form>
                               )}
                             </div>

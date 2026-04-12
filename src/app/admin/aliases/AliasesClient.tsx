@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 export default function AliasesClient({ parties }: { parties: any[] }) {
   const [primaryId, setPrimaryId] = useState('');
   const [duplicateId, setDuplicateId] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const router = useRouter();
 
@@ -26,21 +26,20 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
       return;
     }
 
-    setLoading(true);
     setError('');
 
-    try {
-      const fd = new FormData();
-      fd.set('primary_id', primaryId);
-      fd.set('duplicate_id', duplicateId);
-      await handleMergeParties(fd);
-      setDuplicateId('');
-      router.refresh();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    startTransition(async () => {
+      try {
+        const fd = new FormData();
+        fd.set('primary_id', primaryId);
+        fd.set('duplicate_id', duplicateId);
+        await handleMergeParties(fd);
+        setDuplicateId('');
+        router.refresh();
+      } catch (err: any) {
+        setError(err.message);
+      }
+    });
   };
 
   return (
