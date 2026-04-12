@@ -71,11 +71,26 @@ export async function publishDraftPolicy(formData: FormData) {
 
 // ── Scoring Parameters ──────────────────────────────────────────────────────
 
-export async function fetchParameters() {
+export async function fetchParameters(versionId?: string) {
   const supabase = await createClient();
+  
+  let targetVersionId = versionId;
+  
+  if (!targetVersionId) {
+    const { data: activePolicy } = await supabase
+      .from('policy_versions')
+      .select('id')
+      .eq('is_active', true)
+      .single();
+    targetVersionId = activePolicy?.id;
+  }
+
+  if (!targetVersionId) return [];
+
   const { data } = await supabase
     .from('parameter_definitions')
     .select('*')
+    .eq('policy_version_id', targetVersionId)
     .eq('is_active', true)
     .order('name');
   return data || [];
@@ -152,8 +167,14 @@ export async function deleteParameter(formData: FormData) {
 
 export async function fetchGradeScales() {
   const supabase = await createClient();
-  // Schema now consolidates grades into the grade_scale table
-  const { data } = await supabase.from('grade_scale').select('*').order('grade_value', { ascending: false });
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  const { data } = await supabase
+    .from('grade_scale')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('grade_value', { ascending: false });
   return data || [];
 }
 
@@ -183,7 +204,14 @@ export async function upsertGradeDefinition(formData: FormData) {
 
 export async function fetchScoreBands() {
   const supabase = await createClient();
-  const { data } = await supabase.from('score_bands').select('*').order('min_score', { ascending: false });
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  const { data } = await supabase
+    .from('score_bands')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('min_score', { ascending: false });
   return data || [];
 }
 
@@ -225,7 +253,14 @@ export async function deleteScoreBand(formData: FormData) {
 
 export async function fetchPersonas() {
   const supabase = await createClient();
-  const { data } = await supabase.from('personas').select('*').order('name');
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  const { data } = await supabase
+    .from('personas')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('name');
   return data || [];
 }
 
@@ -254,7 +289,14 @@ export async function upsertPersona(formData: FormData) {
 
 export async function fetchDominanceCategories() {
   const supabase = await createClient();
-  const { data } = await supabase.from('dominance_categories').select('*').order('name');
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  const { data } = await supabase
+    .from('dominance_categories')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('name');
   return data || [];
 }
 
@@ -297,7 +339,14 @@ export async function deleteDominanceCategory(formData: FormData) {
 
 export async function fetchRoutingRules() {
   const supabase = await createClient();
-  const { data } = await supabase.from('routing_thresholds').select('*').order('created_at', { ascending: false });
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  const { data } = await supabase
+    .from('routing_thresholds')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('created_at', { ascending: false });
   return data || [];
 }
 
@@ -340,7 +389,14 @@ export async function deleteRoutingRule(formData: FormData) {
 
 export async function fetchValidityRules() {
   const supabase = await createClient();
-  const { data } = await supabase.from('validity_rules').select('*').order('created_at', { ascending: false });
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  const { data } = await supabase
+    .from('validity_rules')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('created_at', { ascending: false });
   return data || [];
 }
 
@@ -377,7 +433,14 @@ export async function deleteValidityRule(formData: FormData) {
 
 export async function fetchStageMaxTotals() {
   const supabase = await createClient();
-  const { data } = await supabase.from('stage_max_totals').select('*').order('stage');
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  const { data } = await supabase
+    .from('stage_max_totals')
+    .select('*')
+    .eq('policy_version_id', activePolicy.id)
+    .order('stage');
   return data || [];
 }
 
@@ -404,11 +467,20 @@ export async function upsertStageMaxTotal(formData: FormData) {
 
 export async function fetchWeightMatrices() {
   const supabase = await createClient();
-  const { data } = await supabase.from('weight_matrices').select(`
-    *,
-    persona:personas(name),
-    parameter:parameter_definitions(name, stage)
-  `);
+  const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+  if (!activePolicy) return [];
+  
+  // Weights are linked to personas and parameters, which are versioned.
+  // We filter weights where the persona belongs to the active policy.
+  const { data } = await supabase
+    .from('weight_matrices')
+    .select(`
+      *,
+      persona:personas!inner(name, policy_version_id),
+      parameter:parameter_definitions(name, stage)
+    `)
+    .eq('persona.policy_version_id', activePolicy.id);
+    
   return data || [];
 }
 

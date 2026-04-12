@@ -249,7 +249,6 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
       .from('stage_tasks')
       .select('parameter_id')
       .eq('review_cycle_id', cycleId)
-      .eq('stage', stage)
   ]);
 
   // Build a set of already-created parameter IDs to allow per-param backfill
