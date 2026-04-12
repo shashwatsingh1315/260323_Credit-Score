@@ -22,7 +22,6 @@ export async function handleNewCase(formData: FormData) {
   const requestedExposure = parseFloat(formData.get('requestedExposure') as string) || 0;
   const tranchesRaw = formData.get('tranches') as string;
   const commercialNotes = formData.get('commercialNotes') as string || '';
-  const productCategory = formData.get('productCategory') as string || '';
   const dealSizeBucket = formData.get('dealSizeBucket') as string || '';
   const justification = formData.get('justification') as string || '';
   const action = formData.get('action') as string;
@@ -60,11 +59,10 @@ export async function handleNewCase(formData: FormData) {
     requested_exposure_amount: requestedExposure,
     proposed_tranches: tranches,
     case_attributes: {
-      product_category: productCategory,
       deal_size_bucket: dealSizeBucket,
       draft_rm_answers: rmTaskAnswers
     },
-    commercial_notes: `${commercialNotes}\n\nReason for Credit: ${justification}`,
+    commercial_notes: `${commercialNotes}\n\nStrategic Justification: ${justification}`,
     rm_user_id: user.id,
     kam_user_id: kamUserId,
   });
@@ -108,7 +106,7 @@ export async function fetchPartyDetails(partyId: string) {
   // Fetch last case for this party (as customer or contractor) to pre-fill bill amounts
   const { data: lastCase } = await supabase
     .from('credit_cases')
-    .select('bill_amount, requested_exposure_amount, composite_credit_days, product_category, deal_size_bucket')
+    .select('bill_amount, requested_exposure_amount, composite_credit_days, deal_size_bucket')
     .or(`customer_party_id.eq.${partyId},contractor_party_id.eq.${partyId}`)
     .order('created_at', { ascending: false })
     .limit(1)
