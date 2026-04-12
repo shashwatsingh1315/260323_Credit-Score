@@ -27,6 +27,7 @@ export default function NewCasePage() {
   const [kamUserId, setKamUserId] = useState<string>('');
   const [productCategories, setProductCategories] = useState<any[]>([]);
   const [dealBuckets, setDealBuckets] = useState<any[]>([]);
+  const [creditReasons, setCreditReasons] = useState<any[]>([]);
   const [routingThresholds, setRoutingThresholds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -99,18 +100,20 @@ export default function NewCasePage() {
 
   useEffect(() => {
     async function load() {
-      const [p, k, pc, ds, rts] = await Promise.all([
+      const [p, k, pc, ds, rts, cr] = await Promise.all([
         fetchParties(),
         fetchKams(),
         fetchEnumerations('product_category'),
         fetchEnumerations('deal_size_bucket'),
         fetchActiveRoutingThresholds(),
+        fetchEnumerations('reason_for_credit'),
       ]);
       setParties(p);
       setKams(k);
       setProductCategories(pc);
       setDealBuckets(ds);
       setRoutingThresholds(rts);
+      setCreditReasons(cr);
       setLoading(false);
     }
     load();
@@ -500,8 +503,11 @@ export default function NewCasePage() {
               </div>
 
               <div className={styles.inputGroup}>
-                <label>Strategic Justification *</label>
-                <textarea value={justification} onChange={e => setJustification(e.target.value)} rows={4} className={styles.input} placeholder="Detail the business case for this credit request..." />
+                <label>Reason for Credit *</label>
+                <select value={justification} onChange={e => setJustification(e.target.value)} className={styles.input}>
+                  <option value="">-- Select Reason --</option>
+                  {creditReasons.map(r => <option key={r.id} value={r.value}>{r.value}</option>)}
+                </select>
               </div>
 
               <div className="mt-6 p-4 bg-muted rounded-md text-sm border">

@@ -64,7 +64,7 @@ export async function handleNewCase(formData: FormData) {
       deal_size_bucket: dealSizeBucket,
       draft_rm_answers: rmTaskAnswers
     },
-    commercial_notes: `${commercialNotes}\n\nJustification: ${justification}`,
+    commercial_notes: `${commercialNotes}\n\nReason for Credit: ${justification}`,
     rm_user_id: user.id,
     kam_user_id: kamUserId,
   });
