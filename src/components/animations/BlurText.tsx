@@ -1,27 +1,56 @@
 "use client";
-import { motion } from "framer-motion";
 
-export function BlurText({ text, className = "" }: { text: string; className?: string }) {
-  const letters = text.split("");
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+
+interface BlurTextProps {
+  text: string;
+  className?: string;
+  delay?: number;
+}
+
+export function BlurText({ text, className, delay = 0 }: BlurTextProps) {
+  const words = text.split(" ");
+
+  const container = {
+    hidden: { opacity: 0 },
+    visible: (i = 1) => ({
+      opacity: 1,
+      transition: { staggerChildren: 0.08, delayChildren: delay * i },
+    }),
+  };
+
+  const child = {
+    visible: {
+      opacity: 1,
+      filter: "blur(0px)",
+      y: 0,
+      transition: {
+        type: "spring" as const,
+        damping: 12,
+        stiffness: 100,
+      },
+    },
+    hidden: {
+      opacity: 0,
+      filter: "blur(10px)",
+      y: 10,
+    },
+  };
 
   return (
-    <span className={`inline-block ${className}`} aria-label={text}>
-      {letters.map((letter, i) => (
-        <motion.span
-          key={i}
-          aria-hidden="true"
-          initial={{ filter: "blur(10px)", opacity: 0, y: 10 }}
-          animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.5,
-            delay: i * 0.03,
-            ease: [0.4, 0, 0.2, 1],
-          }}
-          className="inline-block"
-        >
-          {letter === " " ? "\u00A0" : letter}
+    <motion.div
+      style={{ display: "flex", flexWrap: "wrap", gap: "0.25em" }}
+      className={cn("font-bold", className)}
+      variants={container}
+      initial="hidden"
+      animate="visible"
+    >
+      {words.map((word, index) => (
+        <motion.span variants={child} key={index}>
+          {word}
         </motion.span>
       ))}
-    </span>
+    </motion.div>
   );
 }
