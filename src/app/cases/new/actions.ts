@@ -1,6 +1,6 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser, isAdmin, hasAnyRole, logAuditEvent } from '@/utils/auth';
+import { getCurrentUser, isAdmin, hasAnyRole } from '@/utils/auth';
 import { createCaseDraft, submitCase, calculateCompositeDays, validateTranches } from '@/utils/engine';
 import { redirect } from 'next/navigation';
 import { idEngine, IdGenerationParams } from '@/utils/idEngine';
