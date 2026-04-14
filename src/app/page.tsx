@@ -10,6 +10,9 @@ import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
 
 import { BlurText } from '@/components/animations/BlurText';
+import { ShinyText } from '@/components/animations/ShinyText';
+import { TiltedCard } from '@/components/animations/TiltedCard';
+import { StarBorder } from '@/components/animations/StarBorder';
 import { SpotlightCard } from '@/components/animations/SpotlightCard';
 import { CountUp } from '@/components/animations/CountUp';
 import { StaggeredFade } from '@/components/animations/StaggeredFade';
@@ -277,7 +280,7 @@ export default async function DashboardPage() {
         </h1>
         <p className="text-muted-foreground text-sm flex items-center gap-2">
           <Activity size={14} className="text-brand" aria-hidden="true" />
-          <BlurText text="Credit Issuance System Overview" />
+          <ShinyText text="Credit Issuance System Overview" />
         </p>
       </div>
 
@@ -348,21 +351,25 @@ export default async function DashboardPage() {
 
         {/* 3. Quick Shortcuts (1x1) */}
         <div className={cn("grid grid-rows-2 gap-4", !isRm && "col-span-1 md:col-span-1")}>
-          <Link href="/cases/new" className="group">
-            <SpotlightCard className="h-full bg-brand text-brand-foreground hover:bg-brand/90 border-none transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
-              <div className="text-center space-y-1">
-                <Plus size={24} className="mx-auto group-hover:rotate-90 transition-transform duration-300" aria-hidden="true" />
-                <p className="text-tiny font-bold uppercase tracking-widest">New Case</p>
+          <Link href="/cases/new" className="group h-full">
+            <StarBorder className="h-full w-full">
+              <div className="h-full w-full bg-brand text-brand-foreground hover:bg-brand/90 transition-all flex items-center justify-center p-4">
+                <div className="text-center space-y-1">
+                  <Plus size={24} className="mx-auto group-hover:rotate-90 transition-transform duration-300" aria-hidden="true" />
+                  <p className="text-tiny font-bold uppercase tracking-widest">New Case</p>
+                </div>
               </div>
-            </SpotlightCard>
+            </StarBorder>
           </Link>
-          <Link href="/policy">
-            <SpotlightCard className="h-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4 hover:scale-[1.02]">
-              <div className="text-center space-y-1">
-                <ShieldCheck size={24} className="mx-auto text-brand" aria-hidden="true" />
-                <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Policy</p>
+          <Link href="/policy" className="h-full">
+            <StarBorder className="h-full w-full">
+              <div className="h-full w-full bg-card/70 backdrop-blur-md border-white/20 hover:bg-accent transition-all flex items-center justify-center p-4">
+                <div className="text-center space-y-1">
+                  <ShieldCheck size={24} className="mx-auto text-brand" aria-hidden="true" />
+                  <p className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Policy</p>
+                </div>
               </div>
-            </SpotlightCard>
+            </StarBorder>
           </Link>
         </div>
 

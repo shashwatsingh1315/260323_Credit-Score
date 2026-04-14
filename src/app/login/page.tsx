@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, ShieldCheck } from 'lucide-react';
+import { Squares } from '@/components/animations/Squares';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
@@ -63,8 +64,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="relative min-h-screen bg-background flex items-center justify-center p-4">
+      <Squares />
+      <div className="w-full max-w-sm relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-3 justify-center mb-8">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">

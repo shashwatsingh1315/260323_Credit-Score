@@ -1,0 +1,29 @@
+"use client";
+
+import { motion } from "framer-motion";
+import React from "react";
+import { cn } from "@/lib/utils";
+
+interface StarBorderProps {
+  children: React.ReactNode;
+  className?: string;
+  as?: React.ElementType;
+}
+
+export function StarBorder({ children, className, as: Component = "div" }: StarBorderProps) {
+  return (
+    <Component className={cn("relative inline-block overflow-hidden rounded-xl p-[2px]", className)}>
+      <motion.div
+        className="absolute inset-[-100%] opacity-50"
+        style={{
+          background: "conic-gradient(from 0deg, transparent 0 340deg, hsl(var(--primary)) 360deg)",
+        }}
+        animate={{ rotate: [0, 360] }}
+        transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+      />
+      <div className="relative h-full w-full rounded-[10px] bg-background p-4">
+        {children}
+      </div>
+    </Component>
+  );
+}
