@@ -1,4 +1,5 @@
 import { createClient } from './supabase/server';
+import { cache } from 'react';
 
 export type UserRole = 'rm' | 'kam' | 'accounts' | 'bdo' | 'ordinary_approver' | 'board_member' | 'founder_admin';
 export const USER_ROLES: UserRole[] = ['rm', 'kam', 'accounts', 'bdo', 'ordinary_approver', 'board_member', 'founder_admin'];
@@ -15,26 +16,21 @@ export interface UserProfile {
  * Get the current authenticated user's profile and roles.
  * Returns null if not authenticated.
  */
-export async function getCurrentUser(): Promise<UserProfile | null> {
+export const getCurrentUser = cache(async (): Promise<UserProfile | null> => {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!user) return null;
+  if (!session?.user) return null;
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*')
-    .eq('id', user.id)
+    .select('*, user_roles(role)')
+    .eq('id', session.user.id)
     .single();
 
   if (!profile) return null;
 
-  const { data: roleRows } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id);
-
-  const roles = (roleRows || []).map((r: { role: UserRole }) => r.role);
+  const roles = (profile.user_roles || []).map((r: { role: string }) => r.role as UserRole);
 
   return {
     id: profile.id,
@@ -43,7 +39,7 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
     branch_id: profile.branch_id,
     roles,
   };
-}
+});
 
 /**
  * Check if a user has a specific role.
