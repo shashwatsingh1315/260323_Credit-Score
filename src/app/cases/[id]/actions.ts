@@ -25,164 +25,118 @@ export async function fetchCaseDetail(caseId: string) {
 
   if (!caseData) return null;
 
-  // Fetch history and exposure
-  if (caseData.customer_party_id) {
-    const [{ data: cExp }, { data: cHist }] = await Promise.all([
+  const [
+    customerData,
+    contractorData,
+    outcomeData,
+    cycleData,
+    rcaReasonsData,
+    delayReasonsData,
+    auditEventsData,
+    commentsData,
+    usersData,
+    ledgerData
+  ] = await Promise.all([
+    caseData.customer_party_id ? Promise.all([
       supabase.from('party_exposure').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
       supabase.from('party_history').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single()
-    ]);
-    caseData.customer_exposure = cExp;
-    caseData.customer_history = cHist;
-  }
-
-  if (caseData.contractor_party_id) {
-    const [{ data: cExp }, { data: cHist }] = await Promise.all([
+    ]) : Promise.resolve([null, null]),
+    caseData.contractor_party_id ? Promise.all([
       supabase.from('party_exposure').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
       supabase.from('party_history').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).single()
-    ]);
-    caseData.contractor_exposure = cExp;
-    caseData.contractor_history = cHist;
-  }
+    ]) : Promise.resolve([null, null]),
+    caseData.status === 'Closed' ? supabase.from('realized_outcomes').select('*').eq('case_id', caseId).single() : Promise.resolve({ data: null }),
+    supabase.from('review_cycles').select('*').eq('case_id', caseId).eq('is_active', true).single(),
+    supabase.from('admin_enumerations').select('value').eq('category', 'reason_for_credit').eq('is_active', true).order('sort_order'),
+    supabase.from('admin_enumerations').select('value').eq('category', 'delay_reason').eq('is_active', true).order('sort_order'),
+    supabase.from('audit_events').select('*, actor:profiles!audit_events_actor_id_fkey(full_name)').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50),
+    supabase.from('case_comments').select('*, author:profiles!case_comments_author_id_fkey(full_name)').eq('case_id', caseId).order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name, roles:user_roles(role)').order('full_name'),
+    (['Approved', 'Accepted', 'Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled'].includes(caseData.status)) ? fetchLedgerData(caseId) : Promise.resolve(null)
+  ]);
 
-  // Fetch outcomes if closed
-  if (caseData.status === 'Closed') {
-    const { data: outcome } = await supabase.from('realized_outcomes').select('*').eq('case_id', caseId).single();
-    caseData.outcome = outcome;
-  }
+  if (customerData[0] && customerData[0].data) caseData.customer_exposure = customerData[0].data;
+  if (customerData[1] && customerData[1].data) caseData.customer_history = customerData[1].data;
+  if (contractorData[0] && contractorData[0].data) caseData.contractor_exposure = contractorData[0].data;
+  if (contractorData[1] && contractorData[1].data) caseData.contractor_history = contractorData[1].data;
+  caseData.outcome = outcomeData.data;
 
-  const { data: cycle } = await supabase
-    .from('review_cycles')
-    .select('*')
-    .eq('case_id', caseId)
-    .eq('is_active', true)
-    .single();
-
-  const { data: rcaReasons } = await supabase
-    .from('admin_enumerations')
-    .select('value')
-    .eq('category', 'reason_for_credit')
-    .eq('is_active', true)
-    .order('sort_order');
-
-  const { data: delayReasons } = await supabase
-    .from('admin_enumerations')
-    .select('value')
-    .eq('category', 'delay_reason')
-    .eq('is_active', true)
-    .order('sort_order');
+  const cycle = cycleData.data;
+  const rcaReasons = rcaReasonsData.data || [];
+  const delayReasons = delayReasonsData.data || [];
+  const auditEvents = auditEventsData.data || [];
+  const comments = commentsData.data || [];
+  const users = usersData.data || [];
+  const ledger = ledgerData;
 
   let tasks: any[] = [];
-  if (cycle) {
-    const { data: taskData, error } = await supabase
-      .from('stage_tasks')
-      .select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name, require_reasoning, sla_days, weight)')
-      .eq('review_cycle_id', cycle.id)
-      .order('stage').order('created_at');
-
-    if (error) {
-      console.error("Error fetching stage tasks:", error);
-    }
-    tasks = taskData || [];
-  }
-
-  const { data: auditEvents } = await supabase
-    .from('audit_events')
-    .select('*, actor:profiles!audit_events_actor_id_fkey(full_name)')
-    .eq('case_id', caseId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
   let approvalRounds: any[] = [];
   let boardRounds: any[] = [];
-  if (cycle) {
-    const { data: rounds } = await supabase
-      .from('approval_rounds')
-      .select('*, decisions:approval_decisions(*, approver:profiles!approval_decisions_approver_id_fkey(full_name))')
-      .eq('review_cycle_id', cycle.id)
-      .order('created_at', { ascending: false });
-    approvalRounds = rounds || [];
+  let stageSummaries: any[] = [];
 
-    // Fetch board rounds for each approval round that is an ambiguity_board or appeal
+  if (cycle) {
+    const [tasksRes, roundsRes] = await Promise.all([
+      supabase.from('stage_tasks').select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name, require_reasoning, sla_days, weight)').eq('review_cycle_id', cycle.id).order('stage').order('created_at'),
+      supabase.from('approval_rounds').select('*, decisions:approval_decisions(*, approver:profiles!approval_decisions_approver_id_fkey(full_name))').eq('review_cycle_id', cycle.id).order('created_at', { ascending: false }),
+    ]);
+
+    tasks = tasksRes.data || [];
+    approvalRounds = roundsRes.data || [];
+    
     if (approvalRounds.length > 0) {
       const roundIds = approvalRounds.map((r: any) => r.id);
-      const { data: br } = await supabase
-        .from('board_rounds')
-        .select('*, votes:board_votes(*, voter:profiles!board_votes_voter_id_fkey(full_name, id))')
-        .in('approval_round_id', roundIds)
-        .order('created_at', { ascending: false });
+      const { data: br } = await supabase.from('board_rounds').select('*, votes:board_votes(*, voter:profiles!board_votes_voter_id_fkey(full_name, id))').in('approval_round_id', roundIds).order('created_at', { ascending: false });
       boardRounds = br || [];
     }
-  }
 
-  const { data: comments } = await supabase
-    .from('case_comments')
-    .select('*, author:profiles!case_comments_author_id_fkey(full_name)')
-    .eq('case_id', caseId)
-    .order('created_at', { ascending: false });
+    const summariesRes = await Promise.all([1, 2, 3].map(async (s) => {
+      const isCurrent = cycle.active_stage === s;
+      const isPast = cycle.active_stage > s;
+      
+      let score = null;
+      let bandName = 'No Band';
+      let approvedDays = 0;
 
-  const { data: users } = await supabase
-    .from('profiles')
-    .select('id, full_name, roles:user_roles(role)')
-    .order('full_name');
-
-  // Fetch stage summaries for RM visibility
-  const stageSummaries = [];
-  if (cycle) {
-    const scoring = await import('@/utils/scoring');
-    const stageData = await Promise.all([1, 2, 3].map(async (s) => {
-      const scoreResult = await scoring.calculateFinalCaseScore({
-        reviewCycleId: cycle.id,
-        caseScenario: caseData.case_scenario,
-        upToStage: s,
-      });
-
-      const bandResult = await scoring.mapScoreToCreditDays({
-        policyVersionId: cycle.policy_snapshot_id,
-        score: scoreResult.finalScore,
-      });
-
-      // Derive status for this stage
-      const stageRounds = approvalRounds.filter(r => r.stage === s);
-      let status = 'Pending';
-      if (stageRounds.some(r => r.status === 'approved')) {
-        status = 'Approved';
-      } else if (stageRounds.some(r => r.status === 'rejected')) {
-        status = 'Rejected';
-      } else if (stageRounds.some(r => r.status === 'open')) {
-        status = 'Awaiting Approval';
-      } else if (cycle.active_stage === s) {
-        status = 'In Progress';
-      } else if (cycle.active_stage > s) {
-        status = 'Completed';
+      if (isCurrent) {
+         score = cycle.current_case_score;
+         bandName = cycle.score_band_name || 'No Band';
+         approvedDays = cycle.approved_credit_days || 0;
+      } else if (isPast) {
+         const scoring = await import('@/utils/scoring');
+         const scoreResult = await scoring.calculateFinalCaseScore({ reviewCycleId: cycle.id, caseScenario: caseData.case_scenario, upToStage: s });
+         const bandResult = await scoring.mapScoreToCreditDays({ policyVersionId: cycle.policy_snapshot_id, score: scoreResult.finalScore });
+         score = scoreResult.finalScore;
+         bandName = bandResult?.bandName || 'No Band';
+         approvedDays = bandResult?.approvedDays || 0;
       }
 
-      return {
-        stage: s,
-        score: scoreResult.finalScore,
-        bandName: bandResult?.bandName || 'No Band',
-        approvedDays: bandResult?.approvedDays || 0,
-        status,
-        isCurrent: cycle.active_stage === s
-      };
+      return { stage: s, score, bandName, approvedDays, isCurrent };
     }));
-    stageSummaries.push(...stageData);
-  }
 
-  // Fetch Phase-2 ledger data (billing, repayments, credit notes, tranche waterfall)
-  const ledger = await fetchLedgerData(caseId);
+    stageSummaries = summariesRes.map(s => {
+      const stageRounds = approvalRounds.filter((r: any) => r.stage === s.stage);
+      let status = 'Pending';
+      if (stageRounds.some((r: any) => r.status === 'approved')) status = 'Approved';
+      else if (stageRounds.some((r: any) => r.status === 'rejected')) status = 'Rejected';
+      else if (stageRounds.some((r: any) => r.status === 'open')) status = 'Awaiting Approval';
+      else if (cycle.active_stage === s.stage) status = 'In Progress';
+      else if (cycle.active_stage > s.stage) status = 'Completed';
+      return { ...s, status };
+    });
+  }
 
   return { 
     case: caseData, 
     cycle, 
     tasks, 
-    auditEvents: auditEvents || [], 
+    auditEvents, 
     approvalRounds, 
     boardRounds, 
-    comments: comments || [], 
-    users: users || [], 
+    comments, 
+    users, 
     ledger, 
-    rcaReasons: rcaReasons || [], 
-    delayReasons: delayReasons || [],
+    rcaReasons, 
+    delayReasons,
     stageSummaries
   };
 }

@@ -315,9 +315,7 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
  * Generate all tasks for a review cycle upfront.
  */
 export async function generateAllCycleTasks(cycleId: string, policyVersionId: string, caseId: string) {
-  for (let s = 1; s <= 3; s++) {
-    await generateStageTasks(cycleId, s, policyVersionId, caseId);
-  }
+  await Promise.all([1, 2, 3].map(s => generateStageTasks(cycleId, s, policyVersionId, caseId)));
 }
 
 /**

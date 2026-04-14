@@ -40,7 +40,7 @@ const navItems = [
   },
 ];
 
-export default function Shell({ children }: { children: React.ReactNode }) {
+export default function Shell({ children, initialActiveRole = 'viewer' }: { children: React.ReactNode, initialActiveRole?: string }) {
   // ALL hooks must be declared before any conditional return (Rules of Hooks).
   const pathname = usePathname();
   const router = useRouter();
@@ -48,17 +48,18 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [activeRole, setActiveRole] = useState<string>('viewer');
+  const [activeRole, setActiveRole] = useState<string>(initialActiveRole);
   const [sessionUser, setSessionUser] = useState<{ id: string, full_name: string, roles: string[] } | null>(null);
   const [loadingNotifs, setLoadingNotifs] = useState(true);
 
   const isAuthPage = pathname === '/login' || pathname === '/reset-password';
 
   useEffect(() => {
+    setActiveRole(initialActiveRole);
+  }, [initialActiveRole]);
+
+  useEffect(() => {
     if (isAuthPage) return; // skip data fetching on auth pages
-    getImpersonationRole().then(r => {
-      if (r) setActiveRole(r);
-    }).catch(console.error);
 
     fetchMyNotifications().then(n => {
       setNotifications(n);
@@ -71,7 +72,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     fetchSessionInfo().then(u => {
       if (u) setSessionUser(u);
     }).catch(console.error);
-  }, [pathname]);
+  }, [isAuthPage]);
 
   if (isAuthPage) return <>{children}</>;
 
