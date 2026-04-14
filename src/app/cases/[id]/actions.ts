@@ -89,29 +89,39 @@ export async function fetchCaseDetail(caseId: string) {
       boardRounds = br || [];
     }
 
-    stageSummaries = [1, 2, 3].map(s => {
-      const stageRounds = approvalRounds.filter((r: any) => r.stage === s);
-      let status = 'Pending';
-      if (stageRounds.some((r: any) => r.status === 'approved')) status = 'Approved';
-      else if (stageRounds.some((r: any) => r.status === 'rejected')) status = 'Rejected';
-      else if (stageRounds.some((r: any) => r.status === 'open')) status = 'Awaiting Approval';
-      else if (cycle.active_stage === s) status = 'In Progress';
-      else if (cycle.active_stage > s) status = 'Completed';
-      
+    const summariesRes = await Promise.all([1, 2, 3].map(async (s) => {
       const isCurrent = cycle.active_stage === s;
       const isPast = cycle.active_stage > s;
-
+      
       let score = null;
       let bandName = 'No Band';
       let approvedDays = 0;
 
-      if (isCurrent || isPast) {
+      if (isCurrent) {
          score = cycle.current_case_score;
          bandName = cycle.score_band_name || 'No Band';
          approvedDays = cycle.approved_credit_days || 0;
+      } else if (isPast) {
+         const scoring = await import('@/utils/scoring');
+         const scoreResult = await scoring.calculateFinalCaseScore({ reviewCycleId: cycle.id, caseScenario: caseData.case_scenario, upToStage: s });
+         const bandResult = await scoring.mapScoreToCreditDays({ policyVersionId: cycle.policy_snapshot_id, score: scoreResult.finalScore });
+         score = scoreResult.finalScore;
+         bandName = bandResult?.bandName || 'No Band';
+         approvedDays = bandResult?.approvedDays || 0;
       }
-      
-      return { stage: s, score, bandName, approvedDays, isCurrent, status };
+
+      return { stage: s, score, bandName, approvedDays, isCurrent };
+    }));
+
+    stageSummaries = summariesRes.map(s => {
+      const stageRounds = approvalRounds.filter((r: any) => r.stage === s.stage);
+      let status = 'Pending';
+      if (stageRounds.some((r: any) => r.status === 'approved')) status = 'Approved';
+      else if (stageRounds.some((r: any) => r.status === 'rejected')) status = 'Rejected';
+      else if (stageRounds.some((r: any) => r.status === 'open')) status = 'Awaiting Approval';
+      else if (cycle.active_stage === s.stage) status = 'In Progress';
+      else if (cycle.active_stage > s.stage) status = 'Completed';
+      return { ...s, status };
     });
   }
 
