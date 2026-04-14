@@ -24,6 +24,18 @@ import {
   handleBoardVote
 } from './actions';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+
+import { SpotlightCard } from '@/components/animations/SpotlightCard';
+import { GradientText } from '@/components/animations/GradientText';
+import { GlowPulse } from '@/components/animations/GlowPulse';
+import { BlurText } from '@/components/animations/BlurText';
+import { ShinyText } from '@/components/animations/ShinyText';
+import { StaggeredFade } from '@/components/animations/StaggeredFade';
+import { ProgressRing } from '@/components/animations/ProgressRing';
+import { AnimatedNumber } from '@/components/animations/AnimatedNumber';
+import { AnimatedTimeline } from '@/components/animations/AnimatedTimeline';
+import { StarBorder } from '@/components/animations/StarBorder';
 
 interface CaseWorkspaceProps {
   initialActiveRole?: string;
@@ -267,16 +279,18 @@ export default function CaseWorkspace({ data, initialActiveRole = 'viewer' }: Ca
       </div>
 
       {['Approved', 'Accepted', 'Billing Active', 'Pending Write-Off Approval'].includes(c.status) && (
-        <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-400">
+        <SpotlightCard className="border-success/40 bg-success/10 backdrop-blur-md p-4">
           <div className="flex items-center gap-2 mb-1">
-            <CheckCircle size={18} />
-            <h3 className="font-semibold text-base">Credit Terms Approved</h3>
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+              <CheckCircle size={18} className="text-success" />
+            </motion.div>
+            <h3 className="font-semibold text-base text-success">Credit Terms Approved</h3>
           </div>
-          <p className="text-sm opacity-90">
+          <p className="text-sm opacity-90 text-success/90">
             This case was approved with <strong>{cycle?.approved_credit_days || c.composite_credit_days}</strong> days of credit. 
             The Relationship Manager can proceed to the <strong>Ledger &amp; Billing</strong> tab to initiate billing.
           </p>
-        </div>
+        </SpotlightCard>
       )}
 
       {/* Live Score Banner — shown when scoring has started */}
@@ -316,13 +330,13 @@ export default function CaseWorkspace({ data, initialActiveRole = 'viewer' }: Ca
       )}
 
       <Tabs defaultValue="overview" className="mt-6">
-        <TabsList className="mb-4 print:hidden">
-          <TabsTrigger value="overview"><Layers size={14} className="mr-2" /> Overview</TabsTrigger>
-          <TabsTrigger value="stages"><CheckCircle size={14} className="mr-2" /> Stages</TabsTrigger>
-          <TabsTrigger value="approvals"><Shield size={14} className="mr-2" /> Approvals</TabsTrigger>
-          <TabsTrigger value="ledger"><Wallet size={14} className="mr-2" /> Ledger &amp; Billing</TabsTrigger>
-          <TabsTrigger value="comments"><MessageSquare size={14} className="mr-2" /> Comments</TabsTrigger>
-          <TabsTrigger value="audit"><History size={14} className="mr-2" /> Audit Trail</TabsTrigger>
+        <TabsList className="mb-4 print:hidden bg-card/60 backdrop-blur-md border border-border/50 rounded-xl p-1 shadow-sm">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background/80 data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-[hsl(var(--color-brand))] data-[state=active]:shadow-[0_4px_12px_-4px_hsl(var(--color-brand)/0.3)] transition-all"><Layers size={14} className="mr-2" /> Overview</TabsTrigger>
+          <TabsTrigger value="stages" className="data-[state=active]:bg-background/80 data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-[hsl(var(--color-brand))] data-[state=active]:shadow-[0_4px_12px_-4px_hsl(var(--color-brand)/0.3)] transition-all"><CheckCircle size={14} className="mr-2" /> Stages</TabsTrigger>
+          <TabsTrigger value="approvals" className="data-[state=active]:bg-background/80 data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-[hsl(var(--color-brand))] data-[state=active]:shadow-[0_4px_12px_-4px_hsl(var(--color-brand)/0.3)] transition-all"><Shield size={14} className="mr-2" /> Approvals</TabsTrigger>
+          <TabsTrigger value="ledger" className="data-[state=active]:bg-background/80 data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-[hsl(var(--color-brand))] data-[state=active]:shadow-[0_4px_12px_-4px_hsl(var(--color-brand)/0.3)] transition-all"><Wallet size={14} className="mr-2" /> Ledger &amp; Billing</TabsTrigger>
+          <TabsTrigger value="comments" className="data-[state=active]:bg-background/80 data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-[hsl(var(--color-brand))] data-[state=active]:shadow-[0_4px_12px_-4px_hsl(var(--color-brand)/0.3)] transition-all"><MessageSquare size={14} className="mr-2" /> Comments</TabsTrigger>
+          <TabsTrigger value="audit" className="data-[state=active]:bg-background/80 data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-[hsl(var(--color-brand))] data-[state=active]:shadow-[0_4px_12px_-4px_hsl(var(--color-brand)/0.3)] transition-all"><History size={14} className="mr-2" /> Audit Trail</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -401,25 +415,32 @@ export default function CaseWorkspace({ data, initialActiveRole = 'viewer' }: Ca
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">Commercial Details</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                {[
-                  { label: 'Bill Amount', value: `₹${(c.bill_amount || 0).toLocaleString('en-IN')}` },
-                  { label: 'Requested Exposure', value: `₹${(c.requested_exposure_amount || 0).toLocaleString('en-IN')}` },
-                  { label: 'Composite Days', value: `${c.composite_credit_days || 0} days` },
-                  { label: 'Branch', value: c.branch?.name || '—' },
-                ].map(d => (
-                  <div key={d.label}>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
-                    <p className="font-semibold">{d.value}</p>
+            <SpotlightCard>
+              <CardHeader className="pb-3 border-b border-border/50"><CardTitle className="text-base">Commercial Details</CardTitle></CardHeader>
+              <CardContent className="pt-4">
+                <StaggeredFade staggerDelay={0.05} className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Bill Amount</p>
+                    <AnimatedNumber value={c.bill_amount || 0} prefix="₹" className="font-semibold" />
                   </div>
-                ))}
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Requested Exposure</p>
+                    <AnimatedNumber value={c.requested_exposure_amount || 0} prefix="₹" className="font-semibold" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Composite Days</p>
+                    <p className="font-semibold">{c.composite_credit_days || 0} days</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Branch</p>
+                    <p className="font-semibold">{c.branch?.name || '—'}</p>
+                  </div>
+                </StaggeredFade>
                 {c.proposed_tranches && c.proposed_tranches.length > 0 && (
                   <div className="col-span-2">
                     <Separator className="my-3" />
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Tranches</p>
-                    <div className="space-y-1">
+                    <StaggeredFade staggerDelay={0.05} className="space-y-1">
                       {c.proposed_tranches.map((t: any, i: number) => (
                         <div key={i} className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground capitalize">{t.type}</span>
@@ -427,46 +448,68 @@ export default function CaseWorkspace({ data, initialActiveRole = 'viewer' }: Ca
                           <span className="text-muted-foreground">{t.days_after_billing}d after billing</span>
                         </div>
                       ))}
-                    </div>
+                    </StaggeredFade>
                   </div>
                 )}
               </CardContent>
-            </Card>
+            </SpotlightCard>
 
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">People</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
+            <SpotlightCard>
+              <CardHeader className="pb-3 border-b border-border/50"><CardTitle className="text-base">People</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-6 pt-4">
                 {[
                   { label: 'RM', value: c.rm?.full_name || '—' },
                   { label: 'KAM', value: c.kam?.full_name || 'Unassigned' },
                   { label: 'Customer', value: c.customer?.legal_name || '—' },
                   { label: 'Contractor', value: c.contractor?.legal_name || '—' },
                 ].map(d => (
-                  <div key={d.label}>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
-                    <p className="font-semibold">{d.value}</p>
+                  <div key={d.label} className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm hover:scale-110 transition-transform cursor-pointer shrink-0 shadow-sm border border-primary/20">
+                      {d.value.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
+                      <p className="font-semibold text-sm truncate" title={d.value}>{d.value}</p>
+                    </div>
                   </div>
                 ))}
               </CardContent>
-            </Card>
+            </SpotlightCard>
 
             {cycle && (
-              <Card className="col-span-2">
-                <CardHeader className="pb-3"><CardTitle className="text-base">Review Cycle #{cycle.cycle_number}</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-4 gap-4">
-                  {[
-                    { label: 'Current Stage', value: `Stage ${cycle.active_stage}` },
-                    { label: 'Case Score', value: cycle.current_case_score ?? liveScore ?? '—' },
-                    { label: 'Approved Days', value: cycle.approved_credit_days ? `${cycle.approved_credit_days}d` : '—' },
-                    { label: 'Status', value: cycle.is_ambiguous ? 'Ambiguous ⚠' : 'Normal' },
-                  ].map(d => (
-                    <div key={d.label}>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
-                      <p className="font-semibold">{d.value}</p>
-                    </div>
-                  ))}
+              <SpotlightCard className="col-span-2">
+                <CardHeader className="pb-3 border-b border-border/50"><CardTitle className="text-base">Review Cycle #{cycle.cycle_number}</CardTitle></CardHeader>
+                <CardContent className="flex items-center justify-around py-6">
+                  <div className="flex flex-col items-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Current Stage</p>
+                    <p className="text-2xl font-bold text-foreground">Stage {cycle.active_stage}</p>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Case Score</p>
+                    {cycle.current_case_score ?? liveScore ? (
+                      <ProgressRing value={cycle.current_case_score ?? liveScore} size={64} color="text-primary" />
+                    ) : (
+                      <span className="text-2xl font-bold text-muted-foreground">—</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Approved Days</p>
+                    {cycle.approved_credit_days ? (
+                      <AnimatedNumber value={cycle.approved_credit_days} suffix="d" className="text-2xl font-bold text-success" />
+                    ) : (
+                      <span className="text-2xl font-bold text-muted-foreground">—</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Status</p>
+                    {cycle.is_ambiguous ? (
+                      <GlowPulse variant="warning"><Badge variant="warning" className="text-sm py-1">Ambiguous ⚠</Badge></GlowPulse>
+                    ) : (
+                      <Badge variant="outline" className="text-sm py-1">Normal</Badge>
+                    )}
+                  </div>
                 </CardContent>
-              </Card>
+              </SpotlightCard>
             )}
 
             {/* Relaxation / Negotiation History */}

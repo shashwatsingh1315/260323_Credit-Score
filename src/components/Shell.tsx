@@ -12,6 +12,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { StarBorder } from '@/components/animations/StarBorder';
+import { GradientText } from '@/components/animations/GradientText';
+import { GlowPulse } from '@/components/animations/GlowPulse';
 
 const navItems = [
   {
@@ -162,7 +165,7 @@ export default function Shell({ children, initialActiveRole = 'viewer' }: { chil
                 await switchImpersonationRole(e.target.value);
                 router.refresh();
               }}
-              className="w-full bg-muted border border-border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-card/60 backdrop-blur-md border border-border/50 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary transition-all cursor-pointer hover:bg-muted/40 shadow-sm"
             >
               {sessionUser?.roles?.length ? (
                 sessionUser.roles.map(r => <option key={r} value={r}>{r.replace('_', ' ').toUpperCase()}</option>)
@@ -177,7 +180,7 @@ export default function Shell({ children, initialActiveRole = 'viewer' }: { chil
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-14 border-b border-border flex items-center px-6 gap-4 shrink-0 bg-card/50 backdrop-blur">
+        <header className="h-14 border-b border-border/40 flex items-center px-6 gap-4 shrink-0 bg-card/60 backdrop-blur-xl">
           <form onSubmit={handleSearch} className="flex-1 flex items-center gap-2 max-w-md bg-muted rounded-lg px-3 py-1.5 focus-within:ring-1 focus-within:ring-primary">
             <Search size={16} className="text-muted-foreground shrink-0" />
             <input
@@ -191,7 +194,11 @@ export default function Shell({ children, initialActiveRole = 'viewer' }: { chil
           <div className="ml-auto flex items-center gap-2 relative">
             <Button variant="ghost" size="icon" className="relative" onClick={() => setShowNotifs(!showNotifs)}>
               <Bell size={18} />
-              {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary" />}
+              {unreadCount > 0 && (
+                <GlowPulse variant="destructive" className="absolute top-1.5 right-1.5 w-2 h-2">
+                  <span className="block w-2 h-2 rounded-full bg-destructive" />
+                </GlowPulse>
+              )}
             </Button>
             
             {showNotifs && (

@@ -1,10 +1,20 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Briefcase, Building2, ChevronRight } from 'lucide-react';
 import { getImpersonationRole } from '@/utils/auth-actions';
+
+// Animation imports
+import { SpotlightCard } from '@/components/animations/SpotlightCard';
+import { GradientText } from '@/components/animations/GradientText';
+import { GlowPulse } from '@/components/animations/GlowPulse';
+import { BlurText } from '@/components/animations/BlurText';
+import { ShinyText } from '@/components/animations/ShinyText';
+import { StaggeredFade } from '@/components/animations/StaggeredFade';
+import { Squares } from '@/components/animations/Squares';
 
 export default async function CasesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const sp = await searchParams;
@@ -88,12 +98,12 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Credit Cases</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{cases?.length || 0} cases</p>
+          <BlurText text="Credit Cases" className="text-2xl font-bold" />
+          <ShinyText className="text-sm text-muted-foreground mt-0.5" text={`${cases?.length || 0} cases`} />
         </div>
         {canCreateCase && (
           <Button asChild>
-            <Link href="/cases/new"><PlusCircle size={16} /> New Case</Link>
+            <Link href="/cases/new"><PlusCircle size={16} className="mr-1.5" /> New Case</Link>
           </Button>
         )}
       </div>
@@ -123,8 +133,9 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
 
       {/* Cases Grid */}
       {!cases || cases.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center space-y-3">
+        <Card className="relative overflow-hidden border-dashed">
+          <div className="absolute inset-0 z-0 opacity-20 pointer-events-none"><Squares /></div>
+          <CardContent className="py-16 text-center space-y-3 relative z-10">
             <Briefcase size={40} className="mx-auto text-muted-foreground opacity-30" />
             <p className="text-muted-foreground">No cases found.</p>
             {canCreateCase && (
@@ -137,8 +148,15 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
           {cases.map((c: any) => {
             const ts = getTrancheStatus(c);
             return (
-            <Link key={c.id} href={`/cases/${c.id}`}>
-              <Card className="hover:border-primary/50 transition-all hover:bg-accent/10 cursor-pointer">
+            <Link key={c.id} href={`/cases/${c.id}`} className="block relative group">
+              <div className={cn(
+                "absolute left-0 top-0 bottom-0 w-1 rounded-l-xl z-10 transition-colors",
+                c.status === 'Billing Active' ? "bg-brand" :
+                c.status === 'Rejected' || c.status === 'Cancelled' ? "bg-destructive" :
+                c.status === 'Closed' ? "bg-success" :
+                "bg-transparent group-hover:bg-primary/20"
+              )} />
+              <SpotlightCard className="hover:scale-[1.005] transition-all cursor-pointer">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
                     <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -146,13 +164,21 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-sm">{c.case_number}</span>
+                        <span className="font-semibold text-sm">
+                          {c.status === 'Billing Active' ? <GradientText>{c.case_number}</GradientText> : c.case_number}
+                        </span>
                         <Badge variant={STATUS_VARIANT[c.status] || 'secondary'} className="text-xs">{c.status}</Badge>
                         {c.substatus && <Badge variant="secondary" className="text-xs">{c.substatus}</Badge>}
                         {ts && (
-                          <Badge variant={ts.type === 'delayed' ? 'destructive' : 'secondary'} className={ts.type === 'upcoming' ? 'bg-amber-400/20 text-amber-600 dark:text-amber-400 font-medium border-transparent text-tiny' : 'text-tiny'}>
-                            {ts.text}
-                          </Badge>
+                          ts.type === 'delayed' ? (
+                            <GlowPulse variant="destructive">
+                              <Badge variant="destructive" className="text-tiny">{ts.text}</Badge>
+                            </GlowPulse>
+                          ) : (
+                            <Badge variant="secondary" className="bg-amber-400/20 text-amber-600 dark:text-amber-400 font-medium border-transparent text-tiny">
+                              {ts.text}
+                            </Badge>
+                          )
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -171,7 +197,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
                     <ChevronRight size={16} className="text-muted-foreground shrink-0" />
                   </div>
                 </CardContent>
-              </Card>
+              </SpotlightCard>
             </Link>
             );
           })}

@@ -21,6 +21,40 @@ The application is built on modern web infrastructure:
 
 ---
 
+## 🧬 Application Data Structures
+
+The system's logic revolves around several core data structures that govern the credit decision process and financial ledger:
+
+### 1. Credit Case Lifecycle (`CreditCase`)
+The central entity representing a credit request.
+- **Identifiers:** `case_number` (unique, e.g., CC-2026-0001).
+- **Amounts:** `bill_amount` (total), `requested_exposure_amount` (subset), `decided_bill_amount` (final approved), `promised_bill_amount` (pre-notes).
+- **Status Mesh:** A combination of `status` (Draft, In Review, Approved, etc.) and `substatus` for granular states (e.g. "Awaiting Input").
+
+### 2. Policy-Governed Assessment (`ReviewCycle`)
+A temporal container for evaluating a case against a specific policy version.
+- **Snapshots:** Links to a `cycle_policy_snapshot` (frozen copy of the active policy parameters at the moment of submission).
+- **Progress:** Tracks `active_stage` (1-3) and `current_case_score`.
+- **Ambiguity:** A boolean `is_ambiguous` flag triggered by scoring logic to mandate Board oversight.
+
+### 3. Progressive Scoring (`StageTasks`)
+Atomic assessment units generated for each stage of a Review Cycle.
+- **Scoring Tasks:** Mapped to `parameter_definitions` (e.g., Financial HealthScore, Operational Tenure).
+- **Execution:** Tracks `grade_value` (1-5), `raw_input_value`, and `reasoning`.
+- **SLA Monitoring:** Tracks `sla_deadline` and `is_waiting` pause states.
+
+### 4. Financial Tranches (`Tranches`)
+A JSON-serialized array within the `credit_cases` table defining the payment schedule.
+- **Structure:** `[{ type: 'percentage' | 'amount', value: number, days_after_billing: number }]`.
+- **Validation:** Must reconcile exactly to the `bill_amount` via `src/utils/engine.ts:validateTranches()`.
+
+### 5. Repayment Waterfall (`Ledger`)
+Phase 2 logic for managing debt fulfillment.
+- **Extraction:** Funds from `repayments` are chronologically "waterfalled" into pending tranches.
+- **Adjustment:** `Credit Notes` reduce the total debt without shifting individual tranche weights.
+
+---
+
 ## 📚 Core Domain Glossary
 
 * **Credit Case:** The overarching record of a commercial request. It transitions through lifecycle phases like "Draft", "In Review", "Billing Active", and "Pending Write-Off Approval".
