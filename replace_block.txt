@@ -1,0 +1,67 @@
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">Commercial Details</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'Bill Amount', value: `₹${(c.bill_amount || 0).toLocaleString('en-IN')}` },
+                  { label: 'Requested Exposure', value: `₹${(c.requested_exposure_amount || 0).toLocaleString('en-IN')}` },
+                  { label: 'Composite Days', value: `${c.composite_credit_days || 0} days` },
+                  { label: 'Branch', value: c.branch?.name || '—' },
+                ].map(d => (
+                  <div key={d.label}>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
+                    <p className="font-semibold">{d.value}</p>
+                  </div>
+                ))}
+                {c.proposed_tranches && c.proposed_tranches.length > 0 && (
+                  <div className="col-span-2">
+                    <Separator className="my-3" />
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Tranches</p>
+                    <div className="space-y-1">
+                      {c.proposed_tranches.map((t: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground capitalize">{t.type}</span>
+                          <span>{t.type === 'percentage' ? `${t.value}%` : `₹${t.value?.toLocaleString('en-IN')}`}</span>
+                          <span className="text-muted-foreground">{t.days_after_billing}d after billing</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">People</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'RM', value: c.rm?.full_name || '—' },
+                  { label: 'KAM', value: c.kam?.full_name || 'Unassigned' },
+                  { label: 'Customer', value: c.customer?.legal_name || '—' },
+                  { label: 'Contractor', value: c.contractor?.legal_name || '—' },
+                ].map(d => (
+                  <div key={d.label}>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
+                    <p className="font-semibold">{d.value}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {cycle && (
+              <Card className="col-span-2">
+                <CardHeader className="pb-3"><CardTitle className="text-base">Review Cycle #{cycle.cycle_number}</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-4 gap-4">
+                  {[
+                    { label: 'Current Stage', value: `Stage ${cycle.active_stage}` },
+                    { label: 'Case Score', value: cycle.current_case_score ?? liveScore ?? '—' },
+                    { label: 'Approved Days', value: cycle.approved_credit_days ? `${cycle.approved_credit_days}d` : '—' },
+                    { label: 'Status', value: cycle.is_ambiguous ? 'Ambiguous ⚠' : 'Normal' },
+                  ].map(d => (
+                    <div key={d.label}>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
+                      <p className="font-semibold">{d.value}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}

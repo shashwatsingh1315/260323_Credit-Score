@@ -6,6 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { ShieldCheck, Sliders, GitBranch, BarChart3, CircleDot, CheckCircle2, Archive } from 'lucide-react';
 
+// Animation imports
+import { SpotlightCard } from '@/components/animations/SpotlightCard';
+import { GlowPulse } from '@/components/animations/GlowPulse';
+import { BlurText } from '@/components/animations/BlurText';
+import { ShinyText } from '@/components/animations/ShinyText';
+import { StaggeredFade } from '@/components/animations/StaggeredFade';
+import { StarBorder } from '@/components/animations/StarBorder';
+
 export default async function PolicyPage() {
   const [versions, active] = await Promise.all([fetchPolicyVersions(), fetchActivePolicy()]);
 
@@ -40,27 +48,30 @@ export default async function PolicyPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Policy & Scoring Engine</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {active
+          <BlurText text="Policy & Scoring Engine" className="text-2xl font-bold text-foreground" />
+          <ShinyText 
+            text={active
               ? `Active: ${active.version_label} · Published ${new Date(active.published_at || active.created_at).toLocaleDateString()}`
               : 'No active policy published yet'}
-          </p>
+            className="text-muted-foreground mt-1 text-sm"
+          />
         </div>
         <form action={createNewDraft}>
-          <Button type="submit" variant="outline" size="sm">
-            + New Draft
-          </Button>
+          <button type="submit" className="focus:outline-none focus-visible:ring-2 ring-primary rounded-xl">
+            <StarBorder className="rounded-xl p-[1px]">
+              <span className="text-sm font-medium px-2 py-1 block">+ New Draft</span>
+            </StarBorder>
+          </button>
         </form>
       </div>
 
       {/* Sub-page Navigation Cards */}
-      <div className="grid grid-cols-2 gap-4">
+      <StaggeredFade staggerDelay={0.04} className="grid grid-cols-2 gap-4">
         {subPages.map((sp) => {
           const Icon = sp.icon;
           return (
             <Link key={sp.href} href={sp.href}>
-              <Card className="hover:border-primary/50 hover:bg-accent/30 transition-all cursor-pointer h-full">
+              <SpotlightCard className="hover:scale-[1.02] transition-all cursor-pointer h-full">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -72,11 +83,11 @@ export default async function PolicyPage() {
                 <CardContent>
                   <p className="text-sm text-muted-foreground">{sp.desc}</p>
                 </CardContent>
-              </Card>
+              </SpotlightCard>
             </Link>
           );
         })}
-      </div>
+      </StaggeredFade>
 
       <Separator />
 
@@ -96,7 +107,9 @@ export default async function PolicyPage() {
                 return (
                   <div key={v.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/40 transition-colors">
                     <div className="flex items-center gap-3">
-                      {getVersionIcon(v)}
+                      {status === 'published' ? (
+                        <GlowPulse variant="success">{getVersionIcon(v)}</GlowPulse>
+                      ) : getVersionIcon(v)}
                       <div>
                         <p className="text-sm font-medium">{v.version_label}</p>
                         <p className="text-xs text-muted-foreground">{new Date(v.created_at).toLocaleDateString()}</p>
