@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download, Upload, AlertCircle, FileSpreadsheet } from 'lucide-react';
-import Papa from 'papaparse'; // Ensure papaparse is installed or handled via CDN. Assuming standard import here.
 import { processImportJob } from './actions';
 
 export default function ImportsClient({ jobs }: { jobs: any[] }) {
@@ -15,11 +14,13 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
     setFile(selected);
     setError('');
+
+    const Papa = (await import('papaparse')).default;
 
     Papa.parse(selected, {
       header: true,

@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 // ─────────────────────────────────────────────
 
 async function getSystemSetting(key: string, fallback: number): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await createClient({ next: { tags: ['system_settings'] } });
   const { data } = await supabase
     .from('system_settings')
     .select('value')

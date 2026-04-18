@@ -17,11 +17,13 @@ import {
 import * as auth from '@/utils/auth';
 import * as engine from '@/utils/engine';
 import * as scoring from '@/utils/scoring';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: vi.fn((fn) => fn)
 }));
 
 vi.mock('next/navigation', () => ({

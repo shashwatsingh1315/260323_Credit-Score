@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { parsePartiesCsv } from '@/utils/csv';
 
 export async function fetchParties(search?: string) {
-  const supabase = await createClient();
+  const supabase = await createClient({ next: { tags: ['parties'] } });
   let query = supabase.from('parties').select('id, legal_name, display_name, customer_code, industry_category, party_type, influencer_subtype, address, is_active, gst_number, pan_number').order('legal_name').limit(100);
   if (search) query = query.ilike('legal_name', `%${search}%`);
   const { data } = await query;
@@ -67,7 +67,7 @@ export async function deactivateParty(formData: FormData) {
 export async function fetchAllUsers() {
   const user = await getCurrentUser();
   if (!isAdmin(user)) return { success: false, error: 'Forbidden' };
-  const supabase = await createClient();
+  const supabase = await createClient({ next: { tags: ['users'] } });
   const { data } = await supabase
     .from('profiles')
     .select('*, roles:user_roles(role)')
