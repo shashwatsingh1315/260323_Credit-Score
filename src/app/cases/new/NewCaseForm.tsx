@@ -66,13 +66,17 @@ export default function NewCaseForm({
   const [contractorPartyId, setContractorPartyId] = useState('');
   const [billAmount, setBillAmount] = useState(0);
   const [requestedExposure, setRequestedExposure] = useState(0);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [isLoadingContractor, setIsLoadingContractor] = useState(false);
 
   // Auto-fetch party details on selection (M1)
   const handleCustomerSelect = async (id: string) => {
     setCustomerPartyId(id);
     if (id) {
+      setIsLoadingCustomer(true);
       const details = await fetchPartyDetails(id);
       setCustomerDetails(details);
+      setIsLoadingCustomer(false);
     } else {
       setCustomerDetails(null);
     }
@@ -81,8 +85,10 @@ export default function NewCaseForm({
   const handleContractorSelect = async (id: string) => {
     setContractorPartyId(id);
     if (id) {
+      setIsLoadingContractor(true);
       const details = await fetchPartyDetails(id);
       setContractorDetails(details);
+      setIsLoadingContractor(false);
     } else {
       setContractorDetails(null);
     }
@@ -109,15 +115,15 @@ export default function NewCaseForm({
   }, [scenario]);
 
   useEffect(() => {
-    async function getSiteId() {
+    const handler = setTimeout(async () => {
       if (cityCode) {
         const id = await generateSiteIdPreview(cityCode, siteDate);
         setGeneratedSiteId(id || '');
       } else {
         setGeneratedSiteId('');
       }
-    }
-    getSiteId();
+    }, 300);
+    return () => clearTimeout(handler);
   }, [cityCode, siteDate]);
 
   const formatRubricGuidance = (text: string) => {
@@ -371,8 +377,8 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={styles.input}>
-                    <option value="">-- Select Customer --</option>
+                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={styles.input} disabled={isLoadingCustomer}>
+                    <option value="">{isLoadingCustomer ? 'Loading details...' : '-- Select Customer --'}</option>
                     {parties
                       .filter(p => !p.party_type || p.party_type === 'customer' || p.party_type === 'both')
                       .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
@@ -401,8 +407,8 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={styles.input}>
-                    <option value="">-- Select Influencer --</option>
+                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={styles.input} disabled={isLoadingContractor}>
+                    <option value="">{isLoadingContractor ? 'Loading details...' : '-- Select Influencer --'}</option>
                     {parties
                       .filter(p => p.party_type === 'influencer' || p.party_type === 'both' || p.party_type === 'contractor')
                       .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.influencer_subtype ? `[${p.influencer_subtype}]` : ''}</option>)}

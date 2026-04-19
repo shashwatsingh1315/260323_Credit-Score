@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { parsePartiesCsv } from '@/utils/csv';
 
 export async function fetchParties(search?: string) {
-  const supabase = await createClient();
+  const supabase = await createClient({ next: { tags: ['parties'] } });
   let query = supabase.from('parties').select('id, legal_name, display_name, customer_code, industry_category, party_type, influencer_subtype, address, is_active, gst_number, pan_number').order('legal_name').limit(100);
   if (search) query = query.ilike('legal_name', `%${search}%`);
   const { data } = await query;
@@ -67,7 +67,7 @@ export async function deactivateParty(formData: FormData) {
 export async function fetchAllUsers() {
   const user = await getCurrentUser();
   if (!isAdmin(user)) return { success: false, error: 'Forbidden' };
-  const supabase = await createClient();
+  const supabase = await createClient({ next: { tags: ['users'] } });
   const { data } = await supabase
     .from('profiles')
     .select('*, roles:user_roles(role)')
@@ -79,6 +79,7 @@ export async function assignRole(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized. Only Admin can assign roles' };
     const supabase = await createClient();
     const userId = formData.get('userId') as string;
     const role = formData.get('role') as string;
@@ -95,6 +96,7 @@ export async function revokeRole(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized. Only Admin can revoke roles' };
     const supabase = await createClient();
     const userId = formData.get('userId') as string;
     const role = formData.get('role') as string;
@@ -121,6 +123,7 @@ export async function importPartiesCsv(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized. Only Admin can import parties' };
     
     const file = formData.get('file') as File;
     if (!file) throw new Error('No file provided');
@@ -206,12 +209,20 @@ export async function adminCreateUser(formData: FormData) {
       email: email
     });
 
-    if (profileError) console.error("Profile creation error:", profileError);
+    if (profileError) {
+      console.error("Profile creation error:", profileError);
+      throw new Error(`Profile creation error: ${profileError.message}`);
+    }
 
-    await supabaseAdmin.from('user_roles').upsert({
+    const { error: roleError } = await supabaseAdmin.from('user_roles').upsert({
       user_id: newUserId,
       role: role
     });
+
+    if (roleError) {
+      console.error("Role creation error:", roleError);
+      throw new Error(`Role creation error: ${roleError.message}`);
+    }
 
     await logAuditEvent({ event_type: 'user_created', actor_id: user.id, description: `Created new user ${email} with role ${role}` });
     revalidatePath('/admin');
