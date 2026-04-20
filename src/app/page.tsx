@@ -118,13 +118,14 @@ async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
       const fill = tranche.expectedAmount - trancheRemaining;
 
       // Count PDCR: did entire tranche get paid by due date?
-      if (fill >= tranche.expectedAmount && lastPaymentDateForTranche && lastPaymentDateForTranche <= tranche.dueDate) {
-        tranchesPaidOnTime++;
+      // PDCR = Past Due Credit Ratio, so we count what is NOT paid on time
+      if (fill < tranche.expectedAmount || !lastPaymentDateForTranche || lastPaymentDateForTranche > tranche.dueDate) {
+        tranchesPaidOnTime++; // Note: renamed variable logically means tranches PAST DUE
       }
 
-      // Amount PDCR: proportional amount paid on time
-      if (lastPaymentDateForTranche && lastPaymentDateForTranche <= tranche.dueDate) {
-        amountPaidOnTime += fill;
+      // Amount PDCR: proportional amount past due
+      if (!lastPaymentDateForTranche || lastPaymentDateForTranche > tranche.dueDate) {
+        amountPaidOnTime += (tranche.expectedAmount - fill); // amount PAST DUE
       }
 
       // Weighted Days PDCR: actualDays vs proposedDays

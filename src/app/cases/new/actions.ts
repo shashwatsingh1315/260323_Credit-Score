@@ -28,6 +28,10 @@ export async function handleNewCase(formData: FormData) {
   const action = formData.get('action') as string;
   const kamUserId = formData.get('kamUserId') as string || undefined; // 'draft' or 'submit'
 
+  if (action === 'submit' && billAmount <= 0) {
+    throw new Error('Bill amount must be greater than 0 to submit a case.');
+  }
+
   let tranches: any[] = [];
   try {
     tranches = JSON.parse(tranchesRaw || '[]');
@@ -83,6 +87,8 @@ export async function handleNewCase(formData: FormData) {
  * Server action: Fetch parties for the select dropdown.
  */
 export async function fetchParties() {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
   const supabase = await createClient();
   const { data } = await supabase
     .from('parties')

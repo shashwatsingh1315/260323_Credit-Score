@@ -1,6 +1,6 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser, logAuditEvent } from '@/utils/auth';
+import { getCurrentUser, logAuditEvent, isAdmin } from '@/utils/auth';
 import { revalidatePath } from 'next/cache';
 
 export async function fetchImportJobs() {
@@ -14,7 +14,7 @@ export async function fetchImportJobs() {
 
 export async function processImportJob(formData: FormData) {
   const user = await getCurrentUser();
-  if (!user) throw new Error('Not authenticated');
+  if (!user || !isAdmin(user)) throw new Error('Not authenticated or authorized');
 
   const supabase = await createClient();
   const importType = formData.get('import_type') as string;

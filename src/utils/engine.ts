@@ -163,6 +163,25 @@ export async function submitCase(caseId: string, rmUserId: string) {
 
     const cycleNumber = (existingCycleCount ?? 0) + 1;
 
+    // Check routing thresholds to see if we can start at a later stage
+    const { data: routingRules } = await supabase
+      .from('routing_thresholds')
+      .select('*')
+      .eq('policy_version_id', activePolicy.id);
+
+    let startingStage = 1;
+    if (routingRules && routingRules.length > 0) {
+      // Evaluate rules (simplified logic: check if billAmount < rule threshold)
+      const { data: caseDetails } = await supabase.from('credit_cases').select('bill_amount').eq('id', caseId).single();
+      const amount = caseDetails?.bill_amount || 0;
+
+      for (const rule of routingRules) {
+        if (rule.context_rule?.bill_amount_max && amount <= rule.context_rule.bill_amount_max) {
+          startingStage = Math.max(startingStage, rule.target_stage);
+        }
+      }
+    }
+
     // Create review cycle
     const { data: cycle, error: cycleErr } = await supabase
       .from('review_cycles')
@@ -170,7 +189,7 @@ export async function submitCase(caseId: string, rmUserId: string) {
         case_id: caseId,
         cycle_number: cycleNumber,
         policy_snapshot_id: activePolicy.id,
-        active_stage: 1,
+        active_stage: startingStage,
         is_active: true,
       })
       .select()
@@ -337,12 +356,25 @@ export async function progressStage(cycleId: string, currentStage: number, actor
     .eq('stage', currentStage)
     .eq('is_required', true)
     .neq('status', 'Completed')
-    .is('is_waived', false);
+    .neq('is_waived', true);
 
   if (errIncomplete) throw errIncomplete;
 
   if (incompleteTasks && incompleteTasks.length > 0) {
     throw new Error(`Cannot progress to Stage ${nextStage}. There are ${incompleteTasks.length} required tasks pending in Stage ${currentStage}.`);
+  }
+
+  // Check stage readiness
+  const { data: readiness, error: readinessErr } = await supabase
+    .from('stage_readiness')
+    .select('is_ready')
+    .eq('review_cycle_id', cycleId)
+    .eq('stage', currentStage)
+    .maybeSingle();
+
+  if (readinessErr) throw readinessErr;
+  if (readiness && !readiness.is_ready) {
+    throw new Error(`Cannot progress to Stage ${nextStage}. Stage ${currentStage} is not marked as ready.`);
   }
 
   const { data: cycle, error: cycleErr } = await supabase
@@ -468,5 +500,25 @@ export async function withdrawCase(params: {
   const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).maybeSingle();
   if (!caseErr && creditCase?.rm_user_id) {
     await sendNotification(creditCase.rm_user_id, 'Case Withdrawn', `Case ${creditCase.case_number} has been withdrawn.`);
+  }
+}
+export async function checkAndApplyAutoEscalation(caseId: string) {
+  const supabase = await createClient();
+  const { data: thresholds } = await supabase.from('admin_enumerations').select('value').eq('category', 'auto_escalation_days').limit(1).maybeSingle();
+  const thresholdDays = parseInt(thresholds?.value || '7');
+
+  const { data: c } = await supabase.from('credit_cases').select('status, submitted_at, escalation_level').eq('id', caseId).maybeSingle();
+  if (!c || c.status === 'Closed' || !c.submitted_at) return;
+
+  const daysSinceSubmit = (new Date().getTime() - new Date(c.submitted_at).getTime()) / (1000 * 3600 * 24);
+
+  if (daysSinceSubmit > thresholdDays && (c.escalation_level || 0) === 0) {
+    await supabase.from('credit_cases').update({ escalation_level: 1 }).eq('id', caseId);
+    await supabase.from('escalations').insert({
+      case_id: caseId,
+      assigned_to: null,
+      escalation_reason: `Auto-escalated due to exceeding SLA of ${thresholdDays} days.`,
+      status: 'open'
+    });
   }
 }

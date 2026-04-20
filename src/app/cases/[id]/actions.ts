@@ -25,6 +25,30 @@ export async function fetchCaseCore(caseId: string) {
 
   if (!caseData) return null;
 
+  const { checkAndApplyAutoEscalation } = await import('@/utils/engine');
+  await checkAndApplyAutoEscalation(caseId);
+
+  // I3: Enforce validity rules if case is Approved
+  if (caseData.status === 'Approved' && caseData.updated_at) {
+    const { data: validityRules } = await supabase.from('validity_rules').select('*').limit(1);
+    const validityDays = validityRules?.[0]?.validity_days || 90; // Default to 90
+    const approvedAt = new Date(caseData.updated_at).getTime();
+    const now = new Date().getTime();
+    const daysSinceApproval = (now - approvedAt) / (1000 * 3600 * 24);
+
+    if (daysSinceApproval > validityDays) {
+      await supabase.from('credit_cases').update({ status: 'Expired', substatus: 'Approval Validity Expired' }).eq('id', caseId);
+      caseData.status = 'Expired';
+      caseData.substatus = 'Approval Validity Expired';
+
+      await logAuditEvent({
+        case_id: caseId,
+        event_type: 'case_expired',
+        description: `Case approval expired after ${validityDays} days.`
+      });
+    }
+  }
+
   const [
     customerData,
     contractorData,
@@ -32,15 +56,15 @@ export async function fetchCaseCore(caseId: string) {
     cycleData,
   ] = await Promise.all([
     caseData.customer_party_id ? Promise.all([
-      supabase.from('party_exposure').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
-      supabase.from('party_history').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single()
+      supabase.from('party_exposure').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('party_history').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).maybeSingle()
     ]) : Promise.resolve([null, null]),
     caseData.contractor_party_id ? Promise.all([
-      supabase.from('party_exposure').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
-      supabase.from('party_history').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).single()
+      supabase.from('party_exposure').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('party_history').select('*').eq('party_id', caseData.contractor_party_id).order('data_as_of', { ascending: false }).limit(1).maybeSingle()
     ]) : Promise.resolve([null, null]),
-    caseData.status === 'Closed' ? supabase.from('realized_outcomes').select('*').eq('case_id', caseId).single() : Promise.resolve({ data: null }),
-    supabase.from('review_cycles').select('*').eq('case_id', caseId).eq('is_active', true).single(),
+    caseData.status === 'Closed' ? supabase.from('realized_outcomes').select('*').eq('case_id', caseId).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from('review_cycles').select('*').eq('case_id', caseId).eq('is_active', true).maybeSingle(),
   ]);
 
   if (customerData[0] && customerData[0].data) caseData.customer_exposure = customerData[0].data;
@@ -78,6 +102,8 @@ export async function fetchCaseTasks(cycleId: string, caseScenario: string, poli
   const users = usersData.data || [];
   const approvalRounds = roundsRes.data || [];
 
+  const { data: cycleRow } = await supabase.from('review_cycles').select('current_case_score, score_band_name, approved_credit_days').eq('id', cycleId).single();
+
   const summariesRes = await Promise.all([1, 2, 3].map(async (s) => {
     const isCurrent = activeStage === s;
     const isPast = activeStage > s;
@@ -86,8 +112,10 @@ export async function fetchCaseTasks(cycleId: string, caseScenario: string, poli
     let bandName = 'No Band';
     let approvedDays = 0;
 
-    if (isCurrent) {
-       // current calculation deferred to UI or client side
+    if (isCurrent && cycleRow) {
+      score = cycleRow.current_case_score;
+      bandName = cycleRow.score_band_name || 'No Band';
+      approvedDays = cycleRow.approved_credit_days || 0;
     } else if (isPast) {
        const scoring = await import('@/utils/scoring');
        const scoreResult = await scoring.calculateFinalCaseScore({ reviewCycleId: cycleId, caseScenario, upToStage: s });
@@ -167,6 +195,7 @@ export async function handleProgressStage(formData: FormData) {
   const cycleId = formData.get('cycleId') as string;
   const currentStage = parseInt(formData.get('currentStage') as string);
   const caseId = formData.get('caseId') as string;
+
   await progressStage(cycleId, currentStage, user.id);
   revalidatePath(`/cases/${caseId}`);
 }
@@ -177,6 +206,7 @@ export async function handleAssignTask(formData: FormData) {
 
   const taskId = formData.get('taskId') as string;
   const caseId = formData.get('caseId') as string;
+
   const assigneeId = formData.get('assigneeId') as string;
 
   if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
@@ -214,6 +244,7 @@ export async function handleWithdraw(formData: FormData) {
   }
 
   const caseId = formData.get('caseId') as string;
+
   const reason = formData.get('reason') as string;
   const note = formData.get('note') as string;
   await withdrawCase({ caseId, reason, note, actorId: user.id });
@@ -226,6 +257,7 @@ export async function handleCompleteTask(formData: FormData) {
   const supabase = await createClient();
   const taskId = formData.get('taskId') as string;
   const caseId = formData.get('caseId') as string;
+
 
   // RBAC Audit for task completion
   const { data: task } = await supabase
@@ -302,6 +334,7 @@ export async function handleForceReadyStage(formData: FormData) {
 
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
   const cycleId = formData.get('cycleId') as string;
   const currentStage = parseInt(formData.get('currentStage') as string);
   const reason = formData.get('reason') as string;
@@ -354,10 +387,11 @@ export async function handleToggleWaiting(formData: FormData) {
 
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
   const isWaiting = formData.get('isWaiting') === 'true';
   const reason = formData.get('reason') as string;
 
-  if (isWaiting) {
+  if (!isWaiting) {
     // Stop waiting
     await supabase.from('credit_cases').update({
       status: 'In Review',
@@ -382,6 +416,7 @@ export async function handleChangePersona(formData: FormData) {
 
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
   const cycleId = formData.get('cycleId') as string;
 
   const customerPersonaId = formData.get('customerPersonaId') as string || null;
@@ -439,6 +474,7 @@ export async function handleCreateApprovalRound(formData: FormData) {
 
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
   const cycleId = formData.get('cycleId') as string;
   const stage = parseInt(formData.get('stage') as string);
 
@@ -458,6 +494,7 @@ export async function handleApprovalDecision(formData: FormData) {
 
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
   const roundId = formData.get('roundId') as string;
   const decision = formData.get('decision') as string;
   const comment = formData.get('comment') as string || '';
@@ -465,7 +502,15 @@ export async function handleApprovalDecision(formData: FormData) {
   // Further check: board member role required for board/appeal rounds if we want to be strict
   // For now, union of roles is allowed per doc
 
+
+  // Check if approver is the rm_user_id or kam_user_id to prevent approving own case
+  const { data: currentCaseApprover } = await supabase.from('credit_cases').select('rm_user_id, kam_user_id').eq('id', caseId).single();
+  if (currentCaseApprover && (currentCaseApprover.rm_user_id === user.id || currentCaseApprover.kam_user_id === user.id)) {
+    throw new Error('Conflict of interest: Cannot approve a case where you are the RM or KAM.');
+  }
+
   await supabase.from('approval_decisions').insert({ approval_round_id: roundId, approver_id: user.id, decision, comment });
+
 
   let isFullyApproved = false;
   if (decision === 'reject') {
@@ -516,6 +561,7 @@ export async function handleSaveOutcome(formData: FormData) {
 
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
   const dealHappened = formData.get('dealHappened') === 'true';
   const paymentOnTime = formData.get('paymentOnTime') === 'true';
   const delayDays = parseInt(formData.get('realizedDelayDays') as string) || 0;
@@ -555,6 +601,7 @@ export async function handleAddComment(formData: FormData) {
   if (!user) redirect('/login');
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
   const content = formData.get('content') as string;
   const mentionedUserIdsRaw = formData.get('mentionedUserIds') as string;
   const mentionedUserIds: string[] = mentionedUserIdsRaw
@@ -605,6 +652,7 @@ export async function handleSelectiveUnlock(formData: FormData) {
   }
 
   const caseId = formData.get('caseId') as string;
+
   const section = formData.get('section') as string;
   const reason = formData.get('reason') as string;
 
@@ -623,6 +671,12 @@ export async function handleCounterOffer(formData: FormData) {
   if (!user) redirect('/login');
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
+
+  const { data: currentCase } = await supabase.from('credit_cases').select('rm_user_id').eq('id', caseId).single();
+  if (currentCase?.rm_user_id === user.id) {
+    throw new Error('Conflict of interest: The initiating RM cannot accept their own counter-offer. It requires KAM approval.');
+  }
+
   const cycleId = formData.get('cycleId') as string;
   const compositeDays = parseFloat(formData.get('compositeDays') as string);
   const outcome = formData.get('outcome') as string;
@@ -668,6 +722,7 @@ export async function handleBoardVote(formData: FormData) {
   const supabase = await createClient();
   const boardRoundId = formData.get('boardRoundId') as string;
   const caseId = formData.get('caseId') as string;
+
   const decision = formData.get('decision') as string;
   const comment = formData.get('comment') as string || '';
 

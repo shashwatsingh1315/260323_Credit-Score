@@ -31,9 +31,14 @@ export async function demoLogin(formData: FormData) {
   const supabase = await createClient()
   
   // Try to set up logic to login using test users if they exist
+  const password = process.env.DEMO_USER_PASSWORD;
+  if (!password) {
+    redirect('/login?error=Demo mode is not configured correctly on the server');
+  }
+
   const { error } = await supabase.auth.signInWithPassword({
     email,
-    password: 'password123',
+    password,
   })
   
   if (error) {

@@ -407,7 +407,12 @@ export async function upsertValidityRule(formData: FormData) {
 
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
-  const context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  let context_rule = {};
+  try {
+    context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  } catch (e) {
+    throw new Error('Invalid JSON in context rule');
+  }
   const validity_days = parseInt(formData.get('validity_days') as string) || 90;
   const policy_version_id = formData.get('policy_version_id') as string || null;
 
