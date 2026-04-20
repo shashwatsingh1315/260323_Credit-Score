@@ -6,8 +6,18 @@ import { USER_ROLES } from '@/utils/auth';
 
 export async function switchImpersonationRole(role: string) {
   if (!USER_ROLES.includes(role as any)) throw new Error("Invalid role");
+
+  const { getCurrentUser, isAdmin } = await import('./auth');
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) throw new Error("Only admins can impersonate roles");
+
   const cookieStore = await cookies();
-  cookieStore.set('impersonated_role', role, { path: '/' });
+  cookieStore.set('impersonated_role', role, {
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
   revalidatePath('/', 'layout');
 }
 
@@ -21,14 +31,12 @@ export async function getImpersonationRole() {
     
     if (!user) return 'viewer';
 
-    const requestedRole = cookieRole || user.roles[0] || 'viewer';
-
-    if (user.roles.includes(requestedRole as any) || user.roles.includes('founder_admin')) {
-      return requestedRole;
+    if (cookieRole && user.roles.includes('founder_admin')) {
+      return cookieRole;
     }
     
     return user.roles[0] || 'viewer';
-  } catch (e) {
+  } catch {
     return 'viewer';
   }
 }

@@ -59,14 +59,15 @@ export async function deactivateParty(formData: FormData) {
   if (!isAdmin(user)) throw new Error('Only Admin can deactivate parties');
 
   const supabase = await createClient();
-  await supabase.from('parties').update({ is_active: false }).eq('id', formData.get('id'));
+  const { error } = await supabase.from('parties').update({ is_active: false }).eq('id', formData.get('id'));
+  if (error) throw new Error(error.message);
   await logAuditEvent({ event_type: 'party_deactivated', actor_id: user.id, description: `Party ${formData.get('id')} deactivated.` });
   revalidatePath('/admin');
 }
 
 export async function fetchAllUsers() {
   const user = await getCurrentUser();
-  if (!isAdmin(user)) return { success: false, error: 'Forbidden' };
+  if (!user || !isAdmin(user)) return [];
   const supabase = await createClient({ next: { tags: ['users'] } });
   const { data } = await supabase
     .from('profiles')
@@ -110,6 +111,8 @@ export async function revokeRole(formData: FormData) {
 }
 
 export async function fetchGlobalAuditLog(limit = 100) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) return [];
   const supabase = await createClient();
   const { data } = await supabase
     .from('audit_events')
@@ -117,51 +120,6 @@ export async function fetchGlobalAuditLog(limit = 100) {
     .order('created_at', { ascending: false })
     .limit(limit);
   return data || [];
-}
-
-export async function importPartiesCsv(formData: FormData) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-    if (!isAdmin(user)) return { success: false, error: 'Unauthorized. Only Admin can import parties' };
-    
-    const file = formData.get('file') as File;
-    if (!file) throw new Error('No file provided');
-
-    const text = await file.text();
-    const payload = parsePartiesCsv(text);
-
-    const supabase = await createClient();
-    
-    const { data: job } = await supabase.from('import_jobs').insert({
-      imported_by: user.id,
-      import_type: 'party_master',
-      status: 'processing',
-      records_total: payload.length
-    }).select('id').single();
-
-    const { error } = await supabase.from('parties').insert(payload);
-
-    await supabase.from('import_jobs').update({
-      status: error ? 'failed' : 'completed',
-      records_processed: error ? 0 : payload.length,
-      error_details: error ? { message: error.message } : null,
-      completed_at: new Date().toISOString()
-    }).eq('id', job!.id);
-
-    if (error) throw new Error(error.message);
-
-    await logAuditEvent({ 
-      event_type: 'party_csv_import', 
-      actor_id: user.id, 
-      description: `Imported ${payload.length} parties via CSV.` 
-    });
-    
-    revalidatePath('/admin');
-    return { success: true };
-  } catch (e: any) {
-    return { success: false, error: e.message };
-  }
 }
 
 export async function adminCreateUser(formData: FormData) {
@@ -283,7 +241,17 @@ export async function updateCommitteeRoster(formData: FormData) {
 
     const supabase = await createClient();
     const memberIdsRaw = formData.get('memberIds') as string;
-    const memberIds = JSON.parse(memberIdsRaw);
+    let memberIds;
+    try {
+      memberIds = JSON.parse(memberIdsRaw);
+    } catch (e) {
+      return { success: false, error: 'Invalid JSON for memberIds' };
+    }
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!Array.isArray(memberIds) || !memberIds.every(id => typeof id === 'string' && uuidRegex.test(id))) {
+      return { success: false, error: 'Invalid member IDs provided. Must be an array of UUIDs.' };
+    }
 
     // Get current roster to see if we update or insert
     const { data: existing } = await supabase.from('committee_rosters').select('id').eq('is_active', true).limit(1).maybeSingle();

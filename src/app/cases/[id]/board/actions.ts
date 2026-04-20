@@ -93,7 +93,7 @@ export async function submitBoardVote(formData: FormData) {
     decision,
     comment,
     updated_at: new Date().toISOString()
-  }, { onConflict: 'board_round_id, voter_id' });
+  }, { onConflict: 'board_round_id,voter_id' });
 
   await logAuditEvent({
     case_id: caseId,

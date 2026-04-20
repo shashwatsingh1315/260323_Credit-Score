@@ -7,9 +7,10 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
+  const user = await getCurrentUser()
   const activeRole = await getImpersonationRole()
 
-  if (activeRole !== 'founder_admin') {
+  if (!user || !hasRole(user, 'founder_admin') || activeRole !== 'founder_admin') {
     unauthorized()
   }
 

@@ -163,10 +163,13 @@ export async function handleSaveBillingDetails(formData: FormData) {
     throw new Error('Billing details are locked because payments have already been recorded. Issue a Credit Note to adjust amounts.');
   }
 
+  const { data: existingCase } = await supabase.from('credit_cases').select('actual_bill_amount').eq('id', caseId).single();
+  const currentActual = existingCase?.actual_bill_amount ?? 0;
+
   const { error } = await supabase.from('credit_cases').update({
     billing_date: billingDate,
     promised_bill_amount: promisedAmount,
-    actual_bill_amount: 0,
+    actual_bill_amount: currentActual,
     status: 'Billing Active',
   }).eq('id', caseId);
 
@@ -239,7 +242,7 @@ export async function handleLogPayment(formData: FormData) {
   }
 
   const caseId = formData.get('caseId') as string;
-  const amount = parseInt(formData.get('amount') as string, 10);
+  const amount = parseFloat(formData.get('amount') as string);
   const paymentDate = formData.get('paymentDate') as string;
   const referenceUrl = (formData.get('referenceUrl') as string) || null;
   const description = (formData.get('description') as string) || null;
@@ -332,7 +335,7 @@ export async function handleEditPayment(formData: FormData) {
 
   const paymentId = formData.get('paymentId') as string;
   const caseId = formData.get('caseId') as string;
-  const newAmount = parseInt(formData.get('amount') as string, 10);
+  const newAmount = parseFloat(formData.get('amount') as string);
   const paymentDate = formData.get('paymentDate') as string;
   const referenceUrl = (formData.get('referenceUrl') as string) || null;
   const description = (formData.get('description') as string) || null;
@@ -497,7 +500,7 @@ export async function handleIssueCreditNote(formData: FormData) {
   }
 
   const caseId = formData.get('caseId') as string;
-  const reductionAmount = parseInt(formData.get('reductionAmount') as string, 10);
+  const reductionAmount = parseFloat(formData.get('reductionAmount') as string);
   const reason = formData.get('reason') as string;
 
   if (isNaN(reductionAmount) || reductionAmount <= 0) throw new Error('Reduction amount must be a positive whole number.');

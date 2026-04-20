@@ -44,10 +44,10 @@ CREATE TABLE IF NOT EXISTS public.escalation_logs (
 ALTER TABLE public.escalations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.escalation_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "escalations_select"  ON public.escalations     FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "escalations_write" ON public.escalations     FOR ALL    USING (auth.role() = 'authenticated');
-CREATE POLICY "escalation_logs_select"  ON public.escalation_logs FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "escalation_logs_write" ON public.escalation_logs FOR ALL    USING (auth.role() = 'authenticated');
+CREATE POLICY "escalations_select"  ON public.escalations     FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "escalations_write" ON public.escalations     FOR ALL    USING (auth.uid() IS NOT NULL);
+CREATE POLICY "escalation_logs_select"  ON public.escalation_logs FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "escalation_logs_write" ON public.escalation_logs FOR ALL    USING (auth.uid() IS NOT NULL);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_escalations_case_id  ON public.escalations(case_id);

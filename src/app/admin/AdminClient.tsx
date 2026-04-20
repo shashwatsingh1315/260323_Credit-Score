@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PartyDialog } from '@/components/admin/PartyDialog';
-import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster } from './actions';
+import { deactivateParty, assignRole, revokeRole, adminCreateUser, adminDeleteUser, updateCommitteeRoster } from './actions';
 import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,16 +35,8 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
 
   const handleImportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsImporting(true);
-    const formData = new FormData(e.currentTarget);
-    const res = await importPartiesCsv(formData);
-    setIsImporting(false);
-    if (res?.success) {
-      toast.success('Parties imported successfully');
-      setImportOpen(false);
-    } else {
-      toast.error(res?.error || 'Import failed');
-    }
+    toast.error('CSV Import has been moved to the specialized Imports section.');
+    setImportOpen(false);
   };
 
   const handleCreateUserSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

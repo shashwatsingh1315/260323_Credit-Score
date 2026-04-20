@@ -246,13 +246,12 @@ CREATE TABLE IF NOT EXISTS public.credit_cases (
     kam_user_id uuid REFERENCES public.profiles(id),
 
     -- Status
-    status text NOT NULL DEFAULT 'Draft' CHECK (status IN (
-        'Draft', 'In Review', 'Awaiting Input', 'Awaiting Approval',
-        'Approved', 'Rejected', 'Appealed', 'Accepted', 'Closed', 'Expired'
-    )),
+    status text NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'In Review', 'Awaiting Input', 'Awaiting Approval', 'Approved', 'Rejected', 'Appealed', 'Accepted', 'Closed', 'Expired', 'Billing Active', 'Withdrawn', 'Cancelled', 'Pending Write-Off Approval')),
     substatus text,
     closure_reason text,
     closure_note text,
+
+    escalation_level integer DEFAULT 0,
 
     -- History context
     history_classification text DEFAULT 'first_time' CHECK (history_classification IN ('first_time', 'repeat')),
@@ -606,84 +605,119 @@ ALTER TABLE public.party_exposure ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.party_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.realized_outcomes ENABLE ROW LEVEL SECURITY;
 
+
+-- Secure RPC to check user roles
+CREATE OR REPLACE FUNCTION public.has_role(required_role text)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = auth.uid()
+    AND role = required_role
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = auth.uid()
+    AND role = 'founder_admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.has_any_role(required_roles text[])
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = auth.uid()
+    AND role = ANY(required_roles)
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Authenticated users can read most tables (role-level filtering in app)
-CREATE POLICY "auth_read" ON public.profiles FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.user_roles FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.branches FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.parties FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.party_aliases FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.policy_versions FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.personas FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.dominance_categories FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.parameter_definitions FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.grade_scale FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.weight_matrices FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.stage_max_totals FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.score_bands FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.validity_rules FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.admin_enumerations FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.routing_thresholds FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.committee_rosters FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.credit_cases FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.review_cycles FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.stage_tasks FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.stage_readiness FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.approval_rounds FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.approval_decisions FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.board_rounds FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.board_votes FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.audit_events FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.case_comments FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.case_documents FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.import_jobs FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.import_mapping_templates FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.party_exposure FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.party_history FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_read" ON public.realized_outcomes FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "auth_read" ON public.profiles FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.user_roles FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.branches FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.parties FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.party_aliases FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.policy_versions FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.personas FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.dominance_categories FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.parameter_definitions FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.grade_scale FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.weight_matrices FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.stage_max_totals FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.score_bands FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.validity_rules FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.admin_enumerations FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.routing_thresholds FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.committee_rosters FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.credit_cases FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.review_cycles FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.stage_tasks FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.stage_readiness FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.approval_rounds FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.approval_decisions FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.board_rounds FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.board_votes FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.audit_events FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.case_comments FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.case_documents FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.import_jobs FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.import_mapping_templates FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.party_exposure FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.party_history FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "auth_read" ON public.realized_outcomes FOR SELECT USING (auth.uid() IS NOT NULL);
 
 -- Notifications: user reads own only
 CREATE POLICY "own_notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "insert_notifications" ON public.notifications FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "insert_notifications" ON public.notifications FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Write policies: authenticated can write (app-level role checks enforce granularity)
-CREATE POLICY "auth_write" ON public.credit_cases FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.review_cycles FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.stage_tasks FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.stage_readiness FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.approval_rounds FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.approval_decisions FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.board_rounds FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.board_votes FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.case_comments FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.case_documents FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.parties FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.party_aliases FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.realized_outcomes FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "auth_write" ON public.credit_cases FOR ALL USING (public.has_any_role(ARRAY['rm', 'kam', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.review_cycles FOR ALL USING (public.has_any_role(ARRAY['rm', 'kam', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.stage_tasks FOR ALL USING (public.has_any_role(ARRAY['rm', 'kam', 'accounts', 'bdo', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.stage_readiness FOR ALL USING (public.has_any_role(ARRAY['rm', 'kam', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.approval_rounds FOR ALL USING (public.has_any_role(ARRAY['kam', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.approval_decisions FOR ALL USING (public.has_any_role(ARRAY['ordinary_approver', 'board_member', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.board_rounds FOR ALL USING (public.has_any_role(ARRAY['kam', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.board_votes FOR ALL USING (public.has_any_role(ARRAY['board_member', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.case_comments FOR ALL USING ((auth.uid() IS NOT NULL));
+CREATE POLICY "auth_write" ON public.case_documents FOR ALL USING ((auth.uid() IS NOT NULL));
+CREATE POLICY "auth_write" ON public.parties FOR ALL USING (public.has_any_role(ARRAY['rm', 'kam', 'founder_admin']));
+CREATE POLICY "auth_write" ON public.party_aliases FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.realized_outcomes FOR ALL USING (public.has_any_role(ARRAY['kam', 'founder_admin']));
 
 -- Audit: insert only, no update/delete
-CREATE POLICY "insert_audit" ON public.audit_events FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "read_audit" ON public.audit_events FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "insert_audit" ON public.audit_events FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "read_audit" ON public.audit_events FOR SELECT USING (auth.uid() IS NOT NULL);
 
 -- Admin-only writes for policy/config tables (simplified: app enforces admin check)
-CREATE POLICY "auth_write" ON public.profiles FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.user_roles FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.branches FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.policy_versions FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.personas FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.dominance_categories FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.parameter_definitions FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.grade_scale FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.weight_matrices FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.stage_max_totals FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.score_bands FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.validity_rules FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.admin_enumerations FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.routing_thresholds FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.committee_rosters FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.import_jobs FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.import_mapping_templates FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.party_exposure FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "auth_write" ON public.party_history FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "auth_write" ON public.profiles FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.user_roles FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.branches FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.policy_versions FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.personas FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.dominance_categories FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.parameter_definitions FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.grade_scale FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.weight_matrices FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.stage_max_totals FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.score_bands FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.validity_rules FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.admin_enumerations FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.routing_thresholds FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.committee_rosters FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.import_jobs FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.import_mapping_templates FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.party_exposure FOR ALL USING (public.is_admin());
+CREATE POLICY "auth_write" ON public.party_history FOR ALL USING (public.is_admin());
 
 -- =====================
 -- SEED DATA

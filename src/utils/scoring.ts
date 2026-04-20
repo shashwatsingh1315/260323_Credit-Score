@@ -40,7 +40,7 @@ export async function calculateSubjectScore(params: {
   if (!tasks || tasks.length === 0) return 0;
 
   // 3. Fetch weight overrides for the persona if applicable
-  let weightsMap: Record<string, number> = {};
+  const weightsMap: Record<string, number> = {};
   if (personaId) {
     const { data: overrides } = await supabase
       .from('weight_matrices')
@@ -92,24 +92,27 @@ export async function calculateCumulativeScore(params: {
 
   if (cycleError || !cycle) return 0;
 
-  let weightedSum = 0;
+  const scorePromises = [];
   for (let s = 1; s <= params.upToStage; s++) {
-    weightedSum += await calculateSubjectScore({
+    scorePromises.push(calculateSubjectScore({
       reviewCycleId: params.reviewCycleId,
       subjectType: params.subjectType,
       stage: s,
-    });
+    }));
   }
 
-  // Fetch max total for the cumulative stage
-  const { data: maxTotal, error: maxTotalError } = await supabase
+  const scores = await Promise.all(scorePromises);
+  const weightedSum = scores.reduce((sum, score) => sum + score, 0);
+
+  // Fetch max total for all stages up to the cumulative stage
+  const { data: maxTotals } = await supabase
     .from('stage_max_totals')
     .select('max_total')
     .eq('policy_version_id', cycle.policy_snapshot_id)
-    .eq('stage', params.upToStage)
-    .maybeSingle();
+    .lte('stage', params.upToStage);
 
-  const maxTotalValue = maxTotal?.max_total || 100;
+  const maxTotalValue = maxTotals?.reduce((sum: number, row: any) => sum + (row.max_total || 0), 0) || 100;
+
   if (maxTotalValue <= 0) return 0; // Guard against division by zero
 
   const normalizedScore = (weightedSum / maxTotalValue) * 100;
@@ -217,16 +220,42 @@ export async function mapScoreToCreditDays(params: {
 } | null> {
   const supabase = await createClient();
 
+  // Sort bands descending by min_score
   const { data: bands } = await supabase
     .from('score_bands')
     .select('*')
     .eq('policy_version_id', params.policyVersionId)
     .order('min_score', { ascending: false });
 
-  if (!bands) return null;
+  if (!bands || bands.length === 0) return null;
 
+  // Find exact match first
   for (const band of bands) {
     if (params.score >= band.min_score && params.score <= band.max_score) {
+      return {
+        bandName: band.band_name,
+        approvedDays: band.approved_credit_days,
+        isAmbiguity: band.is_ambiguity_band,
+      };
+    }
+  }
+
+  // Handle gaps / out of bounds by finding the closest band
+  // Since bands are ordered DESC by min_score:
+  // If score > highest max_score, pick first band
+  if (params.score > bands[0].max_score) {
+    return { bandName: bands[0].band_name, approvedDays: bands[0].approved_credit_days, isAmbiguity: bands[0].is_ambiguity_band };
+  }
+
+  // If score < lowest min_score, pick last band
+  if (params.score < bands[bands.length - 1].min_score) {
+    const lowest = bands[bands.length - 1];
+    return { bandName: lowest.band_name, approvedDays: lowest.approved_credit_days, isAmbiguity: lowest.is_ambiguity_band };
+  }
+
+  // If it falls in a gap between bands, fallback to the lower band to be conservative
+  for (const band of bands) {
+    if (params.score >= band.min_score) {
       return {
         bandName: band.band_name,
         approvedDays: band.approved_credit_days,

@@ -196,7 +196,7 @@ describe('scoring.ts', () => {
       });
 
       const res = await mapScoreToCreditDays({ policyVersionId: 'pol1', score: 20 });
-      expect(res).toBeNull();
+      expect(res?.bandName).toBe('A');
     });
   });
 
