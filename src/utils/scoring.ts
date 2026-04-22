@@ -40,7 +40,7 @@ export async function calculateSubjectScore(params: {
   if (!tasks || tasks.length === 0) return 0;
 
   // 3. Fetch weight overrides for the persona if applicable
-  let weightsMap: Record<string, number> = {};
+  const weightsMap: Record<string, number> = {};
   if (personaId) {
     const { data: overrides } = await supabase
       .from('weight_matrices')
