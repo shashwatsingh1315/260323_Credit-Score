@@ -100,7 +100,7 @@ export async function addCityCode(formData: FormData) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) redirect('/unauthorized');
 
-  let code = (formData.get('code') as string)?.trim().toUpperCase();
+  const code = (formData.get('code') as string)?.trim().toUpperCase();
   const name = (formData.get('name') as string)?.trim();
 
   if (!code || code.length !== 3) return { error: 'Code must be exactly 3 characters' };
