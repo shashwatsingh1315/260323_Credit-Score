@@ -1,0 +1,3 @@
+## 2024-04-23 - CSS Variable Migration
+**Learning:** Legacy CSS variables (like `--bg-primary`, `--bg-secondary`, `--text-primary`, `--border-color`) and hardcoded `rgba()` values are heavily used in CSS modules (`src/components/Shell.module.css`, `src/app/page.module.css`, etc.) and conflict with the standard Tailwind `hsl()` semantic tokens.
+**Action:** Replace all legacy variables with `hsl(var(--background))`, `hsl(var(--foreground))`, `hsl(var(--border))`, and `hsl(var(--muted-foreground))`, and replace hardcoded `rgba(255, 255, 255, X)` with standard opacity modifiers on tokens (e.g. `hsl(var(--foreground) / X)`).

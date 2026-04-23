@@ -17,7 +17,7 @@ export function ShinyText({ text, className, speed = 3 }: ShinyTextProps) {
         className
       )}
       style={{
-        backgroundImage: "linear-gradient(120deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0) 60%)",
+        backgroundImage: "linear-gradient(120deg, hsla(var(--foreground) / 0) 40%, hsla(var(--foreground) / 0.8) 50%, hsla(var(--foreground) / 0) 60%)",
         backgroundSize: "200% 100%",
         WebkitBackgroundClip: "text",
         backgroundColor: "currentColor"

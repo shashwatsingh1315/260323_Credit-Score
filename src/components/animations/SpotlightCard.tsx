@@ -11,7 +11,7 @@ export function SpotlightCard({ children, className = "" }: { children: React.Re
     const rect = divRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    spotlightRef.current.style.background = `radial-gradient(400px circle at ${x}px ${y}px, rgba(255, 255, 255, 0.07), transparent 40%)`;
+    spotlightRef.current.style.background = `radial-gradient(400px circle at ${x}px ${y}px, hsla(var(--foreground) / 0.07), transparent 40%)`;
   };
 
   return (
