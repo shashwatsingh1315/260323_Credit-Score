@@ -143,7 +143,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                     <tbody className="divide-y">
                       {preview.slice(0, 5).map((row, i) => (
                         <tr key={i}>
-                          {Object.values(row).map((v: any, j) => <td key={j} className="p-2 truncate max-w-[150px]">{v}</td>)}
+                          {Object.values(row).map((v: any, j) => <td key={j} className="p-2 truncate max-w-40">{v}</td>)}
                         </tr>
                       ))}
                     </tbody>

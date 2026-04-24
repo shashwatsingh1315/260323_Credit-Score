@@ -74,7 +74,7 @@ export default function StagesTab({ coreData, promises, activeRole, optimisticTa
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <CardTitle className="text-base">Stage {stage}</CardTitle>
-                            <Badge variant={STATUS_VARIANT[displayStatus] || 'secondary'} className="text-[10px] h-4 px-1.5 uppercase font-bold tracking-wider">
+                            <Badge variant={STATUS_VARIANT[displayStatus] || 'secondary'} className="text-tiny h-4 px-1.5 uppercase font-bold tracking-wider">
                               {displayStatus}
                             </Badge>
                           </div>
@@ -89,7 +89,7 @@ export default function StagesTab({ coreData, promises, activeRole, optimisticTa
                               <Award size={12} /> Score: {displayScore}/100
                             </Badge>
                             {bandName && bandName !== 'No Band' && (
-                              <span className="text-[10px] font-medium text-muted-foreground">
+                              <span className="text-tiny font-medium text-muted-foreground">
                                 {bandName} ({approvedDays} days)
                               </span>
                             )}

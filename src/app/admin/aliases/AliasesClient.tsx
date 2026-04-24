@@ -105,7 +105,7 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
                       <TableRow key={p.id}>
                         <TableCell className="font-medium text-sm">
                           {p.legal_name}
-                          <span className="block text-tiny text-muted-foreground font-mono mt-0.5 truncate max-w-[200px]">{p.id}</span>
+                          <span className="block text-tiny text-muted-foreground font-mono mt-0.5 truncate max-w-52">{p.id}</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant={p.is_candidate ? "warning" : "default"} className="text-tiny">
