@@ -13,7 +13,7 @@ const mockEq = vi.fn();
 const mockSingle = vi.fn();
 const mockInsert = vi.fn();
 
-let mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
+const mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
 
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({

@@ -25,6 +25,8 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
   const formRef = useRef<HTMLFormElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
 
+
+
   useEffect(() => {
     if (open) {
       setSelectedType(editingParty?.party_type || 'both');
