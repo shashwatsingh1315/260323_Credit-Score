@@ -467,7 +467,7 @@ export default function NewCaseForm({
                     placeholder="0" 
                   />
                   {requestedExposure > billAmount && (
-                    <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
+                    <p className="text-tiny text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
                   )}
                 </div>
               </div>

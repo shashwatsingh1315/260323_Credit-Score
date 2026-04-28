@@ -13,6 +13,7 @@ export default function RoleSwitcher({ initialActiveRole = 'viewer' }: { initial
 
   const isAuthPage = pathname === '/login' || pathname === '/reset-password';
 
+
   useEffect(() => {
     setActiveRole(initialActiveRole);
   }, [initialActiveRole]);
