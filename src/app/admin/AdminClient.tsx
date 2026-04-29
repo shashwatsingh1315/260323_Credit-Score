@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PartyDialog } from '@/components/admin/PartyDialog';
-import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster } from './actions';
+import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster, recomputePartyHistoryFromOutcomes } from './actions';
 import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -117,6 +117,23 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">{parties.length} parties registered</p>
             <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => {
+                  startTransition(async () => {
+                    try {
+                      const res = await recomputePartyHistoryFromOutcomes();
+                      toast.success(`Recomputed history for ${res.updated} parties.`);
+                    } catch (e: any) {
+                      toast.error(e.message || 'Failed to sync history');
+                    }
+                  });
+                }}
+                disabled={isPending}
+              >
+                <History size={15} className="mr-1" /> Sync Payment History
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
                 <Upload size={15} /> Import CSV
               </Button>

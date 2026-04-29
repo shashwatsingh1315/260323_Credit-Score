@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { handleChangePersona, handleSelectiveUnlock, handleCounterOffer } from './actions';
+import { adjustedOverdueDays, formatDataFreshness } from '@/utils/dateHelpers';
 
 export default function OverviewTab({ coreData, promises, activeRole, liveScore, showCounterOffer, setShowCounterOffer, showUnlock, setShowUnlock, showPersonaChange, setShowPersonaChange }: any) {
   const c = coreData.case;
@@ -43,7 +44,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
             </Card>
           )}
 
-          {showUnlock && (
+          {cycle?.is_active && showUnlock && (
             <Card className="mb-4 bg-muted/20 border-warning print:hidden">
               <CardContent className="p-4">
                 <form action={handleSelectiveUnlock} className="space-y-3" onSubmit={() => setShowUnlock(false)}>
@@ -67,7 +68,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
             </Card>
           )}
 
-          {showCounterOffer && isApproved && (
+          {cycle?.is_active && showCounterOffer && isApproved && (
             <Card className="mb-4 bg-card border-border print:hidden">
               <CardContent className="p-4">
                 <form action={handleCounterOffer} className="space-y-3" onSubmit={() => setShowCounterOffer(false)}>
@@ -208,7 +209,14 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Overdue</span>
-                        <span className={c.customer_exposure.overdue_amount > 0 ? "text-destructive font-bold" : "font-semibold"}>₹{(c.customer_exposure.overdue_amount || 0).toLocaleString('en-IN')} ({c.customer_exposure.overdue_days} days)</span>
+                        <span className={c.customer_exposure.overdue_amount > 0 ? "text-destructive font-bold" : "font-semibold"}>
+                          ₹{(c.customer_exposure.overdue_amount || 0).toLocaleString('en-IN')} (
+                          <span title={`Import date: ${formatDataFreshness(c.customer_exposure.data_as_of)}`}>
+                            {adjustedOverdueDays(c.customer_exposure.overdue_days, c.customer_exposure.data_as_of)} days overdue
+                            <span className="text-xs text-muted-foreground ml-1">(as of {formatDataFreshness(c.customer_exposure.data_as_of)})</span>
+                          </span>
+                          )
+                        </span>
                       </div>
                       {c.customer_history && (
                         <>
@@ -240,7 +248,14 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Overdue</span>
-                          <span className={c.contractor_exposure.overdue_amount > 0 ? "text-destructive font-bold" : "font-semibold"}>₹{(c.contractor_exposure.overdue_amount || 0).toLocaleString('en-IN')} ({c.contractor_exposure.overdue_days} days)</span>
+                          <span className={c.contractor_exposure.overdue_amount > 0 ? "text-destructive font-bold" : "font-semibold"}>
+                            ₹{(c.contractor_exposure.overdue_amount || 0).toLocaleString('en-IN')} (
+                            <span title={`Import date: ${formatDataFreshness(c.contractor_exposure.data_as_of)}`}>
+                              {adjustedOverdueDays(c.contractor_exposure.overdue_days, c.contractor_exposure.data_as_of)} days overdue
+                              <span className="text-xs text-muted-foreground ml-1">(as of {formatDataFreshness(c.contractor_exposure.data_as_of)})</span>
+                            </span>
+                            )
+                          </span>
                         </div>
                         {c.contractor_history && (
                           <>

@@ -23,6 +23,8 @@ const STATUS_VARIANT: Record<string, any> = {
   'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
   'Approved': 'success', 'Rejected': 'destructive', 'Withdrawn': 'secondary',
   'Completed': 'secondary', 'In Progress': 'info', 'Pending': 'outline',
+  'Billing Active': 'info', 'Pending Write-Off Approval': 'warning', 'Closed': 'success', 'Cancelled': 'destructive', 'Accepted': 'success',
+  'Appealed': 'warning'
 };
 
 // We create a wrapper component to unwrap the tasksPromise and set up optimistic state

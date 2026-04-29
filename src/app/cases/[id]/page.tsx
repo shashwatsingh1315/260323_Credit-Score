@@ -9,17 +9,23 @@ import {
 import CaseWorkspace from './CaseWorkspace';
 import { notFound } from 'next/navigation';
 import { getImpersonationRole } from '@/utils/auth-actions';
+import { getCurrentUser } from '@/utils/auth';
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const corePromise = fetchCaseCore(id);
   const activeRolePromise = getImpersonationRole();
+  const userPromise = getCurrentUser();
 
-  const [coreData, activeRole] = await Promise.all([corePromise, activeRolePromise]);
+  const [coreData, activeRole, user] = await Promise.all([corePromise, activeRolePromise, userPromise]);
 
   if (!coreData || !coreData.case) notFound();
 
   const c = coreData.case;
+
+  if (activeRole === 'rm' && c.rm_user_id !== user?.id) notFound();
+  if (activeRole === 'kam' && c.kam_user_id !== user?.id) notFound();
+
   const cycle = coreData.cycle;
 
   const cycleId = cycle?.id || '';

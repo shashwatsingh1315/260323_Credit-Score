@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trash2, Edit, ArrowUpDown } from 'lucide-react';
 import { upsertWeightMatrix, deleteWeightMatrix } from '../actions';
@@ -134,7 +135,12 @@ export default function WeightsClient({ matrices, personas, parameters }: { matr
                 <TableBody>
                   {filtered.map((m) => (
                     <TableRow key={m.id}>
-                      <TableCell className="font-medium text-brand">{m.persona?.name}</TableCell>
+                      <TableCell className="font-medium text-brand">
+                        {m.persona?.name}
+                        {m.persona?.name?.toLowerCase() === 'default' && (
+                          <Badge variant="secondary" className="ml-2 text-xs">Baseline</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{m.parameter?.name}</TableCell>
                       <TableCell>Stage {m.parameter?.stage}</TableCell>
                       <TableCell className="font-bold">{m.weight}</TableCell>

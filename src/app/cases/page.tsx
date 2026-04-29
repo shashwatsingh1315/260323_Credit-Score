@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Briefcase, Building2, ChevronRight } from 'lucide-react';
 import { getImpersonationRole } from '@/utils/auth-actions';
+import { getCurrentUser } from '@/utils/auth';
 
 export default async function CasesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const sp = await searchParams;
@@ -27,6 +28,15 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
     .order('created_at', { ascending: false })
     .limit(50);
 
+  const user = await getCurrentUser();
+  if (user) {
+    if (activeRole === 'rm') {
+      query = query.eq('rm_user_id', user.id);
+    } else if (activeRole === 'kam') {
+      query = query.eq('kam_user_id', user.id);
+    }
+  }
+
   if (statusFilter) query = query.eq('status', statusFilter);
   if (q) query = query.ilike('case_number', `%${q}%`);
 
@@ -35,12 +45,12 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
   const STATUS_VARIANT: Record<string, any> = {
     'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
     'Approved': 'success', 'Rejected': 'destructive', 'Withdrawn': 'secondary',
-    'Billing Active': 'info', 'Pending Write-Off Approval': 'warning', 'Closed': 'success', 'Cancelled': 'destructive', 'Accepted': 'success',
+    'Billing Active': 'info', 'Pending Write-Off Approval': 'warning', 'Closed': 'success', 'Cancelled': 'destructive', 'Accepted': 'success', 'Appealed': 'warning'
   };
 
   const statuses = [
     '', 'Draft', 'In Review', 'Awaiting Approval', 'Approved', 'Rejected', 
-    'Accepted', 'Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled', 'Withdrawn'
+    'Accepted', 'Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled', 'Withdrawn', 'Appealed'
   ];
   const canCreateCase = activeRole === 'rm' || activeRole === 'founder_admin';
 
