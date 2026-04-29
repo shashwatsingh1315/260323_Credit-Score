@@ -40,7 +40,7 @@ export async function handleNewCase(formData: FormData) {
   }
 
   const rmTaskAnswersRaw = formData.get('rmTaskAnswers') as string;
-  let rmTaskAnswers = {};
+  let rmTaskAnswers: Record<string, any> = {};
   if (rmTaskAnswersRaw) {
     try {
       rmTaskAnswers = JSON.parse(rmTaskAnswersRaw);
