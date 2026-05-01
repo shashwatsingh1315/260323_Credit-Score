@@ -14,6 +14,7 @@ export default function RoleSwitcher({ initialActiveRole = 'viewer' }: { initial
   const isAuthPage = pathname === '/login' || pathname === '/reset-password';
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveRole(initialActiveRole);
   }, [initialActiveRole]);
 

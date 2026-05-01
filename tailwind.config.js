@@ -76,5 +76,6 @@ module.exports = {
       },
     },
   },
-  plugins: [require('@tailwindcss/typography')],
+  plugins: [/* eslint-disable-next-line @typescript-eslint/no-require-imports */
+  require('@tailwindcss/typography')],
 }
