@@ -80,7 +80,7 @@
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-primary {
-  @apply inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 active:scale-[.98];
+  @apply inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none;
 }
 .btn-secondary {
   @apply inline-flex items-center gap-2 bg-secondary text-secondary-foreground border border-border px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-muted;
