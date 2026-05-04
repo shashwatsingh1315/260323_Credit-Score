@@ -20,7 +20,24 @@ export const getCurrentUser = cache(async (): Promise<UserProfile | null> => {
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
-  if (!session?.user) return null;
+  if (!session?.user) {
+    // E2E Test Bypass
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      if (cookieStore.get('test_auth_bypass')?.value === 'true') {
+        const role = cookieStore.get('impersonated_role')?.value as UserRole || 'rm';
+        return {
+          id: 'test-user-id',
+          full_name: 'Test RM',
+          email: 'test@example.com',
+          branch_id: 'test-branch-id',
+          roles: [role],
+        };
+      }
+    }
+    return null;
+  }
 
   const { data: profile } = await supabase
     .from('profiles')

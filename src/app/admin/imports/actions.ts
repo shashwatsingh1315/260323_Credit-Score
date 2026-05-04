@@ -43,7 +43,7 @@ export async function processImportJob(formData: FormData) {
   if (jobErr) throw jobErr;
 
   let validPartyIds = new Set<string>();
-  if (['historical_exposure', 'outstanding_exposure', 'parameter_bulk_values'].includes(importType)) {
+  if (['historical_exposure', 'outstanding_exposure', 'parameter_bulk_values', 'grandfathered_cases'].includes(importType)) {
     const partyIdsInPayload = [...new Set(
       payload.map((r: any) => applyColumnMappingSync(r, columnMapping)['party_id']).filter(Boolean)
     )];
@@ -137,6 +137,34 @@ export async function processImportJob(formData: FormData) {
           raw_input_value: row.raw_input_value || null,
           captured_at: row.captured_at || new Date().toISOString(),
         }, { onConflict: 'party_id,parameter_id' });
+      } else if (importType === 'grandfathered_cases') {
+        if (!row.party_id) throw new Error('Missing party_id');
+        if (!validPartyIds.has(row.party_id)) {
+          throw new Error(`party_id "${row.party_id}" not found in parties table`);
+        }
+        
+        // Create the grandfathered credit case
+        const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
+          customer_party_id: row.party_id,
+          rm_user_id: row.rm_user_id || null,
+          status: 'Billing Active',
+          billing_date: row.due_date || new Date().toISOString(),
+          decided_bill_amount: parseFloat(row.outstanding_amount) || 0,
+          actual_bill_amount: 0,
+          proposed_tranches: [{"type": "percentage", "value": 100, "days_after_billing": 0}],
+          case_number: row.case_number || `GF-${Date.now()}`
+        }).select('id').single();
+        
+        if (caseErr) throw caseErr;
+        
+        // If remarks are provided, log them as an HQ interaction
+        if (row.remarks && newCase) {
+           await supabase.from('hq_collection_logs').insert({
+             case_id: newCase.id,
+             logged_by: user.id,
+             message: `Import Remark: ${row.remarks}`
+           });
+        }
       }
 
       processed++;

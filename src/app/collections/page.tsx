@@ -80,5 +80,15 @@ export default async function CollectionsPage() {
     countEscalated: overdueCases.filter(c => (c.escalation_level ?? 0) > 0).length,
   };
 
-  return <CollectionsClient collections={overdueCases} stats={stats} escalations={escalations || []} />;
+  // Fetch available RMs
+  const { data: rms } = await supabase.from('profiles').select('id, full_name').eq('role', 'rm');
+  
+  // Fetch HQ logs for overdue cases
+  const overdueCaseIds = overdueCases.map(c => c.id);
+  const { data: hqLogs } = overdueCaseIds.length > 0 ? await supabase.from('hq_collection_logs')
+    .select('*, logged_by_user:profiles!hq_collection_logs_logged_by_fkey(full_name)')
+    .in('case_id', overdueCaseIds)
+    .order('created_at', { ascending: true }) : { data: [] };
+
+  return <CollectionsClient collections={overdueCases} stats={stats} escalations={escalations || []} rms={rms || []} hqLogs={hqLogs || []} />;
 }

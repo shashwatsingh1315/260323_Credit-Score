@@ -592,8 +592,13 @@ export default function NewCaseForm({
               <p className={styles.helperText}>Provide strategic justification for this exposure.</p>
 
               <div className={styles.inputGroup}>
-                <label>Strategic Justification *</label>
-                <textarea value={justification} onChange={e => setJustification(e.target.value)} className={styles.input} rows={4} placeholder="Why should we take this exposure? Strategic alignment, future potential..." required />
+                <label>Strategic Justification (Reason for Credit) *</label>
+                <select name="justification" value={justification} onChange={e => setJustification(e.target.value)} className={styles.input} required>
+                  <option value="">-- Select Reason --</option>
+                  {creditReasons.map((r: any) => (
+                    <option key={r.id} value={r.value}>{r.value}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="mt-6 p-4 bg-muted rounded-md text-sm border">

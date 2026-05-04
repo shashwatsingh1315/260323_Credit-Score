@@ -59,5 +59,30 @@ export async function handleEscalateCase(fd: FormData) {
     .lt('escalation_level', nextLevel); // only bump up, never down
 
   revalidatePath('/collections');
+  revalidatePath('/collections');
 }
 
+export async function bulkAssignRMs(fd: FormData) {
+  const caseIds = JSON.parse(fd.get('caseIds') as string);
+  const rmId = fd.get('rmId') as string;
+  if (!caseIds.length || !rmId) return;
+
+  const supabase = await createClient();
+  await supabase.from('credit_cases').update({ rm_user_id: rmId }).in('id', caseIds);
+  revalidatePath('/collections');
+}
+
+export async function addHqCollectionLog(fd: FormData) {
+  const caseId = fd.get('caseId') as string;
+  const message = fd.get('message') as string;
+  const user = await getCurrentUser();
+  if (!user || !caseId || !message) return;
+
+  const supabase = await createClient();
+  await supabase.from('hq_collection_logs').insert({
+    case_id: caseId,
+    logged_by: user.id,
+    message
+  });
+  revalidatePath('/collections');
+}

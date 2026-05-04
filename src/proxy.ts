@@ -2,6 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 export async function proxy(request: NextRequest) {
+  // E2E Test Bypass
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    if (request.cookies.get('test_auth_bypass')?.value === 'true') {
+      return NextResponse.next();
+    }
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });

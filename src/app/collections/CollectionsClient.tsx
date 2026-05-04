@@ -5,8 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AlertCircle, ShieldAlert, ArrowUpRight, Search, FileText } from 'lucide-react';
-import { handleEscalateCase } from './actions';
+import { AlertCircle, ShieldAlert, ArrowUpRight, Search, FileText, MessageSquare, CheckSquare } from 'lucide-react';
+import { handleEscalateCase, bulkAssignRMs, addHqCollectionLog } from './actions';
 import { handleLogPayment } from '@/app/cases/[id]/billing-actions';
 
 interface Case {
@@ -64,10 +64,12 @@ function getCustomerName(c: Case): string {
   return c.customer.legal_name || '—';
 }
 
-export default function CollectionsClient({ collections, stats, escalations }: {
+export default function CollectionsClient({ collections, stats, escalations, rms = [], hqLogs = [] }: {
   collections: Case[];
   stats: { totalOverdue: number; countOverdue: number; totalEscalated: number; countEscalated: number };
   escalations: any[];
+  rms?: { id: string; full_name: string }[];
+  hqLogs?: any[];
 }) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'overdue_days' | 'outstanding' | 'name'>('overdue_days');
@@ -79,6 +81,19 @@ export default function CollectionsClient({ collections, stats, escalations }: {
   const [paymentNote, setPaymentNote] = useState('');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+
+  const [selectedCaseIds, setSelectedCaseIds] = useState<Set<string>>(new Set());
+  const [selectedRm, setSelectedRm] = useState('');
+  
+  const [chatOpenForCase, setChatOpenForCase] = useState<string | null>(null);
+  const [chatMessage, setChatMessage] = useState('');
+
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedCaseIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedCaseIds(newSet);
+  };
 
   const handleQuickLogPayment = async (caseId: string) => {
     setPaymentSubmitting(true);
@@ -188,6 +203,23 @@ export default function CollectionsClient({ collections, stats, escalations }: {
         </div>
       </div>
 
+      {selectedCaseIds.size > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-md p-3 flex items-center justify-between">
+          <div className="text-sm font-medium">
+            <CheckSquare size={16} className="inline mr-2 text-primary" />
+            {selectedCaseIds.size} case{selectedCaseIds.size !== 1 ? 's' : ''} selected
+          </div>
+          <form action={bulkAssignRMs} className="flex items-center gap-2">
+            <input type="hidden" name="caseIds" value={JSON.stringify(Array.from(selectedCaseIds))} />
+            <select name="rmId" value={selectedRm} onChange={e => setSelectedRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background" required>
+              <option value="">Select RM to Assign...</option>
+              {rms.map(rm => <option key={rm.id} value={rm.id}>{rm.full_name}</option>)}
+            </select>
+            <Button type="submit" size="sm" disabled={!selectedRm}>Assign RM</Button>
+          </form>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4">
         {sorted.length === 0 ? (
           <Card className="py-12 border-dashed">
@@ -213,6 +245,12 @@ export default function CollectionsClient({ collections, stats, escalations }: {
                   
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
+                       <input 
+                         type="checkbox" 
+                         checked={selectedCaseIds.has(c.id)} 
+                         onChange={() => toggleSelection(c.id)} 
+                         className="w-4 h-4 cursor-pointer mr-1"
+                       />
                        <h3 className="font-semibold text-base">{getCustomerName(c)}</h3>
                        <Badge variant={isEscalated ? 'destructive' : 'warning'} className="text-xs uppercase py-0 tracking-widest">
                          {isEscalated ? `Escalation L${c.escalation_level}` : 'Overdue'}
@@ -272,6 +310,9 @@ export default function CollectionsClient({ collections, stats, escalations }: {
                         Escalate
                       </Button>
                     </form>
+                    <Button variant="outline" size="sm" onClick={() => setChatOpenForCase(c.id)}>
+                      <MessageSquare size={14} className="mr-1.5" /> HQ Chat
+                    </Button>
                     <Link href={`/cases/${c.id}`} passHref>
                       <Button variant="secondary" size="sm">View Case</Button>
                     </Link>
@@ -316,6 +357,48 @@ export default function CollectionsClient({ collections, stats, escalations }: {
           })
         )}
       </div>
+
+      {chatOpenForCase && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg shadow-xl">
+            <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/50">
+              <h3 className="font-semibold">HQ Contact Log</h3>
+              <Button variant="ghost" size="sm" onClick={() => setChatOpenForCase(null)}>Close</Button>
+            </div>
+            <CardContent className="p-0">
+              <div className="h-64 overflow-y-auto p-4 space-y-4">
+                {hqLogs.filter(log => log.case_id === chatOpenForCase).length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center mt-10">No interactions logged yet.</p>
+                ) : (
+                  hqLogs.filter(log => log.case_id === chatOpenForCase).map(log => (
+                    <div key={log.id} className="bg-muted/40 rounded-lg p-3 text-sm">
+                      <div className="flex justify-between items-start mb-1 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{log.logged_by_user?.full_name || 'System'}</span>
+                        <span>{new Date(log.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      </div>
+                      <p>{log.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="p-4 border-t bg-muted/20">
+                <form action={addHqCollectionLog} className="flex gap-2" onSubmit={() => setTimeout(() => setChatMessage(''), 100)}>
+                  <input type="hidden" name="caseId" value={chatOpenForCase} />
+                  <Input 
+                    name="message" 
+                    placeholder="Log a call or remark..." 
+                    value={chatMessage}
+                    onChange={e => setChatMessage(e.target.value)}
+                    required 
+                    autoComplete="off"
+                  />
+                  <Button type="submit" size="sm">Log</Button>
+                </form>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

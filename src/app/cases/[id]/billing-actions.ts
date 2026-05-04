@@ -32,7 +32,7 @@ export async function fetchLedgerData(caseId: string) {
   ] = await Promise.all([
     supabase
       .from('credit_cases')
-      .select('id, status, billing_date, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches')
+      .select('id, status, billing_date, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, bill_file_url')
       .eq('id', caseId)
       .single(),
     supabase
@@ -115,6 +115,7 @@ export async function fetchLedgerData(caseId: string) {
       promisedAmount: caseData.promised_bill_amount,
       actualAmount: caseData.actual_bill_amount,
       isLocked: (repayments?.length ?? 0) > 0,
+      billFileUrl: caseData.bill_file_url,
     },
     tranches,
     prefillAmount,
@@ -791,5 +792,29 @@ export async function handleSaveDecidedAmount(formData: FormData) {
     description: `Decided Bill Amount set to ₹${decidedAmount.toLocaleString('en-IN')} by KAM.`,
   });
 
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function saveBillUrl(fd: FormData) {
+  const caseId = fd.get('caseId') as string;
+  const billFileUrl = fd.get('billFileUrl') as string;
+  const supabase = await createClient();
+  await supabase.from('credit_cases').update({ bill_file_url: billFileUrl }).eq('id', caseId);
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function remindAccounts(fd: FormData) {
+  const caseId = fd.get('caseId') as string;
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+  
+  await supabase.from('escalation_logs').insert({
+    case_id: caseId,
+    logged_by: session.user.id,
+    action_type: 'note',
+    outcome: 'RM requested Accounts to upload bill document.',
+    escalation_id: null
+  });
   revalidatePath(`/cases/${caseId}`);
 }
