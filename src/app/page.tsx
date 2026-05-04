@@ -19,13 +19,17 @@ import { StaggeredFade } from '@/components/animations/StaggeredFade';
 
 // ── PDCR & Metrics computation (server-side) ─────────────────────────────────
 
-async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
+async function computeRmPortfolioMetrics(supabase: any, rmUserId?: string | null) {
   // Fetch all Billing-Active and Closed cases for this RM
-  const { data: cases } = await supabase
+  let query = supabase
     .from('credit_cases')
     .select('id, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, billing_date, status')
-    .eq('rm_user_id', rmUserId)
     .in('status', ['Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled']);
+
+  if (rmUserId) {
+    query = query.eq('rm_user_id', rmUserId);
+  }
+  const { data: cases } = await query;
 
   if (!cases || cases.length === 0) {
     return { totalExposure: 0, averageMargin: null, countPDCR: null, amountPDCR: null, weightedDaysPDCR: null, approvalSuccessRate: null };
@@ -217,15 +221,19 @@ export default async function DashboardPage() {
     approvalSuccessRate: number | null;
   } | null = null;
 
-  if (role === 'rm' && user) {
-    rmMetrics = await computeRmPortfolioMetrics(supabase, user.id);
+  if ((role === 'rm' || isAdmin) && user) {
+    rmMetrics = await computeRmPortfolioMetrics(supabase, role === 'rm' ? user.id : null);
 
     // Fetch billing-active cases with their tranches
-    const { data: activeCases } = await supabase
+    let activeQuery = supabase
       .from('credit_cases')
       .select('id, case_number, billing_date, decided_bill_amount, actual_bill_amount, proposed_tranches, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
-      .eq('rm_user_id', user.id)
       .in('status', ['Billing Active', 'Pending Write-Off Approval']);
+
+    if (role === 'rm') {
+      activeQuery = activeQuery.eq('rm_user_id', user.id);
+    }
+    const { data: activeCases } = await activeQuery;
 
     const now = new Date();
     for (const c of activeCases ?? []) {
@@ -344,7 +352,7 @@ export default async function DashboardPage() {
       <StaggeredFade className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-max">
         
         {/* 1. Portfolio Overview (2×1) — responsive: 2 cols at 3-col layout, 2 cols at 4-col */}
-        {isRm && (
+        {(isRm || isAdmin) && (
           <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
             <div className="p-6 h-full flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
@@ -385,7 +393,7 @@ export default async function DashboardPage() {
         )}
 
         {/* 2. Urgent Collections (1x1) */}
-        {isRm && (
+        {(isRm || isAdmin) && (
           <SpotlightCard className="bg-warning/10 backdrop-blur-md border-warning/20 hover:scale-[1.01] transition-all">
             <div className="p-6 h-full flex flex-col justify-between">
               <div className="flex items-center justify-between">
@@ -484,7 +492,7 @@ export default async function DashboardPage() {
         </SpotlightCard>
 
         {/* 5. Efficiency Funnel (2×1) */}
-        {isRm && (
+        {(isRm || isAdmin) && (
           <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
             <div className="flex items-center justify-between mb-6">
               <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>

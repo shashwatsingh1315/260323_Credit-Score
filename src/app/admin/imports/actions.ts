@@ -99,7 +99,7 @@ export async function processImportJob(formData: FormData) {
       } else if (importType === 'historical_exposure') {
         if (!row.party_id) throw new Error('Missing party_id');
         if (!validPartyIds.has(row.party_id)) {
-          throw new Error(`party_id "${row.party_id}" not found in parties table`);
+          throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
         }
         await supabase.from('party_history').insert({
           party_id: row.party_id,
@@ -114,7 +114,7 @@ export async function processImportJob(formData: FormData) {
       } else if (importType === 'outstanding_exposure') {
         if (!row.party_id) throw new Error('Missing party_id');
         if (!validPartyIds.has(row.party_id)) {
-          throw new Error(`party_id "${row.party_id}" not found in parties table`);
+          throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
         }
         await supabase.from('party_exposure').insert({
           party_id: row.party_id,
@@ -128,7 +128,7 @@ export async function processImportJob(formData: FormData) {
         if (!row.party_id) throw new Error('Missing party_id');
         if (!row.parameter_id) throw new Error('Missing parameter_id');
         if (!validPartyIds.has(row.party_id)) {
-          throw new Error(`party_id "${row.party_id}" not found in parties table`);
+          throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
         }
         await supabase.from('party_parameter_values').upsert({
           party_id: row.party_id,
@@ -138,17 +138,18 @@ export async function processImportJob(formData: FormData) {
           captured_at: row.captured_at || new Date().toISOString(),
         }, { onConflict: 'party_id,parameter_id' });
       } else if (importType === 'grandfathered_cases') {
-        if (!row.party_id) throw new Error('Missing party_id');
-        if (!validPartyIds.has(row.party_id)) {
-          throw new Error(`party_id "${row.party_id}" not found in parties table`);
+        const partyId = row.party_id || row.customer_id;
+        if (!partyId) throw new Error('Missing party_id or customer_id');
+        if (!validPartyIds.has(partyId)) {
+          throw new Error(`Party ID "${partyId}" not found in parties table`);
         }
         
         // Create the grandfathered credit case
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
-          customer_party_id: row.party_id,
+          customer_party_id: partyId,
           rm_user_id: row.rm_user_id || null,
           status: 'Billing Active',
-          billing_date: row.due_date || new Date().toISOString(),
+          billing_date: row.overdue_date || row.due_date || new Date().toISOString(),
           decided_bill_amount: parseFloat(row.bill_amount || row.outstanding_amount) || 0,
           actual_bill_amount: 0,
           proposed_tranches: [{"type": "percentage", "value": 100, "days_after_billing": 0}],

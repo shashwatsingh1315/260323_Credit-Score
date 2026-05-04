@@ -1,0 +1,25 @@
+<h2>How should we handle Overdue Information for Grandfathered Cases?</h2>
+<p class="subtitle">The native Collections module calculates overdue days dynamically based on tranches and outstanding amounts. How much detail should we require for grandfathered imports?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Simple Import (Recommended)</h3>
+      <p>Import just the <strong>Total Outstanding Amount</strong> and the <strong>Original Due Date</strong>. The system will automatically create a single "consolidated" tranche in the background. It's much easier for RMs to compile this data.</p>
+      <div style="margin-top: 8px; font-size: 0.85em; color: #666;">
+        <strong>Fields:</strong> Name, ID, RM, Remarks, Outstanding Amount, Due Date
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Full Tranche Parity</h3>
+      <p>Require the import to break down the outstanding amount into its original tranches (Tranche 1 amount/date, Tranche 2 amount/date, etc.). Harder to compile, but provides identical granularity to native cases.</p>
+       <div style="margin-top: 8px; font-size: 0.85em; color: #666;">
+        <strong>Fields:</strong> Name, ID, RM, Remarks, Tranche 1 (Amt/Date), Tranche 2 (Amt/Date)...
+      </div>
+    </div>
+  </div>
+</div>
