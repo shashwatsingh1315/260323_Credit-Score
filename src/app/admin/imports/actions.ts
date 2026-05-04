@@ -197,11 +197,12 @@ export async function processImportJob(formData: FormData) {
         // Resolve Contractor
         const contractorId = row.contractor_id ? partyIdResolutionMap.get(row.contractor_id) : null;
 
-        // Resolve RM
+        // Resolve RM — try to match by full name, preserve original name regardless
+        const originalRmName = row.rm_name || row.rm_id || null;
         let rmId = row.rm_id || row.rm_user_id;
         if (rmId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rmId)) {
-          // It's a name or custom code, try to match by name
-          rmId = profileNameMap.get(row.rm_name?.toLowerCase()) || user.id; // Fallback to current user
+          // It's a custom code/name — try to match by rm_name column
+          rmId = profileNameMap.get(row.rm_name?.toLowerCase()) || user.id;
         } else if (!rmId) {
           rmId = user.id;
         }
@@ -219,6 +220,9 @@ export async function processImportJob(formData: FormData) {
         }
         
         // Create the grandfathered credit case
+        // case_attributes stores the original RM name from CSV so it's never lost,
+        // even when the RM user account doesn't exist in the system yet.
+        const rowIndex = processed + failed; // stable unique index per import job
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
           customer_party_id: resolvedId,
           contractor_party_id: contractorId,
@@ -229,7 +233,15 @@ export async function processImportJob(formData: FormData) {
           decided_bill_amount: parseFloat(row.bill_amount || row.outstanding_amount) || 0,
           actual_bill_amount: 0,
           proposed_tranches: [{"type": "percentage", "value": 100, "days_after_billing": 0}],
-          case_number: row.case_number || `GF-${Date.now()}-${processed}`
+          // Use job.id prefix + zero-padded index — guaranteed unique, no timestamp collision
+          case_number: row.case_number || `GF-${job.id.split('-')[0]}-${String(rowIndex).padStart(4, '0')}`,
+          case_attributes: {
+            imported: true,
+            import_job_id: job.id,
+            // Preserve original RM name from CSV for display and future reassignment
+            original_rm_name: originalRmName,
+            rm_matched: profileNameMap.has(row.rm_name?.toLowerCase()),
+          },
         }).select('id').single();
         
         if (caseErr) throw caseErr;
