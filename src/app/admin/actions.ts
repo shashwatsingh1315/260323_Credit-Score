@@ -8,7 +8,7 @@ import { parsePartiesCsv } from '@/utils/csv';
 
 export async function fetchParties(search?: string) {
   const supabase = await createClient({ next: { tags: ['parties'] } });
-  let query = supabase.from('parties').select('id, legal_name, display_name, customer_code, industry_category, party_type, influencer_subtype, address, is_active, gst_number, pan_number').order('legal_name').limit(100);
+  let query = supabase.from('parties').select('id, legal_name, display_name, customer_code, industry_category, party_type, influencer_subtype, address, is_active, gst_number, pan_number').order('legal_name').limit(1000);
   if (search) query = query.ilike('legal_name', `%${search}%`);
   const { data } = await query;
   return data || [];
