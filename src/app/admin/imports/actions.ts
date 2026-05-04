@@ -54,8 +54,8 @@ export async function processImportJob(formData: FormData) {
     
     if (partyIdsInPayload.length > 0) {
       // Fetch by UUID
-      const uuids = partyIdsInPayload.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
-      const codes = partyIdsInPayload.filter(id => !uuids.includes(id));
+      const uuids = (partyIdsInPayload as string[]).filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+      const codes = (partyIdsInPayload as string[]).filter(id => !uuids.includes(id));
 
       const { data: byUuid } = uuids.length > 0 
         ? await supabase.from('parties').select('id, customer_code').in('id', uuids)
