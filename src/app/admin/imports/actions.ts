@@ -43,17 +43,33 @@ export async function processImportJob(formData: FormData) {
   }).select().single();
   if (jobErr) throw jobErr;
 
-  let validPartyIds = new Set<string>();
+  let partyIdResolutionMap = new Map<string, string>(); // input_value -> actual_uuid
   if (['historical_exposure', 'outstanding_exposure', 'parameter_bulk_values', 'grandfathered_cases'].includes(importType)) {
     const partyIdsInPayload = [...new Set(
-      payload.map((r: any) => applyColumnMappingSync(r, columnMapping)['party_id']).filter(Boolean)
+      payload.map((r: any) => {
+        const row = applyColumnMappingSync(r, columnMapping);
+        return row.party_id || row.customer_id;
+      }).filter(Boolean)
     )];
+    
     if (partyIdsInPayload.length > 0) {
-      const { data: existingParties } = await supabase
-        .from('parties')
-        .select('id')
-        .in('id', partyIdsInPayload as string[]);
-      validPartyIds = new Set((existingParties || []).map((p: any) => p.id));
+      // Fetch by UUID
+      const uuids = partyIdsInPayload.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+      const codes = partyIdsInPayload.filter(id => !uuids.includes(id));
+
+      const { data: byUuid } = uuids.length > 0 
+        ? await supabase.from('parties').select('id, customer_code').in('id', uuids)
+        : { data: [] };
+      
+      const { data: byCode } = codes.length > 0
+        ? await supabase.from('parties').select('id, customer_code').in('customer_code', codes)
+        : { data: [] };
+
+      const allFound = [...(byUuid || []), ...(byCode || [])];
+      allFound.forEach(p => {
+        partyIdResolutionMap.set(p.id, p.id);
+        if (p.customer_code) partyIdResolutionMap.set(p.customer_code, p.id);
+      });
     }
   }
 
@@ -98,16 +114,13 @@ export async function processImportJob(formData: FormData) {
           });
         }
       } else if (importType === 'historical_exposure') {
-        if (!row.party_id) {
+        const resolvedId = partyIdResolutionMap.get(row.party_id);
+        if (!resolvedId) {
           if (ignoreMissing) continue;
-          throw new Error('Missing party_id');
-        }
-        if (!validPartyIds.has(row.party_id)) {
-          if (ignoreMissing) continue;
-          throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
+          throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
         await supabase.from('party_history').insert({
-          party_id: row.party_id,
+          party_id: resolvedId,
           import_job_id: job.id,
           order_count: parseInt(row.order_count) || 0,
           total_volume: parseFloat(row.total_volume) || 0,
@@ -117,16 +130,13 @@ export async function processImportJob(formData: FormData) {
           data_as_of: row.data_as_of || new Date().toISOString(),
         });
       } else if (importType === 'outstanding_exposure') {
-        if (!row.party_id) {
+        const resolvedId = partyIdResolutionMap.get(row.party_id);
+        if (!resolvedId) {
           if (ignoreMissing) continue;
-          throw new Error('Missing party_id');
-        }
-        if (!validPartyIds.has(row.party_id)) {
-          if (ignoreMissing) continue;
-          throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
+          throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
         await supabase.from('party_exposure').insert({
-          party_id: row.party_id,
+          party_id: resolvedId,
           import_job_id: job.id,
           outstanding_amount: parseFloat(row.outstanding_amount) || 0,
           overdue_amount: parseFloat(row.overdue_amount) || 0,
@@ -134,36 +144,30 @@ export async function processImportJob(formData: FormData) {
           data_as_of: row.data_as_of || new Date().toISOString(),
         });
       } else if (importType === 'parameter_bulk_values') {
-        if (!row.party_id) {
+        const resolvedId = partyIdResolutionMap.get(row.party_id);
+        if (!resolvedId) {
           if (ignoreMissing) continue;
-          throw new Error('Missing party_id');
+          throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
         if (!row.parameter_id) throw new Error('Missing parameter_id');
-        if (!validPartyIds.has(row.party_id)) {
-          if (ignoreMissing) continue;
-          throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
-        }
         await supabase.from('party_parameter_values').upsert({
-          party_id: row.party_id,
+          party_id: resolvedId,
           parameter_id: row.parameter_id,
           grade_value: row.grade_value != null ? parseFloat(row.grade_value) : null,
           raw_input_value: row.raw_input_value || null,
           captured_at: row.captured_at || new Date().toISOString(),
         }, { onConflict: 'party_id,parameter_id' });
       } else if (importType === 'grandfathered_cases') {
-        const partyId = row.party_id || row.customer_id;
-        if (!partyId) {
+        const rawPartyId = row.party_id || row.customer_id;
+        const resolvedId = partyIdResolutionMap.get(rawPartyId);
+        if (!resolvedId) {
           if (ignoreMissing) continue;
-          throw new Error('Missing party_id or customer_id');
-        }
-        if (!validPartyIds.has(partyId)) {
-          if (ignoreMissing) continue;
-          throw new Error(`Party ID "${partyId}" not found in parties table`);
+          throw new Error(`Party ID/Code "${rawPartyId}" not found in system.`);
         }
         
         // Create the grandfathered credit case
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
-          customer_party_id: partyId,
+          customer_party_id: resolvedId,
           rm_user_id: row.rm_user_id || null,
           status: 'Billing Active',
           billing_date: row.overdue_date || row.due_date || new Date().toISOString(),
