@@ -54,8 +54,8 @@ export async function processImportJob(formData: FormData) {
     
     if (partyIdsInPayload.length > 0) {
       // Fetch by UUID
-      const uuids = (partyIdsInPayload as string[]).filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
-      const codes = (partyIdsInPayload as string[]).filter(id => !uuids.includes(id));
+      const uuids = partyIdsInPayload.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+      const codes = partyIdsInPayload.filter(id => !uuids.includes(id));
 
       const { data: byUuid } = uuids.length > 0 
         ? await supabase.from('parties').select('id, customer_code').in('id', uuids)
@@ -71,6 +71,26 @@ export async function processImportJob(formData: FormData) {
         if (p.customer_code) partyIdResolutionMap.set(p.customer_code, p.id);
       });
     }
+
+    // NEW: Also resolve contractor_id for grandfathered cases
+    if (importType === 'grandfathered_cases') {
+      const contractorIds = [...new Set(payload.map((r: any) => r.contractor_id).filter(id => id && id !== 'CONT-UNASSIGNED'))];
+      if (contractorIds.length > 0) {
+        const { data: contractors } = await supabase.from('parties').select('id, customer_code').in('customer_code', contractorIds as string[]);
+        contractors?.forEach(p => {
+          if (p.customer_code) partyIdResolutionMap.set(p.customer_code, p.id);
+        });
+      }
+    }
+  }
+
+  // NEW: Fetch profiles to match RM names if RM ID is not a UUID
+  let profileNameMap = new Map<string, string>(); // name -> id
+  if (importType === 'grandfathered_cases') {
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name');
+    profiles?.forEach(p => {
+      profileNameMap.set(p.full_name.toLowerCase(), p.id);
+    });
   }
 
   let processed = 0;
@@ -173,17 +193,42 @@ export async function processImportJob(formData: FormData) {
           if (ignoreMissing) continue;
           throw new Error(`Party ID/Code "${rawPartyId}" not found in system.`);
         }
+
+        // Resolve Contractor
+        const contractorId = row.contractor_id ? partyIdResolutionMap.get(row.contractor_id) : null;
+
+        // Resolve RM
+        let rmId = row.rm_id || row.rm_user_id;
+        if (rmId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rmId)) {
+          // It's a name or custom code, try to match by name
+          rmId = profileNameMap.get(row.rm_name?.toLowerCase()) || user.id; // Fallback to current user
+        } else if (!rmId) {
+          rmId = user.id;
+        }
+
+        // Handle Overdue Days (numeric) vs Date
+        let billingDate = row.overdue_date || row.due_date;
+        if (billingDate && !isNaN(parseInt(billingDate)) && !billingDate.includes('-')) {
+          // It's a number of days, e.g. 165
+          const daysAgo = parseInt(billingDate);
+          const date = new Date();
+          date.setDate(date.getDate() - daysAgo);
+          billingDate = date.toISOString();
+        } else if (!billingDate) {
+          billingDate = new Date().toISOString();
+        }
         
         // Create the grandfathered credit case
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
           customer_party_id: resolvedId,
-          rm_user_id: row.rm_id || row.rm_user_id || null,
+          contractor_party_id: contractorId,
+          rm_user_id: rmId,
           status: 'Billing Active',
-          billing_date: row.overdue_date || row.due_date || new Date().toISOString(),
+          billing_date: billingDate,
           decided_bill_amount: parseFloat(row.bill_amount || row.outstanding_amount) || 0,
           actual_bill_amount: 0,
           proposed_tranches: [{"type": "percentage", "value": 100, "days_after_billing": 0}],
-          case_number: row.case_number || `GF-${Date.now()}`
+          case_number: row.case_number || `GF-${Date.now()}-${processed}`
         }).select('id').single();
         
         if (caseErr) throw caseErr;
