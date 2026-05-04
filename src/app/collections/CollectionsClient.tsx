@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { AlertCircle, ShieldAlert, ArrowUpRight, Search, FileText, MessageSquare, CheckSquare } from 'lucide-react';
 import { handleEscalateCase, bulkAssignRMs, addHqCollectionLog } from './actions';
 import { handleLogPayment } from '@/app/cases/[id]/billing-actions';
+import { SubmitButton } from '@/components/ui/submit-button';
+
 
 interface Case {
   id: string;
@@ -87,6 +89,9 @@ export default function CollectionsClient({ collections, stats, escalations, rms
   const [filterRm, setFilterRm] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterHqUpdate, setFilterHqUpdate] = useState('all'); // all, updated, pending
+  const [filterEscalation, setFilterEscalation] = useState('all');
+  const [filterRecency, setFilterRecency] = useState('all'); // all, 7d, 14d, none
+
 
   const [loggingPaymentForCase, setLoggingPaymentForCase] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -142,8 +147,28 @@ export default function CollectionsClient({ collections, stats, escalations, rms
       (filterHqUpdate === 'updated' && hasLogs) || 
       (filterHqUpdate === 'pending' && !hasLogs);
 
-    return matchesSearch && matchesRm && matchesStatus && matchesHq;
+    const matchesEscalation = filterEscalation === 'all' || (c.escalation_level ?? 0).toString() === filterEscalation;
+
+    let matchesRecency = true;
+    if (filterRecency !== 'all') {
+      const caseLogs = hqLogs.filter(log => log.case_id === c.id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const lastLog = caseLogs[0];
+      if (filterRecency === 'none') {
+        matchesRecency = !lastLog;
+      } else {
+        if (!lastLog) {
+          matchesRecency = false;
+        } else {
+          const daysSince = (new Date().getTime() - new Date(lastLog.created_at).getTime()) / 86400000;
+          if (filterRecency === '7d') matchesRecency = daysSince <= 7;
+          else if (filterRecency === '14d') matchesRecency = daysSince > 14;
+        }
+      }
+    }
+
+    return matchesSearch && matchesRm && matchesStatus && matchesHq && matchesEscalation && matchesRecency;
   });
+
 
   // Get unique RM names for the filter dropdown
   const uniqueRms = Array.from(new Set(collections.map(c => getRmName(c)))).sort();
@@ -247,6 +272,27 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Escalation</label>
+            <select value={filterEscalation} onChange={e => setFilterEscalation(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
+              <option value="all">All Levels</option>
+              <option value="0">Level 0</option>
+              <option value="1">Level 1</option>
+              <option value="2">Level 2</option>
+              <option value="3">Level 3</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Recency</label>
+            <select value={filterRecency} onChange={e => setFilterRecency(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
+              <option value="all">All Time</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="14d">Older than 14d</option>
+              <option value="none">Never Updated</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Sort</label>
             <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="overdue_days">By Overdue</option>
@@ -256,6 +302,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
         </div>
       </div>
+
 
 
       {selectedCaseIds.size > 0 && (
@@ -270,8 +317,9 @@ export default function CollectionsClient({ collections, stats, escalations, rms
               <option value="">Select RM to Assign...</option>
               {rms.map(rm => <option key={rm.id} value={rm.id}>{rm.full_name}</option>)}
             </select>
-            <Button type="submit" size="sm" disabled={!selectedRm}>Assign RM</Button>
+            <SubmitButton type="submit" size="sm" disabled={!selectedRm}>Assign RM</SubmitButton>
           </form>
+
         </div>
       )}
 
@@ -359,16 +407,18 @@ export default function CollectionsClient({ collections, stats, escalations, rms
                       {/* Tranche Index not passed yet in escalation modal, defaulting to 0 or we can leave it to be handled by backend. The action expects trancheIndex. Let's pass the worst overdue tranche. */}
                       <input type="hidden" name="trancheIndex" value={computeOverdueTranches(c).sort((a, b) => b.daysOverdue - a.daysOverdue)[0]?.trancheIndex || 0} />
                       <input type="hidden" name="targetRole" value={targetRole} />
-                      <Button
+                      <SubmitButton
                         type="submit"
                         variant={isEscalated ? "destructive" : "outline"}
                         size="sm"
                         className={!isEscalated ? "border-amber-500 text-amber-600 hover:bg-amber-50" : ""}
+                        loadingText="Escalating..."
                       >
                         <ArrowUpRight size={14} className="mr-1.5" /> 
                         Escalate
-                      </Button>
+                      </SubmitButton>
                     </form>
+
                     <Button variant="outline" size="sm" onClick={() => setChatOpenForCase(c.id)}>
                       <MessageSquare size={14} className="mr-1.5" /> HQ Chat
                     </Button>
@@ -451,8 +501,9 @@ export default function CollectionsClient({ collections, stats, escalations, rms
                     required 
                     autoComplete="off"
                   />
-                  <Button type="submit" size="sm">Log</Button>
+                  <SubmitButton type="submit" size="sm">Log</SubmitButton>
                 </form>
+
               </div>
             </CardContent>
           </Card>

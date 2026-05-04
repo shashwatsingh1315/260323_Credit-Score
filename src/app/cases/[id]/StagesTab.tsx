@@ -7,6 +7,8 @@ import { CheckCircle, Clock, AlertCircle, Award } from 'lucide-react';
 import { handleProgressStage, handleCreateApprovalRound, handleAssignTask } from './actions';
 import TaskCompleteForm from './TaskCompleteForm';
 import { cn } from '@/lib/utils';
+import { SubmitButton } from '@/components/ui/submit-button';
+
 
 const STATUS_VARIANT: Record<string, any> = {
   'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
@@ -100,7 +102,7 @@ export default function StagesTab({ coreData, promises, activeRole, optimisticTa
                             <input type="hidden" name="cycleId" value={cycle.id} />
                             <input type="hidden" name="currentStage" value={stage} />
                             <input type="hidden" name="caseId" value={c.id} />
-                            <Button type="submit" size="sm">Progress to Stage {stage + 1}</Button>
+                            <SubmitButton type="submit" size="sm">Progress to Stage {stage + 1}</SubmitButton>
                           </form>
                         )}
                         {isCurrent && stageComplete(stage) && (
@@ -108,7 +110,7 @@ export default function StagesTab({ coreData, promises, activeRole, optimisticTa
                             <input type="hidden" name="cycleId" value={cycle.id} />
                             <input type="hidden" name="stage" value={stage} />
                             <input type="hidden" name="caseId" value={c.id} />
-                            <Button type="submit" size="sm" variant="outline">Request Approval</Button>
+                            <SubmitButton type="submit" size="sm" variant="outline">Request Approval</SubmitButton>
                           </form>
                         )}
                       </div>
@@ -165,7 +167,7 @@ export default function StagesTab({ coreData, promises, activeRole, optimisticTa
                                                     <option key={u.id} value={u.id}>{u.full_name}</option>
                                                   ))}
                                                 </select>
-                                                <Button type="submit" size="sm" variant="ghost" className="h-6 text-xs px-1">Assign</Button>
+                                                <SubmitButton type="submit" size="sm" variant="ghost" className="h-6 text-xs px-1">Assign</SubmitButton>
                                               </form>
                                             )}
                                           </>

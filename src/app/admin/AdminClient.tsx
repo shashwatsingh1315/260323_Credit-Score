@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PartyDialog } from '@/components/admin/PartyDialog';
 import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster, recomputePartyHistoryFromOutcomes } from './actions';
+import { SubmitButton } from '@/components/ui/submit-button';
+
 import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -272,7 +274,7 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                         <select name="role" className="flex h-8 rounded-lg border border-input bg-transparent px-2 text-xs">
                           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
-                        <Button type="submit" size="sm" variant="outline">Assign</Button>
+                        <SubmitButton type="submit" size="sm" variant="outline">Assign</SubmitButton>
                       </form>
                     </TableCell>
                     <TableCell className="text-right">
