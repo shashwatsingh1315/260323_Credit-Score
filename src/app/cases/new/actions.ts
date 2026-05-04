@@ -188,12 +188,13 @@ export async function fetchPartyDetails(partyId: string) {
  */
 export async function fetchKams() {
   const supabase = await createClient();
-  const { data } = await supabase
+  // Fetch all users with roles and filter for KAMs
+  const { data: allUsers } = await supabase
     .from('profiles')
-    .select('id, full_name, user_roles!inner(role)')
-    .eq('user_roles.role', 'kam')
+    .select('id, full_name, roles:user_roles(role)')
     .order('full_name');
-  return data || [];
+  
+  return allUsers?.filter(u => u.roles?.some((r: any) => r.role === 'kam')) || [];
 }
 
 

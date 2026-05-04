@@ -22,7 +22,7 @@ export const getCurrentUser = cache(async (): Promise<UserProfile | null> => {
 
   if (!session?.user) {
     // E2E Test Bypass
-    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    if (process.env.E2E_AUTH_BYPASS === 'true') {
       const { cookies } = await import('next/headers');
       const cookieStore = await cookies();
       if (cookieStore.get('test_auth_bypass')?.value === 'true') {

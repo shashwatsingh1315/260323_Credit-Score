@@ -81,7 +81,11 @@ export default async function CollectionsPage() {
   };
 
   // Fetch available RMs
-  const { data: rms } = await supabase.from('profiles').select('id, full_name').eq('role', 'rm');
+  const { data: allUsers } = await supabase
+    .from('profiles')
+    .select('id, full_name, roles:user_roles(role)');
+  
+  const rms = allUsers?.filter(u => u.roles?.some((r: any) => r.role === 'rm')) || [];
   
   // Fetch HQ logs for overdue cases
   const overdueCaseIds = overdueCases.map(c => c.id);

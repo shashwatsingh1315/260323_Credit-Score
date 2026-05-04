@@ -39,13 +39,7 @@ function StagesTabWrapper({ coreData, promises, activeRole, liveScore }: any) {
       )
   );
 
-  const stageScore = (stage: number) => {
-    const scoringTasks = optimisticTasks.filter((t: any) => t.stage === stage && t.task_type === 'scoring' && t.status === 'Completed' && t.grade_value != null);
-    if (!scoringTasks.length) return null;
-    const totalWeight = scoringTasks.reduce((sum: number, t: any) => sum + (t.param?.weight || 1), 0);
-    const weightedSum = scoringTasks.reduce((sum: number, t: any) => sum + (t.grade_value * (t.param?.weight || 1)), 0);
-    return totalWeight > 0 ? Math.round(weightedSum / totalWeight) : null;
-  };
+  const stageScore = (_stage: number) => null;
 
   return (
     <StagesTab

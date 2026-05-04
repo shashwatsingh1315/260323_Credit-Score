@@ -796,6 +796,12 @@ export async function handleSaveDecidedAmount(formData: FormData) {
 }
 
 export async function saveBillUrl(fd: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!hasAnyRole(user, ['accounts', 'kam', 'founder_admin'])) {
+    throw new Error('Only Accounts, KAM, or Admin can upload the bill document.');
+  }
+
   const caseId = fd.get('caseId') as string;
   const billFileUrl = fd.get('billFileUrl') as string;
   const supabase = await createClient();
@@ -806,12 +812,13 @@ export async function saveBillUrl(fd: FormData) {
 export async function remindAccounts(fd: FormData) {
   const caseId = fd.get('caseId') as string;
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) return;
+  const user = await getCurrentUser();
+  if (!user) return;
+  if (!hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) return;
   
   await supabase.from('escalation_logs').insert({
     case_id: caseId,
-    logged_by: session.user.id,
+    logged_by: user.id,
     action_type: 'note',
     outcome: 'RM requested Accounts to upload bill document.',
     escalation_id: null

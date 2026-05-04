@@ -404,8 +404,15 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
           <DialogHeader><DialogTitle>Import Parties (CSV)</DialogTitle></DialogHeader>
           <form onSubmit={handleImportSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label>Import Type</Label>
+              <select name="import_type" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                <option value="party_master">Party Master</option>
+                <option value="grandfathered_cases">Grandfathered Cases (Legacy Collections)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Upload a CSV file with the following headers: <code>legal_name, customer_code, party_type, gstin, pan, address, credit_limit</code>
+                Upload a CSV file. For Collections, headers should be: <code>customer_name, customer_id, contractor_id, rm_name, rm_id, overdue_date, bill_amount, remarks</code>
               </p>
               <Input type="file" name="file" accept=".csv" required className="cursor-pointer" />
             </div>

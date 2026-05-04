@@ -149,7 +149,7 @@ export async function processImportJob(formData: FormData) {
           rm_user_id: row.rm_user_id || null,
           status: 'Billing Active',
           billing_date: row.due_date || new Date().toISOString(),
-          decided_bill_amount: parseFloat(row.outstanding_amount) || 0,
+          decided_bill_amount: parseFloat(row.bill_amount || row.outstanding_amount) || 0,
           actual_bill_amount: 0,
           proposed_tranches: [{"type": "percentage", "value": 100, "days_after_billing": 0}],
           case_number: row.case_number || `GF-${Date.now()}`

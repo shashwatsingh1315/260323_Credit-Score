@@ -1,6 +1,6 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser } from '@/utils/auth';
+import { getCurrentUser, hasAnyRole } from '@/utils/auth';
 import { revalidatePath } from 'next/cache';
 
 // Trigger an escalation manually
@@ -67,6 +67,12 @@ export async function bulkAssignRMs(fd: FormData) {
   const rmId = fd.get('rmId') as string;
   if (!caseIds.length || !rmId) return;
 
+  const user = await getCurrentUser();
+  if (!user) return;
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can bulk-assign RMs.');
+  }
+
   const supabase = await createClient();
   await supabase.from('credit_cases').update({ rm_user_id: rmId }).in('id', caseIds);
   revalidatePath('/collections');
@@ -77,6 +83,9 @@ export async function addHqCollectionLog(fd: FormData) {
   const message = fd.get('message') as string;
   const user = await getCurrentUser();
   if (!user || !caseId || !message) return;
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can log HQ collection notes.');
+  }
 
   const supabase = await createClient();
   await supabase.from('hq_collection_logs').insert({

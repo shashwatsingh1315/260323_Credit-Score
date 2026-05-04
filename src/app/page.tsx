@@ -273,7 +273,7 @@ export default async function DashboardPage() {
       supabase.from('credit_cases').select('id, case_number, status, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
         .eq('kam_user_id', user.id).in('status', ['In Review', 'Awaiting Input']).order('created_at', { ascending: false }).limit(10),
       supabase.from('credit_cases').select('id, case_number, status, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
-        .eq('kam_user_id', user.id).eq('status', 'Awaiting Approval').order('created_at', { ascending: false }).limit(10),
+        .eq('kam_user_id', user.id).in('status', ['Awaiting Approval', 'Appealed']).order('created_at', { ascending: false }).limit(10),
       supabase.from('credit_cases').select('id, case_number, status, bill_amount, billing_date, decided_bill_amount, actual_bill_amount, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
         .eq('kam_user_id', user.id).in('status', ['Billing Active', 'Pending Write-Off Approval']).order('billing_date', { ascending: true }).limit(20),
     ]);
