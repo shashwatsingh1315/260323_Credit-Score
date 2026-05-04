@@ -175,7 +175,7 @@ export async function processImportJob(formData: FormData) {
         // Create the grandfathered credit case
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
           customer_party_id: resolvedId,
-          rm_user_id: row.rm_user_id || null,
+          rm_user_id: row.rm_id || row.rm_user_id || null,
           status: 'Billing Active',
           billing_date: row.overdue_date || row.due_date || new Date().toISOString(),
           decided_bill_amount: parseFloat(row.bill_amount || row.outstanding_amount) || 0,
