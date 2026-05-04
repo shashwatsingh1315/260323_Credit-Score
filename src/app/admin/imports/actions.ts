@@ -85,7 +85,7 @@ export async function processImportJob(formData: FormData) {
     try {
       if (importType === 'party_master') {
         if (row.customer_code) {
-          await supabase.from('parties').upsert(
+          const { error: upsertErr } = await supabase.from('parties').upsert(
             {
               legal_name: row.legal_name,
               customer_code: row.customer_code || null,
@@ -95,23 +95,27 @@ export async function processImportJob(formData: FormData) {
             },
             { onConflict: 'customer_code', ignoreDuplicates: false }
           );
+          if (upsertErr) throw upsertErr;
         } else {
-          const { data: existing } = await supabase
+          if (!row.legal_name) throw new Error('Missing legal_name for new party');
+          const { data: existing, error: findErr } = await supabase
             .from('parties')
             .select('id')
             .ilike('legal_name', row.legal_name?.trim())
             .limit(1)
             .maybeSingle();
+          if (findErr) throw findErr;
           if (existing) {
             throw new Error(`Party "${row.legal_name}" already exists (id: ${existing.id}). Provide a customer_code to update.`);
           }
-          await supabase.from('parties').insert({
+          const { error: insertErr } = await supabase.from('parties').insert({
             legal_name: row.legal_name,
             customer_code: null,
             industry_category: row.industry_category || null,
             created_by: user.id,
             is_candidate: false,
           });
+          if (insertErr) throw insertErr;
         }
       } else if (importType === 'historical_exposure') {
         const resolvedId = partyIdResolutionMap.get(row.party_id);
@@ -119,7 +123,7 @@ export async function processImportJob(formData: FormData) {
           if (ignoreMissing) continue;
           throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
-        await supabase.from('party_history').insert({
+        const { error: histErr } = await supabase.from('party_history').insert({
           party_id: resolvedId,
           import_job_id: job.id,
           order_count: parseInt(row.order_count) || 0,
@@ -129,13 +133,14 @@ export async function processImportJob(formData: FormData) {
           max_delay_days: parseInt(row.max_delay_days) || 0,
           data_as_of: row.data_as_of || new Date().toISOString(),
         });
+        if (histErr) throw histErr;
       } else if (importType === 'outstanding_exposure') {
         const resolvedId = partyIdResolutionMap.get(row.party_id);
         if (!resolvedId) {
           if (ignoreMissing) continue;
           throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
-        await supabase.from('party_exposure').insert({
+        const { error: expErr } = await supabase.from('party_exposure').insert({
           party_id: resolvedId,
           import_job_id: job.id,
           outstanding_amount: parseFloat(row.outstanding_amount) || 0,
@@ -143,6 +148,7 @@ export async function processImportJob(formData: FormData) {
           overdue_days: parseInt(row.overdue_days) || 0,
           data_as_of: row.data_as_of || new Date().toISOString(),
         });
+        if (expErr) throw expErr;
       } else if (importType === 'parameter_bulk_values') {
         const resolvedId = partyIdResolutionMap.get(row.party_id);
         if (!resolvedId) {
@@ -150,13 +156,14 @@ export async function processImportJob(formData: FormData) {
           throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
         if (!row.parameter_id) throw new Error('Missing parameter_id');
-        await supabase.from('party_parameter_values').upsert({
+        const { error: valErr } = await supabase.from('party_parameter_values').upsert({
           party_id: resolvedId,
           parameter_id: row.parameter_id,
           grade_value: row.grade_value != null ? parseFloat(row.grade_value) : null,
           raw_input_value: row.raw_input_value || null,
           captured_at: row.captured_at || new Date().toISOString(),
         }, { onConflict: 'party_id,parameter_id' });
+        if (valErr) throw valErr;
       } else if (importType === 'grandfathered_cases') {
         const rawPartyId = row.party_id || row.customer_id;
         const resolvedId = partyIdResolutionMap.get(rawPartyId);
