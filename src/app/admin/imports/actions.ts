@@ -21,6 +21,7 @@ export async function processImportJob(formData: FormData) {
   const payloadStr = formData.get('payload') as string;
   const payload = JSON.parse(payloadStr);
   const templateId = formData.get('template_id') as string | null;
+  const ignoreMissing = formData.get('ignore_missing_parties') === 'true';
 
   let columnMapping: Record<string, string> = {};
   if (templateId) {
@@ -97,8 +98,12 @@ export async function processImportJob(formData: FormData) {
           });
         }
       } else if (importType === 'historical_exposure') {
-        if (!row.party_id) throw new Error('Missing party_id');
+        if (!row.party_id) {
+          if (ignoreMissing) continue;
+          throw new Error('Missing party_id');
+        }
         if (!validPartyIds.has(row.party_id)) {
+          if (ignoreMissing) continue;
           throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
         }
         await supabase.from('party_history').insert({
@@ -112,8 +117,12 @@ export async function processImportJob(formData: FormData) {
           data_as_of: row.data_as_of || new Date().toISOString(),
         });
       } else if (importType === 'outstanding_exposure') {
-        if (!row.party_id) throw new Error('Missing party_id');
+        if (!row.party_id) {
+          if (ignoreMissing) continue;
+          throw new Error('Missing party_id');
+        }
         if (!validPartyIds.has(row.party_id)) {
+          if (ignoreMissing) continue;
           throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
         }
         await supabase.from('party_exposure').insert({
@@ -125,9 +134,13 @@ export async function processImportJob(formData: FormData) {
           data_as_of: row.data_as_of || new Date().toISOString(),
         });
       } else if (importType === 'parameter_bulk_values') {
-        if (!row.party_id) throw new Error('Missing party_id');
+        if (!row.party_id) {
+          if (ignoreMissing) continue;
+          throw new Error('Missing party_id');
+        }
         if (!row.parameter_id) throw new Error('Missing parameter_id');
         if (!validPartyIds.has(row.party_id)) {
+          if (ignoreMissing) continue;
           throw new Error(`Party ID "${row.party_id}" not found in system. Please use a valid UUID from Party Master.`);
         }
         await supabase.from('party_parameter_values').upsert({
@@ -139,8 +152,12 @@ export async function processImportJob(formData: FormData) {
         }, { onConflict: 'party_id,parameter_id' });
       } else if (importType === 'grandfathered_cases') {
         const partyId = row.party_id || row.customer_id;
-        if (!partyId) throw new Error('Missing party_id or customer_id');
+        if (!partyId) {
+          if (ignoreMissing) continue;
+          throw new Error('Missing party_id or customer_id');
+        }
         if (!validPartyIds.has(partyId)) {
+          if (ignoreMissing) continue;
           throw new Error(`Party ID "${partyId}" not found in parties table`);
         }
         

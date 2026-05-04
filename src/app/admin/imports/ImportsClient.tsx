@@ -13,6 +13,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
   const [preview, setPreview] = useState<any[]>([]);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [ignoreMissing, setIgnoreMissing] = useState(false);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -44,6 +45,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
       const fd = new FormData();
       fd.set('import_type', importType);
       fd.set('payload', JSON.stringify(preview));
+      fd.set('ignore_missing_parties', ignoreMissing.toString());
 
       await processImportJob(fd);
 
@@ -105,10 +107,19 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
               </select>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
               <Button type="button" variant="outline" size="sm" onClick={downloadTemplate}>
                 <Download size={14} className="mr-2" /> Download Template
               </Button>
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50 transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={ignoreMissing} 
+                  onChange={(e) => setIgnoreMissing(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm font-medium">Ignore missing/invalid Party IDs (skip rows)</span>
+              </label>
             </div>
 
             <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-3 hover:bg-muted/50 transition-colors">
