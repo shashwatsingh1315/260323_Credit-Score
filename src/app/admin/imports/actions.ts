@@ -92,6 +92,7 @@ export async function processImportJob(formData: FormData) {
               industry_category: row.industry_category || null,
               created_by: user.id,
               is_candidate: false,
+              is_active: true,
             },
             { onConflict: 'customer_code', ignoreDuplicates: false }
           );
@@ -114,6 +115,7 @@ export async function processImportJob(formData: FormData) {
             industry_category: row.industry_category || null,
             created_by: user.id,
             is_candidate: false,
+            is_active: true,
           });
           if (insertErr) throw insertErr;
         }
@@ -218,6 +220,7 @@ export async function processImportJob(formData: FormData) {
   });
 
   revalidatePath('/admin/imports');
+  revalidatePath('/admin');
 }
 
 async function applyColumnMapping(
