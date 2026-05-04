@@ -20,7 +20,9 @@ interface Case {
   escalation_level?: number;
   billing_date?: string | null;
   customer?: { legal_name: string }[] | { legal_name: string } | null;
+  rm?: { full_name: string }[] | { full_name: string } | null;
   proposed_tranches?: any;
+  case_attributes?: any;
 }
 
 function computeOverdueTranches(c: Case): {
@@ -64,6 +66,14 @@ function getCustomerName(c: Case): string {
   return c.customer.legal_name || '—';
 }
 
+function getRmName(c: Case): string {
+  const original = (c.case_attributes as any)?.original_rm_name;
+  if (original) return original;
+  if (!c.rm) return 'Unassigned';
+  if (Array.isArray(c.rm)) return c.rm[0]?.full_name || 'Unassigned';
+  return c.rm.full_name || 'Unassigned';
+}
+
 export default function CollectionsClient({ collections, stats, escalations, rms = [], hqLogs = [] }: {
   collections: Case[];
   stats: { totalOverdue: number; countOverdue: number; totalEscalated: number; countEscalated: number };
@@ -74,6 +84,9 @@ export default function CollectionsClient({ collections, stats, escalations, rms
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'overdue_days' | 'outstanding' | 'name'>('overdue_days');
   const [minOverdueDays, setMinOverdueDays] = useState(0);
+  const [filterRm, setFilterRm] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterHqUpdate, setFilterHqUpdate] = useState('all'); // all, updated, pending
 
   const [loggingPaymentForCase, setLoggingPaymentForCase] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -115,11 +128,25 @@ export default function CollectionsClient({ collections, stats, escalations, rms
     }
   };
 
-  const filtered = collections.filter(c =>
-    getCustomerName(c).toLowerCase().includes(search.toLowerCase()) ||
-    c.case_number?.toLowerCase().includes(search.toLowerCase()) ||
-    c.id.includes(search)
-  );
+  const filtered = collections.filter(c => {
+    const matchesSearch = getCustomerName(c).toLowerCase().includes(search.toLowerCase()) ||
+      c.case_number?.toLowerCase().includes(search.toLowerCase()) ||
+      c.id.includes(search) ||
+      getRmName(c).toLowerCase().includes(search.toLowerCase());
+
+    const matchesRm = filterRm === 'all' || getRmName(c) === filterRm;
+    const matchesStatus = filterStatus === 'all' || c.status === filterStatus;
+    
+    const hasLogs = hqLogs.some(log => log.case_id === c.id);
+    const matchesHq = filterHqUpdate === 'all' || 
+      (filterHqUpdate === 'updated' && hasLogs) || 
+      (filterHqUpdate === 'pending' && !hasLogs);
+
+    return matchesSearch && matchesRm && matchesStatus && matchesHq;
+  });
+
+  // Get unique RM names for the filter dropdown
+  const uniqueRms = Array.from(new Set(collections.map(c => getRmName(c)))).sort();
 
   const getOverdueDays = (c: Case): number => {
     if (!c.billing_date) return 0;
@@ -181,27 +208,55 @@ export default function CollectionsClient({ collections, stats, escalations, rms
         </Card>
       </div>
 
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="relative w-full md:w-72">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
+        <div className="relative w-full lg:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
           <Input 
-            placeholder="Search customer or case number..." 
-            className="pl-9 h-9 text-sm"
+            placeholder="Search customer, RM or case..." 
+            className="pl-9 h-9 text-sm bg-background"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-4 flex-wrap">
-          <label className="text-sm font-medium whitespace-nowrap">Sort by:</label>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="text-sm border rounded px-2 py-1 h-9">
-            <option value="overdue_days">Most Days Overdue</option>
-            <option value="outstanding">Highest Outstanding</option>
-            <option value="name">Customer Name</option>
-          </select>
-          <label className="text-sm font-medium whitespace-nowrap">Min overdue days:</label>
-          <input type="number" value={minOverdueDays} min={0} onChange={e => setMinOverdueDays(parseInt(e.target.value) || 0)} className="w-20 text-sm border rounded px-2 py-1 h-9" />
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:flex items-center gap-3 w-full lg:w-auto">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">RM</label>
+            <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background min-w-[120px]">
+              <option value="all">All RMs</option>
+              {uniqueRms.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Status</label>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
+              <option value="all">All Status</option>
+              <option value="Billing Active">Billing Active</option>
+              <option value="Pending Write-Off Approval">Pending Write-Off</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">HQ Update</label>
+            <select value={filterHqUpdate} onChange={e => setFilterHqUpdate(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
+              <option value="all">Any Update</option>
+              <option value="updated">With Logs</option>
+              <option value="pending">No Logs Yet</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Sort</label>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
+              <option value="overdue_days">By Overdue</option>
+              <option value="outstanding">By Amount</option>
+              <option value="name">By Name</option>
+            </select>
+          </div>
         </div>
       </div>
+
 
       {selectedCaseIds.size > 0 && (
         <div className="bg-primary/5 border border-primary/20 rounded-md p-3 flex items-center justify-between">
@@ -261,6 +316,10 @@ export default function CollectionsClient({ collections, stats, escalations, rms
                         <Link href={`/cases/${c.id}`} className="hover:underline font-mono text-xs">
                           {c.case_number || c.id.split('-')[0]}
                         </Link>
+                      </span>
+                      <span>•</span>
+                      <span className="font-medium text-foreground">
+                        RM: {getRmName(c)}
                       </span>
                       <span>•</span>
                       <span className="font-medium text-foreground">

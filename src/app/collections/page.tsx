@@ -23,8 +23,9 @@ export default async function CollectionsPage() {
     .select(`
       id, case_number, status, bill_amount, composite_credit_days, escalation_level,
       billing_date, decided_bill_amount, actual_bill_amount, proposed_tranches,
-      rm_user_id, kam_user_id,
-      customer:parties!credit_cases_customer_party_id_fkey(legal_name)
+      rm_user_id, kam_user_id, case_attributes,
+      customer:parties!credit_cases_customer_party_id_fkey(legal_name),
+      rm:profiles!credit_cases_rm_user_id_fkey(full_name)
     `)
     .in('status', ['Billing Active', 'Pending Write-Off Approval']);
 
