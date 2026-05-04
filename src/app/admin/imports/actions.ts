@@ -222,6 +222,7 @@ export async function processImportJob(formData: FormData) {
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
           customer_party_id: resolvedId,
           contractor_party_id: contractorId,
+          case_scenario: contractorId ? 'customer_name_contractor_pays' : 'customer_name_customer_pays',
           rm_user_id: rmId,
           status: 'Billing Active',
           billing_date: billingDate,
