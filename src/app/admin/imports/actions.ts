@@ -74,7 +74,7 @@ export async function processImportJob(formData: FormData) {
 
     // NEW: Also resolve contractor_id for grandfathered cases
     if (importType === 'grandfathered_cases') {
-      const contractorIds = [...new Set(payload.map((r: any) => r.contractor_id).filter(id => id && id !== 'CONT-UNASSIGNED'))];
+      const contractorIds = [...new Set(payload.map((r: any) => r.contractor_id).filter((id: string) => id && id !== 'CONT-UNASSIGNED'))];
       if (contractorIds.length > 0) {
         const { data: contractors } = await supabase.from('parties').select('id, customer_code').in('customer_code', contractorIds as string[]);
         contractors?.forEach(p => {
