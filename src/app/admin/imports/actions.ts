@@ -43,7 +43,7 @@ export async function processImportJob(formData: FormData) {
   }).select().single();
   if (jobErr) throw jobErr;
 
-  let partyIdResolutionMap = new Map<string, string>(); // input_value -> actual_uuid
+  const partyIdResolutionMap = new Map<string, string>(); // input_value -> actual_uuid
   if (['historical_exposure', 'outstanding_exposure', 'parameter_bulk_values', 'grandfathered_cases'].includes(importType)) {
     const partyIdsInPayload = [...new Set(
       payload.map((r: any) => {
@@ -85,7 +85,7 @@ export async function processImportJob(formData: FormData) {
   }
 
   // NEW: Fetch profiles to match RM names if RM ID is not a UUID
-  let profileNameMap = new Map<string, string>(); // name -> id
+  const profileNameMap = new Map<string, string>(); // name -> id
   if (importType === 'grandfathered_cases') {
     const { data: profiles } = await supabase.from('profiles').select('id, full_name');
     profiles?.forEach(p => {
