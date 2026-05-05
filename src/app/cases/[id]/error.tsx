@@ -17,7 +17,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex h-[50vh] w-full flex-col items-center justify-center p-4 text-center border-dashed border-2 border-border rounded-xl bg-card">
+    <div className="flex h-96 w-full flex-col items-center justify-center p-4 text-center border-dashed border-2 border-border rounded-xl bg-card">
       <AlertCircle size={32} className="text-destructive mb-4" />
       <h2 className="text-lg font-bold mb-2">Failed to load case details</h2>
       <p className="text-sm text-muted-foreground mb-6 max-w-sm">

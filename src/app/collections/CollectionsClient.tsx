@@ -246,15 +246,15 @@ export default function CollectionsClient({ collections, stats, escalations, rms
         
         <div className="grid grid-cols-2 md:grid-cols-4 lg:flex items-center gap-3 w-full lg:w-auto">
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">RM</label>
-            <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background min-w-[120px]">
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">RM</label>
+            <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background min-w-32">
               <option value="all">All RMs</option>
               {uniqueRms.map(name => <option key={name} value={name}>{name}</option>)}
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Status</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Status</label>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">All Status</option>
               <option value="Billing Active">Billing Active</option>
@@ -263,7 +263,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">HQ Update</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">HQ Update</label>
             <select value={filterHqUpdate} onChange={e => setFilterHqUpdate(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">Any Update</option>
               <option value="updated">With Logs</option>
@@ -272,7 +272,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Escalation</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Escalation</label>
             <select value={filterEscalation} onChange={e => setFilterEscalation(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">All Levels</option>
               <option value="0">Level 0</option>
@@ -283,7 +283,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Recency</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Recency</label>
             <select value={filterRecency} onChange={e => setFilterRecency(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">All Time</option>
               <option value="7d">Last 7 Days</option>
@@ -293,7 +293,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Sort</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Sort</label>
             <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="overdue_days">By Overdue</option>
               <option value="outstanding">By Amount</option>
