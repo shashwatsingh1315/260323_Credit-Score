@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import CollectionsClient from './CollectionsClient';
+import { refreshPtpStatuses } from './actions';
 
 export default async function CollectionsPage() {
   const role = await getImpersonationRole() || 'viewer';
@@ -15,6 +16,7 @@ export default async function CollectionsPage() {
   }
 
   const supabase = await createClient();
+  await refreshPtpStatuses();
 
   // Use billing_date directly from credit_cases (C5/H4 fix: no longer relies on case_ledgers join)
   const { data: cases } = await supabase
@@ -22,7 +24,8 @@ export default async function CollectionsPage() {
     .select(`
       id, case_number, status, bill_amount, composite_credit_days, escalation_level,
       billing_date, decided_bill_amount, actual_bill_amount,
-      customer:parties!credit_cases_customer_party_id_fkey(legal_name)
+      customer:parties!credit_cases_customer_party_id_fkey(legal_name),
+      escalations (id, status, ptp_date, last_hq_update_at)
     `)
     .in('status', ['Billing Active', 'Pending Write-Off Approval']);
 

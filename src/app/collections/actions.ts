@@ -31,3 +31,49 @@ export async function handleEscalateCase(fd: FormData) {
   revalidatePath('/collections');
 }
 
+export async function refreshPtpStatuses() {
+  const supabase = await createClient();
+  await supabase.rpc('refresh_ptp_statuses');
+}
+
+export async function logUpdate(caseId: string, escalationId: string, outcome: string, actionType: 'call' | 'visit' | 'note' = 'note') {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Unauthorized');
+  
+  const supabase = await createClient();
+  
+  await supabase.from('escalation_logs').insert({
+    escalation_id: escalationId,
+    logged_by: user.id,
+    action_type: actionType,
+    outcome: outcome
+  });
+
+  await supabase.from('escalations').update({
+    last_hq_update_at: new Date().toISOString()
+  }).eq('id', escalationId);
+
+  revalidatePath('/collections');
+}
+
+export async function snoozeCase(caseId: string, escalationId: string, ptpDate: string, reason: string) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Unauthorized');
+  
+  const supabase = await createClient();
+  
+  await supabase.from('escalation_logs').insert({
+    escalation_id: escalationId,
+    logged_by: user.id,
+    action_type: 'note',
+    outcome: `PTP Set for ${ptpDate}: ${reason}`
+  });
+
+  await supabase.from('escalations').update({
+    status: 'snoozed',
+    ptp_date: ptpDate,
+    last_hq_update_at: new Date().toISOString()
+  }).eq('id', escalationId);
+
+  revalidatePath('/collections');
+}

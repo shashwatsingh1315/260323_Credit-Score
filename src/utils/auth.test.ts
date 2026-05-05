@@ -16,7 +16,7 @@ const mockInsert = vi.fn();
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
-      getUser: mockGetUser,
+      getSession: mockGetUser,
     },
     from: vi.fn(() => {
       const builder = {
@@ -54,22 +54,22 @@ describe('auth.ts', () => {
 
   describe('getCurrentUser', () => {
     it('returns null if not authenticated', async () => {
-      mockGetUser.mockResolvedValueOnce({ data: { user: null } });
+      mockGetUser.mockResolvedValueOnce({ data: { session: null } });
       const user = await getCurrentUser();
       expect(user).toBeNull();
     });
 
     it('returns null if profile not found', async () => {
-      mockGetUser.mockResolvedValueOnce({ data: { user: { id: 'u1' } } });
+      mockGetUser.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
       mockSingle.mockResolvedValueOnce({ data: null });
       const user = await getCurrentUser();
       expect(user).toBeNull();
     });
 
     it('returns user profile and roles', async () => {
-      mockGetUser.mockResolvedValueOnce({ data: { user: { id: 'u1' } } });
+      mockGetUser.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
       mockSingle.mockResolvedValueOnce({
-        data: { id: 'u1', full_name: 'John Doe', email: 'john@example.com', branch_id: 'b1' }
+        data: { id: 'u1', full_name: 'John Doe', email: 'john@example.com', branch_id: 'b1', user_roles: [{ role: 'rm' }, { role: 'bdo' }] }
       });
       mockEq.mockReturnValue({
         then: (resolve: any) => resolve({
