@@ -100,5 +100,3 @@ export default async function CollectionsPage() {
 
   return <CollectionsClient collections={overdueCases} stats={stats} escalations={escalations || []} rms={rms || []} hqLogs={hqLogs || []} />;
 }
-lectionsClient collections={overdueCases} stats={stats} escalations={escalations || []} rms={rms || []} hqLogs={hqLogs || []} />;
-}
