@@ -39,9 +39,16 @@ export default function RoleSwitcher({ initialActiveRole = 'viewer' }: { initial
         <select
           value={activeRole}
           onChange={async (e) => {
-            setActiveRole(e.target.value);
-            await switchImpersonationRole(e.target.value);
-            router.refresh();
+            const newRole = e.target.value;
+            const prevRole = activeRole;
+            setActiveRole(newRole);
+            try {
+              await switchImpersonationRole(newRole);
+              router.refresh();
+            } catch (err) {
+              console.error('Failed to switch role', err);
+              setActiveRole(prevRole);
+            }
           }}
           className="w-full bg-muted border border-border rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
         >

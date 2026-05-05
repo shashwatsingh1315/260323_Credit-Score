@@ -21,11 +21,11 @@ const isTaskOverdue = (task: any) => {
   return new Date(task.sla_deadline) < new Date();
 };
 
-export default function StagesTab({ coreData, promises, activeRole, optimisticTasks, addOptimisticTask, stageScore }: any) {
+export default function StagesTab({ coreData, tasksData, activeRole, optimisticTasks, addOptimisticTask, stageScore }: any) {
   const c = coreData.case;
   const cycle = coreData.cycle;
 
-  const { stageSummaries, users, rcaReasons, delayReasons } = use(promises.tasksPromise as Promise<any>);
+  const { stageSummaries, users, rcaReasons, delayReasons } = tasksData;
   const data = { users, rcaReasons, delayReasons, stageSummaries };
 
   const tasksByStage = useMemo(() => {

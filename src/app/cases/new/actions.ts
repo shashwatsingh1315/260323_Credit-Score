@@ -60,7 +60,7 @@ export async function handleNewCase(formData: FormData) {
   if (partyToValidate && action === 'submit') {
     const clValidation = await validateCreditLine(partyToValidate, requestedExposure, billAmount);
     if (!clValidation.valid) {
-      throw new Error(clValidation.message);
+      throw new Error(clValidation.message || 'Credit line validation failed');
     }
   }
 
@@ -114,7 +114,7 @@ export async function handleNewCase(formData: FormData) {
     
     if (partyParamsToSave.length > 0) {
       for (const pp of partyParamsToSave) {
-        await supabase.from('party_parameter_values').upsert(pp, { onConflict: 'party_id, parameter_id' });
+        await supabase.from('party_parameter_values').upsert(pp, { onConflict: 'party_id,parameter_id' });
       }
     }
   }

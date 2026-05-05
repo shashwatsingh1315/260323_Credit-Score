@@ -195,6 +195,14 @@ export async function upsertGradeDefinition(formData: FormData) {
   if (id) {
     await supabase.from('grade_scale').update(payload).eq('id', id);
   } else {
+    if (!payload.policy_version_id) {
+      const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+      if (activePolicy) {
+        payload.policy_version_id = activePolicy.id;
+      } else {
+        throw new Error('No active policy found to attach this grade to.');
+      }
+    }
     await supabase.from('grade_scale').insert(payload);
   }
   await logAuditEvent({ event_type: 'grade_definition_updated', actor_id: user.id, description: `Grade ${payload.grade_value} definition updated.` });
@@ -231,9 +239,22 @@ export async function upsertScoreBand(formData: FormData) {
     is_ambiguity_band: formData.get('is_ambiguity_band') === 'true',
     policy_version_id: formData.get('policy_version_id') as string || null,
   };
+
+  if (payload.min_score > payload.max_score) {
+    throw new Error('Min score cannot be greater than max score');
+  }
+
   if (id) {
     await supabase.from('score_bands').update(payload).eq('id', id);
   } else {
+    if (!payload.policy_version_id) {
+      const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+      if (activePolicy) {
+        payload.policy_version_id = activePolicy.id;
+      } else {
+        throw new Error('No active policy found to attach this score band to.');
+      }
+    }
     await supabase.from('score_bands').insert(payload);
   }
   await logAuditEvent({ event_type: 'score_band_updated', actor_id: user.id, description: `Band '${payload.band_name}' saved.` });
@@ -281,8 +302,17 @@ export async function upsertPersona(formData: FormData) {
   if (id) {
     await supabase.from('personas').update(payload).eq('id', id);
   } else {
+    if (!payload.policy_version_id) {
+      const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+      if (activePolicy) {
+        payload.policy_version_id = activePolicy.id;
+      } else {
+        throw new Error('No active policy found to attach this persona to.');
+      }
+    }
     await supabase.from('personas').insert(payload);
   }
+  await logAuditEvent({ event_type: 'persona_updated', actor_id: user.id, description: `Persona '${payload.name}' saved.` });
   revalidatePath('/policy/personas');
 }
 
@@ -320,6 +350,14 @@ export async function upsertDominanceCategory(formData: FormData) {
   if (id) {
     await supabase.from('dominance_categories').update(payload).eq('id', id);
   } else {
+    if (!payload.policy_version_id) {
+      const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+      if (activePolicy) {
+        payload.policy_version_id = activePolicy.id;
+      } else {
+        throw new Error('No active policy found to attach this dominance category to.');
+      }
+    }
     await supabase.from('dominance_categories').insert(payload);
   }
   await logAuditEvent({ event_type: 'dominance_category_updated', actor_id: user.id, description: `Dominance Category '${payload.name}' saved.` });
@@ -367,7 +405,12 @@ export async function upsertRoutingRule(formData: FormData) {
   }
   
   const target_stage = parseInt(formData.get('target_stage') as string) || 1;
-  const policy_version_id = formData.get('policy_version_id') as string || null;
+  let policy_version_id = formData.get('policy_version_id') as string || null;
+
+  if (!policy_version_id && !id) {
+    const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+    policy_version_id = activePolicy?.id || null;
+  }
 
   if (id) {
     await supabase.from('routing_thresholds').update({ context_rule, target_stage }).eq('id', id);
@@ -408,9 +451,21 @@ export async function upsertValidityRule(formData: FormData) {
 
   const supabase = await createClient();
   const id = formData.get('id') as string || undefined;
-  const context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  
+  let context_rule = {};
+  try {
+    context_rule = JSON.parse(formData.get('context_rule') as string || '{}');
+  } catch (e) {
+    throw new Error('Invalid JSON in context rule');
+  }
+
   const validity_days = parseInt(formData.get('validity_days') as string) || 90;
-  const policy_version_id = formData.get('policy_version_id') as string || null;
+  let policy_version_id = formData.get('policy_version_id') as string || null;
+
+  if (!policy_version_id && !id) {
+    const { data: activePolicy } = await supabase.from('policy_versions').select('id').eq('is_active', true).single();
+    policy_version_id = activePolicy?.id || null;
+  }
 
   if (id) {
     await supabase.from('validity_rules').update({ context_rule, validity_days }).eq('id', id);

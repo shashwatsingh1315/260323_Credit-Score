@@ -39,12 +39,14 @@ function StagesTabWrapper({ coreData, promises, activeRole, liveScore }: any) {
       )
   );
 
-  const stageScore = (_stage: number) => null;
+  const stageScore = (stage: number) => {
+    return stageSummaries?.find((s: any) => s.stage === stage)?.score ?? null;
+  };
 
   return (
     <StagesTab
       coreData={coreData}
-      promises={{...promises, tasksPromise: Promise.resolve({ stageSummaries, users, rcaReasons, delayReasons })}}
+      tasksData={{ stageSummaries, users, rcaReasons, delayReasons }}
       activeRole={activeRole}
       optimisticTasks={optimisticTasks}
       addOptimisticTask={addOptimisticTask}

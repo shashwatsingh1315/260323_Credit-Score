@@ -47,6 +47,10 @@ export default function NewCaseForm({
   const [generatedSiteId, setGeneratedSiteId] = useState('');
   const [siteDate] = useState(initialSiteDate);
 
+  // Form state
+  const [scenario, setScenario] = useState('customer_name_customer_pays');
+  const [customerPartyId, setCustomerPartyId] = useState('');
+  const [contractorPartyId, setContractorPartyId] = useState('');
 
   const refreshParties = async (newParty?: any) => {
     const p = await fetchParties();
@@ -60,10 +64,6 @@ export default function NewCaseForm({
     }
   };
 
-  // Form state
-  const [scenario, setScenario] = useState('customer_name_customer_pays');
-  const [customerPartyId, setCustomerPartyId] = useState('');
-  const [contractorPartyId, setContractorPartyId] = useState('');
   const [billAmount, setBillAmount] = useState(0);
   const [requestedExposure, setRequestedExposure] = useState(0);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);

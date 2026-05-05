@@ -116,11 +116,22 @@ export default function CollectionsClient({ collections, stats, escalations, rms
   const handleQuickLogPayment = async (caseId: string) => {
     setPaymentSubmitting(true);
     setPaymentError('');
+    
+    const c = collections.find(x => x.id === caseId);
+    const overdue = c ? computeOverdueTranches(c) : [];
+    if (overdue.length === 0) {
+      setPaymentError('No overdue tranches found for this case.');
+      setPaymentSubmitting(false);
+      return;
+    }
+
     const fd = new FormData();
     fd.set('caseId', caseId);
     fd.set('amount', paymentAmount);
     fd.set('paymentDate', paymentDate);
     fd.set('description', paymentNote || 'Logged from Collections dashboard');
+    fd.set('trancheIndex', overdue[0].trancheIndex.toString());
+
     try {
       await handleLogPayment(fd);
       setLoggingPaymentForCase(null);
@@ -161,7 +172,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
         } else {
           const daysSince = (new Date().getTime() - new Date(lastLog.created_at).getTime()) / 86400000;
           if (filterRecency === '7d') matchesRecency = daysSince <= 7;
-          else if (filterRecency === '14d') matchesRecency = daysSince > 14;
+          else if (filterRecency === '14d') matchesRecency = daysSince >= 14;
         }
       }
     }

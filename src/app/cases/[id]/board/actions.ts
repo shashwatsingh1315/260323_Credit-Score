@@ -51,12 +51,13 @@ export async function fetchBoardDetails(caseId: string) {
     const windowEnd = new Date();
     windowEnd.setDate(windowEnd.getDate() + 3);
 
-    const { data: newBoardRound } = await supabase.from('board_rounds').insert({
+    // Use upsert to address race condition
+    const { data: newBoardRound } = await supabase.from('board_rounds').upsert({
       approval_round_id: approvalRound.id,
       roster_snapshot: members,
       vote_window_end: windowEnd.toISOString(),
       status: 'open'
-    }).select().single();
+    }, { onConflict: 'approval_round_id' }).select().single();
 
     boardRound = newBoardRound;
   }
@@ -93,7 +94,7 @@ export async function submitBoardVote(formData: FormData) {
     decision,
     comment,
     updated_at: new Date().toISOString()
-  }, { onConflict: 'board_round_id, voter_id' });
+  }, { onConflict: 'board_round_id,voter_id' });
 
   await logAuditEvent({
     case_id: caseId,
@@ -116,6 +117,11 @@ export async function finalizeBoardDecision(formData: FormData) {
   const approvalRoundId = formData.get('approvalRoundId') as string;
   const boardRoundId = formData.get('boardRoundId') as string;
   const boardDecision = formData.get('boardDecision') as string; // 'uphold', 'reject', 'override'
+
+  if (!['uphold', 'reject', 'override'].includes(boardDecision)) {
+    throw new Error('Invalid board decision');
+  }
+
   const overrideDays = formData.get('overrideDays') ? parseInt(formData.get('overrideDays') as string) : null;
   const overrideReason = formData.get('overrideReason') as string || null;
   const overrideExplanation = formData.get('overrideExplanation') as string || null;

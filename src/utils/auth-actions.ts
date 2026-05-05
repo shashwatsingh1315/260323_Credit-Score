@@ -21,12 +21,13 @@ export async function getImpersonationRole() {
     
     if (!user) return 'viewer';
 
-    const requestedRole = cookieRole || user.roles[0] || 'viewer';
-
-    if (user.roles.includes(requestedRole as any) || user.roles.includes('founder_admin')) {
-      return requestedRole;
+    // Only allow role impersonation if user is a founder_admin.
+    // This ensures a non-founder cannot spoof roles via cookies.
+    if (user.roles.includes('founder_admin')) {
+      return cookieRole || 'founder_admin';
     }
     
+    // Non-founders are restricted to their assigned roles only.
     return user.roles[0] || 'viewer';
   } catch (e) {
     return 'viewer';

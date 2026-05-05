@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 // Trigger an escalation manually
 export async function handleEscalateCase(fd: FormData) {
   const caseId = fd.get('caseId') as string;
-  const trancheIndex = parseInt(fd.get('trancheIndex') as string ?? '0', 10);
+  const trancheIndex = parseInt((fd.get('trancheIndex') as string) || '0', 10);
   if (!caseId) return;
 
   const supabase = await createClient();
@@ -58,7 +58,6 @@ export async function handleEscalateCase(fd: FormData) {
     .eq('id', caseId)
     .lt('escalation_level', nextLevel); // only bump up, never down
 
-  revalidatePath('/collections');
   revalidatePath('/collections');
 }
 
