@@ -1,0 +1,251 @@
+customer_name,customer_id,contractor_id,rm_name,rm_id,overdue_date,bill_amount,remarks
+CHOUHAN HOUSING (P) LTD.,CUST-CHO001,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,165,675900,Overdue Days: 165 | Nov se atka hai; Direct Sunny Chouhan pays; Himanshu se follow up
+SHRI BALAJI INSTITUTE OF MEDICAL SCIENCE PRIVATE LIMITED,CUST-SHR002,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,72,415800,Overdue Days: 72 | Natwar to follow up; Bill sent on Fri
+Memon Health Care Pvt Ltd (Sanjeevani Super Specialty Hospital (Unit 3)),CUST-MEM003,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,42,317100,Overdue Days: 42 | 1-2 din; Bill sent on Sat.
+FWD Construction,CUST-FWD004,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,44,32050,Overdue Days: 44
+Ashish Jaiswal Sir,CUST-ASH005,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,163,115000,"Overdue Days: 163 | Builder (iss week); Turnkey leta hai, customer se payment issue; HQ + Team aapse milna chaa rhi thi"
+Tushar Ji,CUST-TUS006,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,14,22500,Overdue Days: 14 | Cleared
+Parwani Building Solutions,CUST-PAR007,CONT-48039,Nikhil Sir,RM/RPR/NIS,0,579753,Overdue Days: No Match Found
+Dr Vivek Agrawal,CUST-DRV008,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,164930,Overdue Days: No Match Found
+Luv Agrawal Ji,CUST-LUV009,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,120944,Overdue Days: No Match Found
+Ritesh Govindani,CUST-RIT010,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,118190,Overdue Days: No Match Found
+BASANT AGRAWAL,CUST-BAS011,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,151050,Overdue Days: No Match Found
+Sumit numbucha,CUST-SUM012,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,98800,Overdue Days: No Match Found
+Rajiv Singh Ji,CUST-RAJ013,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,91650,Overdue Days: No Match Found
+MAA DURGA PRINTERS,CUST-MAA014,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,174405,Overdue Days: No Match Found
+FOUR CORE,CUST-FOU015,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,16250,Overdue Days: No Match Found
+Akash Sir,CUST-AKA016,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,134000,Overdue Days: No Match Found
+Thaakur Nischay Singh JI,CUST-THA017,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,87390,Overdue Days: No Match Found
+Md Israil Sir,CUST-MDI018,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,82820,Overdue Days: No Match Found
+Ravi Jadwani,CUST-RAV019,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,66050,Overdue Days: No Match Found
+S K OJHA,CUST-SKO020,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,13750,Overdue Days: No Match Found
+MAHENDRA KULDEEP JI,CUST-MAH021,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,47830,Overdue Days: No Match Found
+ATUL SIR JI,CUST-ATU022,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,45850,Overdue Days: No Match Found
+Qureshi Sahab,CUST-QUR023,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,38000,Overdue Days: No Match Found
+Vibhakar Joshi,CUST-VIB024,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,37580,Overdue Days: No Match Found
+Shakti Kumar Dubey Ji,CUST-SHA025,CONT-85500,Sameer Sir,RM/RPR/SAS,0,30100,Overdue Days: No Match Found
+Humming Sanjeeva,CUST-HUM026,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,85040,Overdue Days: No Match Found
+Vicky Gupta,CUST-VIC027,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,29060,Overdue Days: No Match Found
+Rahul Ji,CUST-RAH028,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,28900,Overdue Days: No Match Found
+Ziya Khan,CUST-ZIY029,CONT-38896,Sameer Sir,RM/RPR/SAS,0,28450,Overdue Days: No Match Found
+Abhishekh Singh Ji,CUST-ABH030,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,27000,Overdue Days: No Match Found
+Jashdeep Gandhi Ji,CUST-JAS031,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,23000,Overdue Days: No Match Found
+Guddu Verma,CUST-GUD032,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,22700,Overdue Days: No Match Found
+Guddu Bhaiya,CUST-GUD033,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,21375,Overdue Days: No Match Found
+Hiten Parekh,CUST-HIT034,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,80540,Overdue Days: No Match Found
+Tauseef Bhai,CUST-TAU035,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,21130,Overdue Days: No Match Found
+Siddharth Sir,CUST-SID036,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,20000,Overdue Days: No Match Found
+Samir Bhai,CUST-SAM037,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,20000,Overdue Days: No Match Found
+Akash Ji (Prem Bind),CUST-AKA038,CONT-83322,Sameer Sir,RM/RPR/SAS,0,18400,Overdue Days: No Match Found
+Javed Sir Ji,CUST-JAV039,CONT-33305,Sameer Sir,RM/RPR/SAS,0,16590,Overdue Days: No Match Found
+Monu Sahu Ji,CUST-MON040,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,16150,Overdue Days: No Match Found
+ALAM BHAI,CUST-ALA041,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,15150,Overdue Days: No Match Found
+Rinku Bhaiya,CUST-RIN042,CONT-78382,Sameer Sir,RM/RPR/SAS,0,15000,Overdue Days: No Match Found
+Indrajeet Ji,CUST-IND043,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,76500,Overdue Days: No Match Found
+Harshdeep Sir,CUST-HAR044,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,13900,Overdue Days: No Match Found
+Rakesh Agrawal Ji,CUST-RAK045,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,73200,Overdue Days: No Match Found
+Palas Sir,CUST-PAL046,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,12800,Overdue Days: No Match Found
+Gurpreet Singh Saini,CUST-GUR047,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,138,82500,Overdue Days: 138 | Out of country; HQ Call & message
+Ravi Sahu,CUST-RAV048,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,12600,Overdue Days: No Match Found
+Prem Bind,CUST-PRE049,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,12425,Overdue Days: No Match Found
+Makrana Marble,CUST-MAK050,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,71505,Overdue Days: No Match Found
+Vikash Agarwal Ji,CUST-VIK051,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,69810,Overdue Days: No Match Found
+EXIN CONSULTANCY AND SOLUTIONS,CUST-EXI052,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,12410,Overdue Days: No Match Found
+Arun Sahu Ji,CUST-ARU053,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,23,11300,Overdue Days: 23
+SABA INFRAVENTURES,CUST-SAB054,CONT-78672,Natwar Sir,RM/RPR/NAS,350,76600,Overdue Days: 350 | Wed payment aayega.
+Sanjay Ji (Hasib Bhai),CUST-SAN055,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,10900,Overdue Days: No Match Found
+Mayank Chhabra Ji,CUST-MAY056,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,67580,Overdue Days: No Match Found
+VINIYAM HIGHER SECONDARY SCHOOL,CUST-VIN057,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,10800,Overdue Days: No Match Found
+Shivay Infra,CUST-SHI058,CONT-33440,Nikhil Sir,RM/RPR/NIS,0,61270,Overdue Days: No Match Found
+Suraj Nebhani,CUST-SUR059,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,54500,Overdue Days: No Match Found
+VISHWABHARTI AUTOMOBILES PRIVATE LIMITED,CUST-VIS060,CONT-27146,Natwar Sir,RM/RPR/NAS,20,75750,Overdue Days: 20 | Natwar to follow up
+Manish Pandey,CUST-MAN061,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,0,Overdue Days: No Match Found
+Kailash Prajapati,CUST-KAI062,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,50000,Overdue Days: No Match Found
+MAYANK THE GRAND NEELAM HOTEL,CUST-MAY063,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,342,62030,Overdue Days: 342 | HQ call + msg
+Reena Agrawal,CUST-REE064,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,10250,Overdue Days: No Match Found
+Anil Yadav Ji,CUST-ANI065,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,10100,Overdue Days: No Match Found
+Ashwani Sir,CUST-ASH066,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,9800,Overdue Days: No Match Found
+HIRA CEMENT LIMITED,CUST-HIR067,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,50000,Overdue Days: No Match Found
+Rajkumar Khetwani Ji,CUST-RAJ068,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,9620,Overdue Days: No Match Found
+Balram Gupta,CUST-BAL069,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,45095,Overdue Days: No Match Found
+Himanshu Patel,CUST-HIM070,CONT-83322,Sameer Sir,RM/RPR/SAS,0,9500,Overdue Days: No Match Found
+Ramesh Das Ji,CUST-RAM071,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,9150,Overdue Days: No Match Found
+Yogesh Ji,CUST-YOG072,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,9100,Overdue Days: No Match Found
+Naren Bhaiya,CUST-NAR073,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,41080,Overdue Days: No Match Found
+Raashid Ji (Advocate),CUST-RAA074,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,27,60890,Overdue Days: 27 | Recent
+Santosh Prajapati,CUST-SAN075,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,40200,Overdue Days: No Match Found
+Jagannath Goswami,CUST-JAG076,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,9000,Overdue Days: No Match Found
+Karan motors,CUST-KAR077,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,53,56600,Overdue Days: 53 | kal payment
+Adarsh Sharma,CUST-ADA078,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,35700,Overdue Days: No Match Found
+Chhaya Sahu,CUST-CHH079,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,9,27300,Overdue Days: 9 | Recent
+Jatin Sir,CUST-JAT080,CONT-66996,Natwar Sir,RM/RPR/NAS,21,45300,Overdue Days: 21 | 30k Sameer ji ka hai; Thurs aayega
+Jyoti Madam,CUST-JYO081,CONT-84790,Sameer Sir,RM/RPR/SAS,0,8790,Overdue Days: No Match Found
+KUMAR ELECTRONICS,CUST-KUM082,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,38,43250,Overdue Days: 38 | Natwar to follow up
+BAJRANG LAL,CUST-BAJ083,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,32130,Overdue Days: No Match Found
+Agrawal Block And Tiles,CUST-AGR084,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,444491,Overdue Days: No Match Found
+Nazeer Ahmad Ji,CUST-NAZ085,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,8100,Overdue Days: No Match Found
+NEETU GANVEER,CUST-NEE086,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,0,Overdue Days: No Match Found
+SHREE SHYAM ROLLING MILL,CUST-SHR087,CONT-45468,Nikhil Sir,RM/RPR/NIS,0,30080,Overdue Days: No Match Found
+Riyaz Bhai,CUST-RIY088,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,7340,Overdue Days: No Match Found
+Shashi Bhushan Singh,CUST-SHA089,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,24,43020,Overdue Days: 24 | Today
+Sumit Jain Ji,CUST-SUM090,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,7,40000,Overdue Days: 7 | Recent
+Mayank Nishad Ji,CUST-MAY091,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,21500,Overdue Days: No Match Found
+Dr Avinash Gupta Ji,CUST-DRA092,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,17,36500,Overdue Days: 17 | Recent
+Yogesh Sahu Ji,CUST-YOG093,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,7150,Overdue Days: No Match Found
+Kanchan Jaiswal,CUST-KAN094,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,77,32005,Overdue Days: 77 | Natwar to follow up
+SJAIN VENTURES LIMITED,CUST-SJA095,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,133,31180,Overdue Days: 133 | Natwar to follow up
+Sarabjeet Singh Ji,CUST-SAR096,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,5750,Overdue Days: No Match Found
+Gaurav pandey,CUST-GAU097,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,6100,Overdue Days: No Match Found
+SANDEEP ENTERPRISES,CUST-SAN098,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,145609,Overdue Days: No Match Found
+Siddhant Sir,CUST-SID099,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,77,26600,Overdue Days: 77 | Recent
+M/S HOTEL SUNIL INN,CUST-MSH100,CONT-24391,Sameer Sir,RM/RPR/SAS,0,5550,Overdue Days: No Match Found
+ADITYA SRIJAN PRIVATE LIMITED,CUST-ADI101,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,30,45400,Overdue Days: 30 | 4 apr pending; this week
+Sujit Agrawal,CUST-SUJ102,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,19100,Overdue Days: No Match Found
+Umang Bhaiya,CUST-UMA103,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,14000,Overdue Days: No Match Found
+Alis Buildtech,CUST-ALI104,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,18,18000,"Overdue Days: 18 | Apr order, 30 days credit"
+Sanjay Dubey,CUST-SAN105,CONT-53445,Natwar Sir,RM/RPR/NAS,354,16400,Overdue Days: 354 | Builder; HQ call + Msg
+Arun Sonkar,CUST-ARU106,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,173,16100,Overdue Days: 173 | Natwar to follow up
+SHASHI SILVERLINE HOTELS LLP,CUST-SHA107,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,289000,Overdue Days: No Match Found
+Sameer Khan Ji,CUST-SAM108,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,244,15940,Overdue Days: 244
+Miss Bhumika,CUST-MIS109,CONT-31911,Natwar Sir,RM/RPR/NAS,103,15655,Overdue Days: 103 | Natwar to follow up
+Manoj Jadwani,CUST-MAN110,CONT-38896,Sameer Sir,RM/RPR/SAS,0,4900,Overdue Days: No Match Found
+Puran Sahu Ji,CUST-PUR111,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,291,15450,Overdue Days: 291 | HQ Call + Msg
+APEX BUILDCON,CUST-APE112,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,2000,Overdue Days: No Match Found
+SHREE TIRUMALA CONSTRUCTION,CUST-SHR113,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,96,15000,Overdue Days: 96 | Saddam Contractor to Pay; HQ Call + Msg
+AJAY TANTI JI,CUST-AJA114,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,4750,Overdue Days: No Match Found
+Akash Jaiswal Ji,CUST-AKA115,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,84,15000,Overdue Days: 84 | Natwar to follow up
+Pankaj Nirmalkar Ji,CUST-PAN116,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,77,15000,Overdue Days: 77 | Rakesh Sahu karta hai pay (Contractor)
+Hemant Sir,CUST-HEM117,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,5,14100,Overdue Days: 5 | Recent
+ASHISH BARNWAL JI,CUST-ASH118,CONT-36601,Sameer Sir,RM/RPR/SAS,0,4720,Overdue Days: No Match Found
+Kanha Agrawal ji,CUST-KAN119,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,1000,Overdue Days: No Match Found
+SUYESH INSTITUDE OF MEDICAL SCIENCE PRIVATE LIMITED20,CUST-SUY120,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,4700,Overdue Days: No Match Found
+Krishna Ram Ji,CUST-KRI121,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,12200,Overdue Days: No Match Found
+Ajay kejriwal,CUST-AJA122,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,2000,Overdue Days: No Match Found
+Jyoti Enterprises,CUST-JYO123,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,145800,Overdue Days: No Match Found
+Jitu Prithwani,CUST-JIT124,CONT-02232,Natwar Sir,RM/RPR/NAS,304,13820,Overdue Days: 304 | Natwar to follow up
+Bikesh Agrawal,CUST-BIK125,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,7200,Overdue Days: No Match Found
+AJAY AGARWAL JI,CUST-AJA126,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,3810,Overdue Days: No Match Found
+H M INFRATECH,CUST-HMI127,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,39000,Overdue Days: No Match Found
+PUSHPAK INTERIO,CUST-PUS128,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,0,Overdue Days: No Match Found
+Saleem Sir,CUST-SAL129,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,3160,Overdue Days: No Match Found
+Mr Meghani,CUST-MRM130,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,1800,Overdue Days: No Match Found
+Shashi Ji,CUST-SHA131,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,6300,Overdue Days: No Match Found
+Navlani ji,CUST-NAV132,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,20000,Overdue Days: No Match Found
+Sanjit Kumar,CUST-SAN133,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,7000,Overdue Days: No Match Found
+Seikh Najrul Islam,CUST-SEI134,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,2915,Overdue Days: No Match Found
+HARIOM INFRATECH,CUST-HAR135,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,37625,Overdue Days: No Match Found
+MAKE SPACE INTERIOR,CUST-MAK136,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,21,13350,Overdue Days: 21 | Recent
+Krishna Ji,CUST-KRI137,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,34,13000,Overdue Days: 34 | Natwar to follow up
+Jitesh Hirwani,CUST-JIT138,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,4970,Overdue Days: No Match Found
+Akhil Prashar,CUST-AKH139,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,2600,Overdue Days: No Match Found
+Dipesh Khubchandani,CUST-DIP140,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,113,12500,Overdue Days: 113
+Piyush Pathak,CUST-PIY141,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,4700,Overdue Days: No Match Found
+MAHAMAYA AGRO EXIM,CUST-MAH142,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,2200,Overdue Days: No Match Found
+Varsha Madam,CUST-VAR143,CONT-UNASSIGNED,Sameer Sir,RM/RPR/SAS,0,1900,Overdue Days: No Match Found
+Nilesh Agrawal Ji,CUST-NIL144,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,4120,Overdue Days: No Match Found
+Vikash Goyal,CUST-VIK145,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,3360,Overdue Days: No Match Found
+KUSHAL AGRO INDUSTRIES,CUST-KUS146,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,46760,Overdue Days: No Match Found
+MD Mustafa,CUST-MDM147,CONT-UNASSIGNED,Manish Mishra,RM/RPR/MAM,0,500,Overdue Days: No Match Found
+Aman Bhatia,CUST-AMA148,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,35000,Overdue Days: No Match Found
+Hari Shankar Yadav,CUST-HAR149,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,300,Overdue Days: No Match Found
+Ansh Rajdev,CUST-ANS150,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,3200,Overdue Days: No Match Found
+Arun Sahu Ji,CUST-ARU151,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,23,12000,Overdue Days: 23
+Pratap Mishra,CUST-PRA152,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,222,11695,Overdue Days: 222
+Suleman Bhai,CUST-SUL153,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,87,11690,Overdue Days: 87
+Mr kejriwal,CUST-MRK154,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,250,Overdue Days: No Match Found
+Id Satya Prakash,CUST-IDS155,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,264,Overdue Days: No Match Found
+Ashish Kumar Ji,CUST-ASH156,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,20,10650,Overdue Days: 20
+Nav Creation,CUST-NAV157,CONT-UNASSIGNED,Manish Mishra,RM/RPR/MAM,0,7500,Overdue Days: No Match Found
+Vinay Gaikwad,CUST-VIN158,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,55,9650,Overdue Days: 55
+Aryan Construction,CUST-ARY159,CONT-UNASSIGNED,Manish Mishra,RM/RPR/MAM,0,100,Overdue Days: No Match Found
+Hind Elivators,CUST-HIN160,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,7400,Overdue Days: No Match Found
+Shri ram trading,CUST-SHR161,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,14800,Overdue Days: No Match Found
+DESIGN TREDNZ,CUST-DES162,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,2350,Overdue Days: No Match Found
+Abhijeet Sir,CUST-ABH163,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,151,8100,Overdue Days: 151
+Shubendra Upadhyay Ji,CUST-SHU164,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,248,8000,Overdue Days: 248
+SANKALP ENTERPRISES,CUST-SAN165,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,3590,Overdue Days: No Match Found
+Vikas Khandelwal,CUST-VIK166,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,23500,Overdue Days: No Match Found
+Md Minhaz,CUST-MDM167,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,35,8000,Overdue Days: 35
+Saddam Sir,CUST-SAD168,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,189,7790,Overdue Days: 189
+Anil Sanghi Ji,CUST-ANI169,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,107,7760,Overdue Days: 107
+Tarique Bhai,CUST-TAR170,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,79,7500,Overdue Days: 79
+Dasaram Enterprises,CUST-DAS171,CONT-UNASSIGNED,Manish Tayade,RM/RPR/MAT,0,174404,Overdue Days: No Match Found
+Kailash Agrawal HUF,CUST-KAI172,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,26,7000,Overdue Days: 26
+Md Minaz,CUST-MDM173,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,186,6625,Overdue Days: 186
+GOODLUCK COMBINES PRIATE LIMITED,CUST-GOO174,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,87,6600,Overdue Days: 87
+Rahul Sir ( Roshani Architects ),CUST-RAH175,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,4240,Overdue Days: No Match Found
+INFINITY RESOURCES,CUST-INF176,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,138700,Overdue Days: No Match Found
+Jyoti Agrawal,CUST-JYO177,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,64400,Overdue Days: No Match Found
+Palak Ji,CUST-PAL178,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,33,6250,Overdue Days: 33
+HOUSE OF SHAARAG,CUST-HOU179,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,188800,Overdue Days: No Match Found
+Sanket Sir,CUST-SAN180,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,23,6200,Overdue Days: 23
+Sonal Agrawal Ji,CUST-SON181,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,1920,Overdue Days: No Match Found
+Avayanna Interiors,CUST-AVA182,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,12,6000,Overdue Days: 12
+Surendra Srivastava,CUST-SUR183,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,17,6000,Overdue Days: 17
+Murari Ji,CUST-MUR184,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,199,5600,Overdue Days: 199
+Vinay Ji,CUST-VIN185,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,296,5550,Overdue Days: 296
+Gulapa purseth,CUST-GUL186,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,75600,Overdue Days: No Match Found
+Mr Sunil Jain,CUST-MRS187,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,5220,Overdue Days: No Match Found
+Mr KAUSHAL SONKAR,CUST-MRK188,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,150,5410,Overdue Days: 150
+Ajay Agarwal Ji New,CUST-AJA189,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,1400,Overdue Days: No Match Found
+JITU CHOURASIA,CUST-JIT190,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,392,5250,Overdue Days: 392
+Mr Nikunj Godwani,CUST-MRN191,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,37000,Overdue Days: No Match Found
+Dr. Javed Parvez Sir,CUST-DRJ192,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,67200,Overdue Days: No Match Found
+PRABHAT TRADERS,CUST-PRA193,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,1750,Overdue Days: No Match Found
+GANESH SANITARY,CUST-GAN194,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,59168,Overdue Days: No Match Found
+Shivam Ji,CUST-SHI195,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,9,5200,Overdue Days: 9
+MD Amir Khan,CUST-MDA196,CONT-UNASSIGNED,Shreyansh Mishra,RM/RPR/SHM,0,33000,Overdue Days: No Match Found
+Dinesh Pandey,CUST-DIN197,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,8250,Overdue Days: No Match Found
+Jitendra Prithwani,CUST-JIT198,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,200,5100,Overdue Days: 200
+Shabana Memon Madam,CUST-SHA199,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,360,Overdue Days: No Match Found
+M/S SHREE SHYAM TRADERS,CUST-MSS200,CONT-UNASSIGNED,Ved Prakash Sahu,RM/RPR/VES,0,238570,Overdue Days: No Match Found
+Rajat Jain,CUST-RAJ201,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,57090,Overdue Days: No Match Found
+Mr. Lakshya,CUST-MRL202,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,1120,Overdue Days: No Match Found
+Khomlal Dewangan,CUST-KHO203,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,336,4480,Overdue Days: 336
+Rajesh Soni,CUST-RAJ204,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,10400,Overdue Days: No Match Found
+Rishi,CUST-RIS205,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,213,3750,Overdue Days: 213
+Siya Ram Patel,CUST-SIY206,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,68,3220,Overdue Days: 68
+Md Anwar,CUST-MDA207,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,142,3150,Overdue Days: 142
+Gurdas Sadrani,CUST-GUR208,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,500,Overdue Days: No Match Found
+M/S. JASS & ASSOCIATES,CUST-MSJ209,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,30,Overdue Days: No Match Found
+Kushal Nebhani,CUST-KUS210,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,300,Overdue Days: No Match Found
+Naval Kishor Agrawal,CUST-NAV211,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,114,3100,Overdue Days: 114
+Siddhi Enterprises,CUST-SID212,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,113220,Overdue Days: No Match Found
+Vishnu sahu,CUST-VIS213,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,2000,Overdue Days: No Match Found
+KRUTICON,CUST-KRU214,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,42000,Overdue Days: No Match Found
+DAYALAL PATEL,CUST-DAY215,CONT-83322,Natwar Sir,RM/RPR/NAS,69,3050,Overdue Days: 69
+THE CEMENT GOODS TRADING COMPANY,CUST-THE216,CONT-UNASSIGNED,Ravindra Kanse,RM/RPR/RAK,0,4120,Overdue Days: No Match Found
+Vikash Agrawal (Crest Green),CUST-VIK217,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,200,Overdue Days: No Match Found
+Md Meraj,CUST-MDM218,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,100,Overdue Days: No Match Found
+Dr prashant Singh,CUST-DRP219,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,85500,Overdue Days: No Match Found
+Rahul Tambhare,CUST-RAH220,CONT-UNASSIGNED,Sundry Debtors,RM/RPR/SUD,0,0,Overdue Days: No Match Found
+Rakesh Sahu,CUST-RAK221,CONT-55774,Natwar Sir,RM/RPR/NAS,46,3050,Overdue Days: 46
+Silver Spring,CUST-SIL222,CONT-UNASSIGNED,Nikhil Sir,RM/RPR/NIS,0,0,Overdue Days: No Match Found
+Viji Chandi,CUST-VIJ223,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,13500,Overdue Days: No Match Found
+Lakshman Sahu Ji,CUST-LAK224,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,21,3050,Overdue Days: 21
+Avinash Ji,CUST-AVI225,CONT-UNASSIGNED,Shreyansh Mishra,RM/RPR/SHM,0,3800,Overdue Days: No Match Found
+Modi Ji,CUST-MOD226,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,188,2960,Overdue Days: 188
+Asif Bhaiya,CUST-ASI227,CONT-UNASSIGNED,Shreyansh Mishra,RM/RPR/SHM,0,6780,Overdue Days: No Match Found
+Rizwan Khan,CUST-RIZ228,CONT-UNASSIGNED,Shreyansh Mishra,RM/RPR/SHM,0,1890,Overdue Days: No Match Found
+Inderjeet singh,CUST-IND229,CONT-UNASSIGNED,Akash Jain,RM/RPR/AKJ,0,0,Overdue Days: No Match Found
+Paras Dhiwar,CUST-PAR230,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,206,1800,Overdue Days: 206
+Aditya Motors,CUST-ADI231,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,14,1260,Overdue Days: 14
+Dileshwar Sahu,CUST-DIL232,CONT-UNASSIGNED,Shreyansh Mishra,RM/RPR/SHM,0,7650,Overdue Days: No Match Found
+Bhuparam Ji,CUST-BHU233,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,7400,Overdue Days: No Match Found
+Hamid Raza Ji,CUST-HAM234,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,180,1200,Overdue Days: 180
+Md Sarfaraz Alam,CUST-MDS235,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,65,Overdue Days: No Match Found
+Uttam Dewangan,CUST-UTT236,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,224,700,Overdue Days: 224
+Mainpur Tractor,CUST-MAI237,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,171,600,Overdue Days: 171
+Jatin Sales,CUST-JAT238,CONT-UNASSIGNED,Chandan Panda,RM/RPR/CHP,0,9500,Overdue Days: No Match Found
+Supriya Bharti Ji,CUST-SUP239,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,95,550,Overdue Days: 95
+Vikash Balaji,CUST-VIK240,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,7500,Overdue Days: No Match Found
+Prithvipal Bhatnagar,CUST-PRI241,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,76,500,Overdue Days: 76
+Tej singh,CUST-TEJ242,CONT-UNASSIGNED,Shreyansh Mishra,RM/RPR/SHM,0,1050,Overdue Days: No Match Found
+Ambasdor hotel,CUST-AMB243,CONT-UNASSIGNED,Manpreet Sir,RM/RPR/MAS,0,4000,Overdue Days: No Match Found
+Pooja Khare,CUST-POO244,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,5000,Overdue Days: No Match Found
+Sunil Kumar,CUST-SUN245,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,1400,Overdue Days: No Match Found
+Rakesh Sahu Ji,CUST-RAK246,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,100,350,Overdue Days: 100
+SHREE SHYAM MARBLES & TILES,CUST-SHR247,CONT-UNASSIGNED,Chandan Panda,RM/RPR/CHP,0,26404,Overdue Days: No Match Found
+Md Sarfaraz,CUST-MDS248,CONT-UNASSIGNED,Ravendra Mishra,RM/RPR/RAM,0,5050,Overdue Days: No Match Found
+Vikas Jain,CUST-VIK249,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,30,200,Overdue Days: 30
+Anil Nanoti,CUST-ANI250,CONT-UNASSIGNED,Natwar Sir,RM/RPR/NAS,93,75,Overdue Days: 93

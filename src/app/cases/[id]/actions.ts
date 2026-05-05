@@ -7,8 +7,8 @@ import { revalidatePath } from 'next/cache';
 import { updateCycleScore } from '@/utils/scoring';
 import { fetchLedgerData } from './billing-actions';
 
-export async function fetchCaseDetail(caseId: string) {
-  const supabase = await createClient();
+export async function fetchCaseCore(caseId: string) {
+  const supabase = await createClient({ next: { tags: [`case-${caseId}`] } });
 
   const { data: caseData } = await supabase
     .from('credit_cases')
@@ -30,12 +30,6 @@ export async function fetchCaseDetail(caseId: string) {
     contractorData,
     outcomeData,
     cycleData,
-    rcaReasonsData,
-    delayReasonsData,
-    auditEventsData,
-    commentsData,
-    usersData,
-    ledgerData
   ] = await Promise.all([
     caseData.customer_party_id ? Promise.all([
       supabase.from('party_exposure').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
@@ -47,12 +41,6 @@ export async function fetchCaseDetail(caseId: string) {
     ]) : Promise.resolve([null, null]),
     caseData.status === 'Closed' ? supabase.from('realized_outcomes').select('*').eq('case_id', caseId).single() : Promise.resolve({ data: null }),
     supabase.from('review_cycles').select('*').eq('case_id', caseId).eq('is_active', true).single(),
-    supabase.from('admin_enumerations').select('value').eq('category', 'reason_for_credit').eq('is_active', true).order('sort_order'),
-    supabase.from('admin_enumerations').select('value').eq('category', 'delay_reason').eq('is_active', true).order('sort_order'),
-    supabase.from('audit_events').select('*, actor:profiles!audit_events_actor_id_fkey(full_name)').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50),
-    supabase.from('case_comments').select('*, author:profiles!case_comments_author_id_fkey(full_name)').eq('case_id', caseId).order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, full_name, roles:user_roles(role)').order('full_name'),
-    (['Approved', 'Accepted', 'Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled'].includes(caseData.status)) ? fetchLedgerData(caseId) : Promise.resolve(null)
   ]);
 
   if (customerData[0] && customerData[0].data) caseData.customer_exposure = customerData[0].data;
@@ -62,83 +50,110 @@ export async function fetchCaseDetail(caseId: string) {
   caseData.outcome = outcomeData.data;
 
   const cycle = cycleData.data;
+
+  return { case: caseData, cycle };
+}
+
+export async function fetchCaseTasks(cycleId: string, caseScenario: string, policySnapshotId: string, activeStage: number, caseId: string) {
+  if (!cycleId) return { tasks: [], stageSummaries: [], rcaReasons: [], delayReasons: [], users: [] };
+  const supabase = await createClient({ next: { tags: [`case-${caseId}-tasks`] } });
+
+  const [
+    tasksRes,
+    rcaReasonsData,
+    delayReasonsData,
+    usersData,
+    roundsRes
+  ] = await Promise.all([
+    supabase.from('stage_tasks').select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name, require_reasoning, sla_days, weight)').eq('review_cycle_id', cycleId).order('stage').order('created_at'),
+    supabase.from('admin_enumerations').select('value').eq('category', 'reason_for_credit').eq('is_active', true).order('sort_order'),
+    supabase.from('admin_enumerations').select('value').eq('category', 'delay_reason').eq('is_active', true).order('sort_order'),
+    supabase.from('profiles').select('id, full_name, roles:user_roles(role)').order('full_name'),
+    supabase.from('approval_rounds').select('id, stage, status').eq('review_cycle_id', cycleId) // minimal fetch for summaries
+  ]);
+
+  const tasks = tasksRes.data || [];
   const rcaReasons = rcaReasonsData.data || [];
   const delayReasons = delayReasonsData.data || [];
-  const auditEvents = auditEventsData.data || [];
-  const comments = commentsData.data || [];
   const users = usersData.data || [];
-  const ledger = ledgerData;
+  const approvalRounds = roundsRes.data || [];
 
-  let tasks: any[] = [];
-  let approvalRounds: any[] = [];
-  let boardRounds: any[] = [];
-  let stageSummaries: any[] = [];
-
-  if (cycle) {
-    const [tasksRes, roundsRes] = await Promise.all([
-      supabase.from('stage_tasks').select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name, require_reasoning, sla_days, weight)').eq('review_cycle_id', cycle.id).order('stage').order('created_at'),
-      supabase.from('approval_rounds').select('*, decisions:approval_decisions(*, approver:profiles!approval_decisions_approver_id_fkey(full_name))').eq('review_cycle_id', cycle.id).order('created_at', { ascending: false }),
-    ]);
-
-    tasks = tasksRes.data || [];
-    approvalRounds = roundsRes.data || [];
+  const summariesRes = await Promise.all([1, 2, 3].map(async (s) => {
+    const isCurrent = activeStage === s;
+    const isPast = activeStage > s;
     
-    if (approvalRounds.length > 0) {
-      const roundIds = approvalRounds.map((r: any) => r.id);
-      const { data: br } = await supabase.from('board_rounds').select('*, votes:board_votes(*, voter:profiles!board_votes_voter_id_fkey(full_name, id))').in('approval_round_id', roundIds).order('created_at', { ascending: false });
-      boardRounds = br || [];
+    let score = null;
+    let bandName = 'No Band';
+    let approvedDays = 0;
+
+    if (isCurrent) {
+       // current calculation deferred to UI or client side
+    } else if (isPast) {
+       const scoring = await import('@/utils/scoring');
+       const scoreResult = await scoring.calculateFinalCaseScore({ reviewCycleId: cycleId, caseScenario, upToStage: s });
+       const bandResult = await scoring.mapScoreToCreditDays({ policyVersionId: policySnapshotId, score: scoreResult.finalScore });
+       score = scoreResult.finalScore;
+       bandName = bandResult?.bandName || 'No Band';
+       approvedDays = bandResult?.approvedDays || 0;
     }
 
-    const summariesRes = await Promise.all([1, 2, 3].map(async (s) => {
-      const isCurrent = cycle.active_stage === s;
-      const isPast = cycle.active_stage > s;
-      
-      let score = null;
-      let bandName = 'No Band';
-      let approvedDays = 0;
+    return { stage: s, score, bandName, approvedDays, isCurrent };
+  }));
 
-      if (isCurrent) {
-         score = cycle.current_case_score;
-         bandName = cycle.score_band_name || 'No Band';
-         approvedDays = cycle.approved_credit_days || 0;
-      } else if (isPast) {
-         const scoring = await import('@/utils/scoring');
-         const scoreResult = await scoring.calculateFinalCaseScore({ reviewCycleId: cycle.id, caseScenario: caseData.case_scenario, upToStage: s });
-         const bandResult = await scoring.mapScoreToCreditDays({ policyVersionId: cycle.policy_snapshot_id, score: scoreResult.finalScore });
-         score = scoreResult.finalScore;
-         bandName = bandResult?.bandName || 'No Band';
-         approvedDays = bandResult?.approvedDays || 0;
-      }
+  const stageSummaries = summariesRes.map(s => {
+    const stageRounds = approvalRounds.filter((r: any) => r.stage === s.stage);
+    let status = 'Pending';
+    if (stageRounds.some((r: any) => r.status === 'approved')) status = 'Approved';
+    else if (stageRounds.some((r: any) => r.status === 'rejected')) status = 'Rejected';
+    else if (stageRounds.some((r: any) => r.status === 'open')) status = 'Awaiting Approval';
+    else if (activeStage === s.stage) status = 'In Progress';
+    else if (activeStage > s.stage) status = 'Completed';
+    return { ...s, status };
+  });
 
-      return { stage: s, score, bandName, approvedDays, isCurrent };
-    }));
+  return { tasks, stageSummaries, rcaReasons, delayReasons, users };
+}
 
-    stageSummaries = summariesRes.map(s => {
-      const stageRounds = approvalRounds.filter((r: any) => r.stage === s.stage);
-      let status = 'Pending';
-      if (stageRounds.some((r: any) => r.status === 'approved')) status = 'Approved';
-      else if (stageRounds.some((r: any) => r.status === 'rejected')) status = 'Rejected';
-      else if (stageRounds.some((r: any) => r.status === 'open')) status = 'Awaiting Approval';
-      else if (cycle.active_stage === s.stage) status = 'In Progress';
-      else if (cycle.active_stage > s.stage) status = 'Completed';
-      return { ...s, status };
-    });
+export async function fetchCaseApprovals(cycleId: string, caseId: string) {
+  if (!cycleId) return { approvalRounds: [], boardRounds: [] };
+  const supabase = await createClient({ next: { tags: [`case-${caseId}-approvals`] } });
+
+  const { data: approvalRounds } = await supabase.from('approval_rounds').select('*, decisions:approval_decisions(*, approver:profiles!approval_decisions_approver_id_fkey(full_name))').eq('review_cycle_id', cycleId).order('created_at', { ascending: false });
+
+  let boardRounds: any[] = [];
+  if (approvalRounds && approvalRounds.length > 0) {
+    const roundIds = approvalRounds.map((r: any) => r.id);
+    const { data: br } = await supabase.from('board_rounds').select('*, votes:board_votes(*, voter:profiles!board_votes_voter_id_fkey(full_name, id))').in('approval_round_id', roundIds).order('created_at', { ascending: false });
+    boardRounds = br || [];
   }
 
-  return { 
-    case: caseData, 
-    cycle, 
-    tasks, 
-    auditEvents, 
-    approvalRounds, 
-    boardRounds, 
-    comments, 
-    users, 
-    ledger, 
-    rcaReasons, 
-    delayReasons,
-    stageSummaries
-  };
+  return { approvalRounds: approvalRounds || [], boardRounds };
+}
+
+export async function fetchCaseAudit(caseId: string) {
+  const supabase = await createClient({ next: { tags: [`case-${caseId}-audit`] } });
+  const { data: auditEvents } = await supabase.from('audit_events').select('*, actor:profiles!audit_events_actor_id_fkey(full_name)').eq('case_id', caseId).order('created_at', { ascending: false }).limit(50);
+  return { auditEvents: auditEvents || [] };
+}
+
+export async function fetchCaseComments(caseId: string) {
+  const supabase = await createClient({ next: { tags: [`case-${caseId}-comments`] } });
+  const [
+    { data: comments },
+    { data: users }
+  ] = await Promise.all([
+    supabase.from('case_comments').select('*, author:profiles!case_comments_author_id_fkey(full_name)').eq('case_id', caseId).order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name, roles:user_roles(role)').order('full_name')
+  ]);
+  return { comments: comments || [], users: users || [] };
+}
+
+export async function fetchCaseLedger(caseId: string, caseStatus: string) {
+  if (['Approved', 'Accepted', 'Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled'].includes(caseStatus)) {
+    const ledger = await fetchLedgerData(caseId);
+    return { ledger };
+  }
+  return { ledger: null };
 }
 
 export async function handleProgressStage(formData: FormData) {
@@ -255,23 +270,24 @@ export async function handleCompleteTask(formData: FormData) {
     }
   }
 
-  await supabase.from('stage_tasks').update({
-    status: 'Completed',
-    completed_by: user.id,
-    completed_at: now.toISOString(),
-    grade_value: gradeValue,
-    reason,
-    raw_input_value: rawInput,
-    delay_reason: delayReason,
-  }).eq('id', taskId);
+  const ops = [
+    supabase.from('stage_tasks').update({
+      status: 'Completed',
+      completed_by: user.id,
+      completed_at: now.toISOString(),
+      grade_value: gradeValue,
+      reason,
+      raw_input_value: rawInput,
+      delay_reason: delayReason,
+    }).eq('id', taskId),
+    logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}${delayReason ? ` Delay reason: ${delayReason}.` : ''}` })
+  ];
 
-  await logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}${delayReason ? ` Delay reason: ${delayReason}.` : ''}` });
-  
-  if (gradeValue != null) {
-    if (task?.review_cycle_id) {
-      await updateCycleScore(task.review_cycle_id);
-    }
+  if (gradeValue != null && task?.review_cycle_id) {
+    ops.push(updateCycleScore(task.review_cycle_id));
   }
+
+  await Promise.all(ops);
 
   revalidatePath(`/cases/${caseId}`);
 }
@@ -373,18 +389,21 @@ export async function handleChangePersona(formData: FormData) {
   const domCategoryId = formData.get('dominanceCategoryId') as string || null;
 
   // Validate persona-policy linkage
-  const { data: cycle } = await supabase.from('review_cycles').select('policy_snapshot_id').eq('id', cycleId).single();
-  if (customerPersonaId) {
-    const { data: p } = await supabase.from('personas').select('policy_version_id').eq('id', customerPersonaId).single();
-    if (p && p.policy_version_id !== cycle?.policy_snapshot_id) {
-      throw new Error("Customer Persona does not belong to the current policy snapshot.");
-    }
+  const [
+    { data: cycle },
+    customerPersonaRes,
+    contractorPersonaRes
+  ] = await Promise.all([
+    supabase.from('review_cycles').select('policy_snapshot_id').eq('id', cycleId).single(),
+    customerPersonaId ? supabase.from('personas').select('policy_version_id').eq('id', customerPersonaId).single() : Promise.resolve({ data: null }),
+    contractorPersonaId ? supabase.from('personas').select('policy_version_id').eq('id', contractorPersonaId).single() : Promise.resolve({ data: null })
+  ]);
+
+  if (customerPersonaRes.data && customerPersonaRes.data.policy_version_id !== cycle?.policy_snapshot_id) {
+    throw new Error("Customer Persona does not belong to the current policy snapshot.");
   }
-  if (contractorPersonaId) {
-    const { data: p } = await supabase.from('personas').select('policy_version_id').eq('id', contractorPersonaId).single();
-    if (p && p.policy_version_id !== cycle?.policy_snapshot_id) {
-      throw new Error("Contractor Persona does not belong to the current policy snapshot.");
-    }
+  if (contractorPersonaRes.data && contractorPersonaRes.data.policy_version_id !== cycle?.policy_snapshot_id) {
+    throw new Error("Contractor Persona does not belong to the current policy snapshot.");
   }
 
   await supabase.from('review_cycles').update({
@@ -450,23 +469,30 @@ export async function handleApprovalDecision(formData: FormData) {
 
   let isFullyApproved = false;
   if (decision === 'reject') {
-    await supabase.from('approval_rounds').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', roundId);
-    await supabase.from('credit_cases').update({ status: 'Rejected' }).eq('id', caseId);
+    await Promise.all([
+      supabase.from('approval_rounds').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', roundId),
+      supabase.from('credit_cases').update({ status: 'Rejected' }).eq('id', caseId)
+    ]);
   } else if (decision === 'return_for_revision') {
-    await supabase.from('approval_rounds').update({ status: 'returned_for_revision', resolved_at: new Date().toISOString() }).eq('id', roundId);
-    await supabase.from('credit_cases').update({ status: 'In Review', substatus: 'Returned for revision' }).eq('id', caseId);
+    await Promise.all([
+      supabase.from('approval_rounds').update({ status: 'returned_for_revision', resolved_at: new Date().toISOString() }).eq('id', roundId),
+      supabase.from('credit_cases').update({ status: 'In Review', substatus: 'Returned for revision' }).eq('id', caseId)
+    ]);
   } else {
     const { data: allDecisions } = await supabase.from('approval_decisions').select('decision').eq('approval_round_id', roundId);
     isFullyApproved = allDecisions?.every((d: any) => d.decision === 'approve') || false;
     if (isFullyApproved) {
-      await supabase.from('approval_rounds').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', roundId);
-      await supabase.from('credit_cases').update({ status: 'Approved' }).eq('id', caseId);
+      await Promise.all([
+        supabase.from('approval_rounds').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', roundId),
+        supabase.from('credit_cases').update({ status: 'Approved' }).eq('id', caseId)
+      ]);
     }
   }
 
-  await logAuditEvent({ case_id: caseId, event_type: 'approval_decision', actor_id: user.id, description: `Approval: ${decision}.${comment ? ' ' + comment : ''}` });
-  
-  const { data: creditCase } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', caseId).single();
+  const [_, { data: creditCase }] = await Promise.all([
+    logAuditEvent({ case_id: caseId, event_type: 'approval_decision', actor_id: user.id, description: `Approval: ${decision}.${comment ? ' ' + comment : ''}` }),
+    supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', caseId).single()
+  ]);
   if (creditCase?.rm_user_id) {
     if (decision === 'reject') {
       await sendNotification(creditCase.rm_user_id, 'Case Rejected', `Case ${creditCase.case_number} has been rejected.`);

@@ -112,7 +112,8 @@ export async function calculateCumulativeScore(params: {
   const maxTotalValue = maxTotal?.max_total || 100;
   if (maxTotalValue <= 0) return 0; // Guard against division by zero
 
-  const normalizedScore = (weightedSum / maxTotalValue) * 100;
+  const cappedSum = Math.min(weightedSum, maxTotalValue);
+  const normalizedScore = (cappedSum / maxTotalValue) * 100;
   return Math.round(normalizedScore);
 }
 

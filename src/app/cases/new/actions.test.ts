@@ -105,6 +105,7 @@ describe('cases/new/actions.ts', () => {
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
       const formData = new FormData();
+      formData.append('kamUserId', 'kam-123');
       formData.append('tranches', 'invalid-json');
 
       await expect(handleNewCase(formData)).rejects.toThrow(/Invalid tranche data/);
@@ -117,6 +118,7 @@ describe('cases/new/actions.ts', () => {
       const draftMock = vi.spyOn(engine, 'createCaseDraft').mockResolvedValue({ id: 'case-123' } as any);
 
       const formData = new FormData();
+      formData.append('kamUserId', 'kam-123');
       formData.append('caseScenario', 'scen1');
       formData.append('billAmount', '1000');
       formData.append('action', 'draft');
@@ -140,6 +142,7 @@ describe('cases/new/actions.ts', () => {
       vi.spyOn(engine, 'validateTranches').mockReturnValue({ valid: true });
 
       const formData = new FormData();
+      formData.append('kamUserId', 'kam-123');
       formData.append('caseScenario', 'scen1');
       formData.append('billAmount', '1000');
       formData.append('action', 'submit');
@@ -157,6 +160,7 @@ describe('cases/new/actions.ts', () => {
       vi.spyOn(engine, 'validateTranches').mockReturnValue({ valid: false, error: 'Validation failed' });
 
       const formData = new FormData();
+      formData.append('kamUserId', 'kam-123');
       formData.append('action', 'submit');
       formData.append('billAmount', '1000');
 

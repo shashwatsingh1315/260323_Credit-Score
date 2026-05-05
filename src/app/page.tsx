@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
-import { Briefcase, Clock, TrendingUp, Users, ShieldCheck, ArrowRight, Activity, Plus, CheckCircle2 } from 'lucide-react';
+import { Briefcase, Clock, TrendingUp, Users, ShieldCheck, ArrowRight, Activity, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,13 +19,17 @@ import { StaggeredFade } from '@/components/animations/StaggeredFade';
 
 // ── PDCR & Metrics computation (server-side) ─────────────────────────────────
 
-async function computeRmPortfolioMetrics(supabase: any, rmUserId: string) {
+async function computeRmPortfolioMetrics(supabase: any, rmUserId?: string | null) {
   // Fetch all Billing-Active and Closed cases for this RM
-  const { data: cases } = await supabase
+  let query = supabase
     .from('credit_cases')
     .select('id, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, billing_date, status')
-    .eq('rm_user_id', rmUserId)
     .in('status', ['Billing Active', 'Pending Write-Off Approval', 'Closed', 'Cancelled']);
+
+  if (rmUserId) {
+    query = query.eq('rm_user_id', rmUserId);
+  }
+  const { data: cases } = await query;
 
   if (!cases || cases.length === 0) {
     return { totalExposure: 0, averageMargin: null, countPDCR: null, amountPDCR: null, weightedDaysPDCR: null, approvalSuccessRate: null };
@@ -176,6 +180,9 @@ export default async function DashboardPage() {
   const role = await getImpersonationRole();
   const isRm = role === 'rm';
   const isAdmin = role === 'founder_admin';
+  const isKam = role === 'kam';
+  const isApprover = role === 'ordinary_approver';
+  const isBoardMember = role === 'board_member';
 
   let queryRecent = supabase.from('credit_cases')
     .select('id, case_number, status, case_scenario, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
@@ -214,15 +221,19 @@ export default async function DashboardPage() {
     approvalSuccessRate: number | null;
   } | null = null;
 
-  if (role === 'rm' && user) {
-    rmMetrics = await computeRmPortfolioMetrics(supabase, user.id);
+  if ((role === 'rm' || isAdmin) && user) {
+    rmMetrics = await computeRmPortfolioMetrics(supabase, role === 'rm' ? user.id : null);
 
     // Fetch billing-active cases with their tranches
-    const { data: activeCases } = await supabase
+    let activeQuery = supabase
       .from('credit_cases')
       .select('id, case_number, billing_date, decided_bill_amount, actual_bill_amount, proposed_tranches, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
-      .eq('rm_user_id', user.id)
       .in('status', ['Billing Active', 'Pending Write-Off Approval']);
+
+    if (role === 'rm') {
+      activeQuery = activeQuery.eq('rm_user_id', user.id);
+    }
+    const { data: activeCases } = await activeQuery;
 
     const now = new Date();
     for (const c of activeCases ?? []) {
@@ -262,6 +273,59 @@ export default async function DashboardPage() {
     delayedTranches.sort((a, b) => b.daysOverdue - a.daysOverdue);
   }
 
+  
+  // --- 5A KAM Data ---
+  let kamData: { awaitingAction: any[]; pendingApproval: any[]; billingActive: any[]; } | null = null;
+  if (isKam && user) {
+    const [awaitingRes, approvalRes, billingRes] = await Promise.all([
+      supabase.from('credit_cases').select('id, case_number, status, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
+        .eq('kam_user_id', user.id).in('status', ['In Review', 'Awaiting Input']).order('created_at', { ascending: false }).limit(10),
+      supabase.from('credit_cases').select('id, case_number, status, bill_amount, created_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
+        .eq('kam_user_id', user.id).in('status', ['Awaiting Approval', 'Appealed']).order('created_at', { ascending: false }).limit(10),
+      supabase.from('credit_cases').select('id, case_number, status, bill_amount, billing_date, decided_bill_amount, actual_bill_amount, customer:parties!credit_cases_customer_party_id_fkey(legal_name)')
+        .eq('kam_user_id', user.id).in('status', ['Billing Active', 'Pending Write-Off Approval']).order('billing_date', { ascending: true }).limit(20),
+    ]);
+    kamData = { awaitingAction: awaitingRes.data || [], pendingApproval: approvalRes.data || [], billingActive: billingRes.data || [] };
+  }
+
+  // --- 5B Approver Data ---
+  let approverData: { pendingRounds: any[] } | null = null;
+  if (isApprover && user) {
+    const { data: pendingDecisions } = await supabase.from('approval_rounds')
+      .select('id, stage, round_type, created_at, review_cycle:review_cycles!approval_rounds_review_cycle_id_fkey(case:credit_cases!review_cycles_case_id_fkey(id, case_number, bill_amount, customer:parties!credit_cases_customer_party_id_fkey(legal_name))), my_decision:approval_decisions!approval_rounds_id_fkey(decision)')
+      .eq('status', 'open').limit(20);
+    approverData = {
+      pendingRounds: (pendingDecisions || []).filter((r: any) => {
+        const myDecisions = r.my_decision || [];
+        return !myDecisions.some((d: any) => d.approver_id === user.id);
+      }),
+    };
+  }
+
+  // --- 5C Board Data ---
+  let boardData: { openVotes: any[] } | null = null;
+  if (isBoardMember && user) {
+    const { data: openVotes } = await supabase.from('board_rounds')
+      .select('id, vote_window_end, approval_round:approval_rounds!board_rounds_approval_round_id_fkey(review_cycle:review_cycles!approval_rounds_review_cycle_id_fkey(case:credit_cases!review_cycles_case_id_fkey(id, case_number, bill_amount, customer:parties!credit_cases_customer_party_id_fkey(legal_name))))')
+      .eq('status', 'open').gt('vote_window_end', new Date().toISOString()).limit(10);
+    boardData = { openVotes: openVotes || [] };
+  }
+
+  // --- 5D Admin Data ---
+  let adminData: { pendingCreditNotes: number; pendingWriteOffs: number; recentImports: any[] } | null = null;
+  if (isAdmin) {
+    const [creditNotesRes, writeOffsRes, importsRes] = await Promise.all([
+      supabase.from('credit_notes').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('credit_cases').select('id', { count: 'exact', head: true }).eq('status', 'Pending Write-Off Approval'),
+      supabase.from('import_jobs').select('id, import_type, status, records_total, records_failed, created_at').order('created_at', { ascending: false }).limit(3),
+    ]);
+    adminData = {
+      pendingCreditNotes: creditNotesRes.count || 0,
+      pendingWriteOffs: writeOffsRes.count || 0,
+      recentImports: importsRes.data || [],
+    };
+  }
+
   const statusBadge = (status: string) => {
     const map: Record<string, any> = {
       'Draft': 'secondary', 'In Review': 'warning', 'Awaiting Approval': 'warning',
@@ -288,7 +352,7 @@ export default async function DashboardPage() {
       <StaggeredFade className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-max">
         
         {/* 1. Portfolio Overview (2×1) — responsive: 2 cols at 3-col layout, 2 cols at 4-col */}
-        {isRm && (
+        {(isRm || isAdmin) && (
           <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
             <div className="p-6 h-full flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
@@ -329,7 +393,7 @@ export default async function DashboardPage() {
         )}
 
         {/* 2. Urgent Collections (1x1) */}
-        {isRm && (
+        {(isRm || isAdmin) && (
           <SpotlightCard className="bg-warning/10 backdrop-blur-md border-warning/20 hover:scale-[1.01] transition-all">
             <div className="p-6 h-full flex flex-col justify-between">
               <div className="flex items-center justify-between">
@@ -428,7 +492,7 @@ export default async function DashboardPage() {
         </SpotlightCard>
 
         {/* 5. Efficiency Funnel (2×1) */}
-        {isRm && (
+        {(isRm || isAdmin) && (
           <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 p-6 hover:scale-[1.01] transition-all">
             <div className="flex items-center justify-between mb-6">
               <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">Efficiency Funnel</span>
@@ -462,6 +526,143 @@ export default async function DashboardPage() {
             </div>
           </SpotlightCard>
         )}
+
+        
+
+        {/* --- KAM DASHBOARD --- */}
+        {isKam && (
+          <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
+            <CardHeader className="pb-2 border-b border-border/50 flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <AlertCircle size={16} className="text-warning" aria-hidden="true" />
+                Cases Needing Attention
+              </CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/cases?status=In+Review" className="text-tiny font-bold uppercase tracking-widest text-warning">View All</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-4 px-0 space-y-4">
+              <div className="px-6 flex gap-4 text-center">
+                <div className="flex-1 bg-muted rounded-md p-3">
+                  <p className="text-2xl font-bold text-foreground">{kamData?.awaitingAction.length || 0}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Awaiting Action</p>
+                </div>
+                <div className="flex-1 bg-muted rounded-md p-3">
+                  <p className="text-2xl font-bold text-foreground">{kamData?.pendingApproval.length || 0}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Pending Approval</p>
+                </div>
+              </div>
+              <div className="px-0">
+                {(kamData?.awaitingAction || []).slice(0, 3).map((c: any) => (
+                  <Link key={c.id} href={`/cases/${c.id}`} className="flex items-center justify-between py-2 px-6 hover:bg-brand/5 transition-colors border-b border-border/30 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{c.case_number}</p>
+                      <p className="text-tiny text-muted-foreground">{(c.customer as any)?.legal_name || '—'}</p>
+                    </div>
+                    {statusBadge(c.status)}
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </SpotlightCard>
+        )}
+
+        {isKam && (
+          <SpotlightCard className="col-span-1 md:col-span-1 lg:col-span-2 bg-warning/10 backdrop-blur-md border-warning/20 hover:scale-[1.01] transition-all">
+            <div className="p-6 h-full flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-tiny font-bold uppercase tracking-widest text-warning">Active Collections</span>
+                <Clock size={18} className="text-warning" aria-hidden="true" />
+              </div>
+              <div className="mt-4">
+                <p className="text-4xl font-bold text-warning">
+                  <CountUp to={kamData?.billingActive.reduce((sum, c) => sum + Math.max(0, (c.decided_bill_amount || 0) - (c.actual_bill_amount || 0)), 0) || 0} prefix="₹" />
+                </p>
+                <p className="text-sm font-medium text-warning/80 mt-1">{kamData?.billingActive.length || 0} Cases in Billing</p>
+              </div>
+              <Link href="/collections" className="text-xs font-semibold text-warning flex items-center gap-1 hover:underline mt-4">
+                Manage Collections <ArrowRight size={12} aria-hidden="true" />
+              </Link>
+            </div>
+          </SpotlightCard>
+        )}
+
+        {/* --- APPROVER DASHBOARD --- */}
+        {isApprover && (
+          <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
+            <CardHeader className="pb-2 border-b border-border/50">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <ShieldCheck size={16} className="text-brand" aria-hidden="true" />
+                Pending Your Vote
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 px-0">
+              {(approverData?.pendingRounds || []).length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">No pending approvals</p>
+              ) : (approverData?.pendingRounds || []).map((r: any) => {
+                const c = (r.review_cycle as any)?.case;
+                return (
+                  <Link key={r.id} href={`/cases/${c?.id}`} className="flex items-center justify-between py-3 px-6 hover:bg-brand/5 transition-colors border-b border-border/30 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{c?.case_number || 'Unknown'}</p>
+                      <p className="text-tiny text-muted-foreground">{(c?.customer as any)?.legal_name || '—'} · ₹{(c?.bill_amount || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                    <Badge variant="warning">Stage {r.stage}</Badge>
+                  </Link>
+                );
+              })}
+            </CardContent>
+          </SpotlightCard>
+        )}
+
+        {/* --- BOARD MEMBER DASHBOARD --- */}
+        {isBoardMember && (
+          <SpotlightCard className="col-span-1 md:col-span-2 lg:col-span-2 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.01] transition-all">
+            <CardHeader className="pb-2 border-b border-border/50">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Users size={16} className="text-brand" aria-hidden="true" />
+                Open Board Votes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 px-0">
+              {(boardData?.openVotes || []).length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">No active board votes</p>
+              ) : (boardData?.openVotes || []).map((v: any) => {
+                const c = (v.approval_round as any)?.review_cycle?.case;
+                return (
+                  <Link key={v.id} href={`/cases/${c?.id}/board`} className="flex items-center justify-between py-3 px-6 hover:bg-brand/5 transition-colors border-b border-border/30 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{c?.case_number || 'Unknown'}</p>
+                      <p className="text-tiny text-muted-foreground">Deadline: {new Date(v.vote_window_end).toLocaleDateString('en-IN')}</p>
+                    </div>
+                    <Badge variant="warning">Vote Open</Badge>
+                  </Link>
+                );
+              })}
+            </CardContent>
+          </SpotlightCard>
+        )}
+
+        {/* --- ADMIN DASHBOARD --- */}
+        {isAdmin && (
+          <SpotlightCard className="col-span-1 md:col-span-3 lg:col-span-4 bg-card/70 backdrop-blur-md border-white/20 hover:scale-[1.005] transition-all mb-4">
+             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/50">
+                <div className="p-6 text-center">
+                  <p className="text-3xl font-bold text-foreground">{adminData?.pendingCreditNotes || 0}</p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">Pending Credit Notes</p>
+                </div>
+                <div className="p-6 text-center">
+                  <p className="text-3xl font-bold text-warning">{adminData?.pendingWriteOffs || 0}</p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">Pending Write-Offs</p>
+                </div>
+                <div className="p-6 text-center">
+                  <p className="text-3xl font-bold text-info">{adminData?.recentImports.filter((i: any) => i.status === 'processing').length || 0}</p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">Active Imports</p>
+                </div>
+             </div>
+          </SpotlightCard>
+        )}
+
 
         {/* 6. Quick Actions — only admin users see System Audit & Admin Panel */}
         {isAdmin && (

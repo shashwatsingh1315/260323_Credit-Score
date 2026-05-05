@@ -13,10 +13,17 @@ const mockEq = vi.fn();
 const mockSingle = vi.fn();
 const mockInsert = vi.fn();
 
+let mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
+
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
+<<<<<<< HEAD
       getSession: mockGetUser,
+=======
+      getUser: mockGetUser,
+      getSession: mockGetSession,
+>>>>>>> origin/main
     },
     from: vi.fn(() => {
       const builder = {
@@ -60,25 +67,23 @@ describe('auth.ts', () => {
     });
 
     it('returns null if profile not found', async () => {
-      mockGetUser.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
+      mockGetSession.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
       mockSingle.mockResolvedValueOnce({ data: null });
       const user = await getCurrentUser();
       expect(user).toBeNull();
     });
 
     it('returns user profile and roles', async () => {
-      mockGetUser.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
+      mockGetSession.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
       mockSingle.mockResolvedValueOnce({
-        data: { id: 'u1', full_name: 'John Doe', email: 'john@example.com', branch_id: 'b1', user_roles: [{ role: 'rm' }, { role: 'bdo' }] }
+        data: {
+          id: 'u1',
+          full_name: 'John Doe',
+          email: 'john@example.com',
+          branch_id: 'b1',
+          user_roles: [{ role: 'rm' }, { role: 'bdo' }]
+        }
       });
-      mockEq.mockReturnValue({
-        then: (resolve: any) => resolve({
-          data: [{ role: 'rm' }, { role: 'bdo' }]
-        }),
-        single: mockSingle,
-        select: mockSelect,
-        eq: mockEq,
-      } as any);
 
       const user = await getCurrentUser();
       expect(user).toEqual({
@@ -141,6 +146,25 @@ describe('auth.ts', () => {
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
         event_type: 'test_event',
         description: 'Testing audit'
+      }));
+    });
+  });
+});
+     });
+
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'test_event',
+        description: 'Testing audit'
+      }));
+    });
+  });
+});
+escription: 'Testing audit'
+      }));
+    });
+  });
+});
+escription: 'Testing audit'
       }));
     });
   });

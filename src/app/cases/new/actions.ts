@@ -4,6 +4,7 @@ import { getCurrentUser, isAdmin, hasAnyRole, logAuditEvent } from '@/utils/auth
 import { createCaseDraft, submitCase, calculateCompositeDays, validateTranches } from '@/utils/engine';
 import { redirect } from 'next/navigation';
 import { idEngine, IdGenerationParams } from '@/utils/idEngine';
+import { validateCreditLine } from '@/utils/creditLine';
 
 /**
  * Server action: Create a new case draft / submit case.
@@ -22,11 +23,14 @@ export async function handleNewCase(formData: FormData) {
   const billAmount = parseFloat(formData.get('billAmount') as string) || 0;
   const requestedExposure = parseFloat(formData.get('requestedExposure') as string) || 0;
   const tranchesRaw = formData.get('tranches') as string;
-  const commercialNotes = formData.get('commercialNotes') as string || '';
   const dealSizeBucket = formData.get('dealSizeBucket') as string || '';
   const justification = formData.get('justification') as string || '';
   const action = formData.get('action') as string;
   const kamUserId = formData.get('kamUserId') as string || undefined; // 'draft' or 'submit'
+
+  if (!kamUserId) {
+    throw new Error('KAM Assignee is required.');
+  }
 
   let tranches: any[] = [];
   try {
@@ -36,7 +40,7 @@ export async function handleNewCase(formData: FormData) {
   }
 
   const rmTaskAnswersRaw = formData.get('rmTaskAnswers') as string;
-  let rmTaskAnswers = {};
+  let rmTaskAnswers: Record<string, any> = {};
   if (rmTaskAnswersRaw) {
     try {
       rmTaskAnswers = JSON.parse(rmTaskAnswersRaw);
@@ -48,6 +52,15 @@ export async function handleNewCase(formData: FormData) {
     const validation = validateTranches(tranches, billAmount);
     if (!validation.valid) {
       throw new Error(validation.error);
+    }
+  }
+
+  // Validate Credit Line
+  const partyToValidate = caseScenario.startsWith('customer') ? customerPartyId : contractorPartyId;
+  if (partyToValidate && action === 'submit') {
+    const clValidation = await validateCreditLine(partyToValidate, requestedExposure, billAmount);
+    if (!clValidation.valid) {
+      throw new Error(clValidation.message);
     }
   }
 
@@ -66,10 +79,45 @@ export async function handleNewCase(formData: FormData) {
       city_code: formData.get('cityCode'),
       site_id: formData.get('generatedSiteId'),
     },
-    commercial_notes: `${commercialNotes}\n\nStrategic Justification: ${justification}`,
+    commercial_notes: justification ? `Strategic Justification: ${justification}` : '',
     rm_user_id: user.id,
     kam_user_id: kamUserId,
   });
+
+  // Save persistent parameters
+  const answeredParamIds = Object.keys(rmTaskAnswers);
+  if (answeredParamIds.length > 0) {
+    const supabase = await createClient();
+    const { data: paramDefs } = await supabase
+      .from('parameter_definitions')
+      .select('id, persistence_scope, subject_type')
+      .in('id', answeredParamIds);
+      
+    const partyParamsToSave = [];
+    if (paramDefs) {
+      for (const p of paramDefs) {
+        if (p.persistence_scope === 'party') {
+          const partyId = p.subject_type === 'contractor' ? contractorPartyId : customerPartyId;
+          if (partyId) {
+            partyParamsToSave.push({
+              party_id: partyId,
+              parameter_id: p.id,
+              grade_value: rmTaskAnswers[p.id].grade_value,
+              raw_input_value: rmTaskAnswers[p.id].raw_input_value,
+              captured_from_case: newCase.id,
+              captured_at: new Date().toISOString()
+            });
+          }
+        }
+      }
+    }
+    
+    if (partyParamsToSave.length > 0) {
+      for (const pp of partyParamsToSave) {
+        await supabase.from('party_parameter_values').upsert(pp, { onConflict: 'party_id, parameter_id' });
+      }
+    }
+  }
 
   // If submitting, also trigger submission
   if (action === 'submit') {
@@ -107,7 +155,7 @@ export async function fetchPartyDetails(partyId: string) {
   const supabase = await createClient();
   const { data: party } = await supabase
     .from('parties')
-    .select('id, legal_name, customer_code, industry_category, party_type, influencer_subtype, gst_number, pan_number, address, display_name, contact_phone')
+    .select('id, legal_name, customer_code, industry_category, party_type, influencer_subtype, gst_number, pan_number, address, display_name, contact_phone, credit_line_amount')
     .eq('id', partyId)
     .single();
 
@@ -122,7 +170,13 @@ export async function fetchPartyDetails(partyId: string) {
     .limit(1)
     .maybeSingle();
 
-  return { ...party, lastCase };
+  // Fetch saved parameters for this party
+  const { data: savedParams } = await supabase
+    .from('party_parameter_values')
+    .select('parameter_id, grade_value, raw_input_value')
+    .eq('party_id', partyId);
+
+  return { ...party, lastCase, savedParams: savedParams || [] };
 }
 
 
@@ -134,12 +188,13 @@ export async function fetchPartyDetails(partyId: string) {
  */
 export async function fetchKams() {
   const supabase = await createClient();
-  const { data } = await supabase
+  // Fetch all users with roles and filter for KAMs
+  const { data: allUsers } = await supabase
     .from('profiles')
-    .select('id, full_name, user_roles!inner(role)')
-    .eq('user_roles.role', 'kam')
+    .select('id, full_name, roles:user_roles(role)')
     .order('full_name');
-  return data || [];
+  
+  return allUsers?.filter(u => u.roles?.some((r: any) => r.role === 'kam')) || [];
 }
 
 

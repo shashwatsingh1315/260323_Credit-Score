@@ -116,6 +116,7 @@ export async function upsertParameter(formData: FormData) {
     signal_lag: formData.get('signal_lag') as string || 'Leading',
     sla_days: parseInt(formData.get('sla_days') as string) || null,
     require_reasoning: formData.get('require_reasoning') === 'true',
+    persistence_scope: formData.get('persistence_scope') as string || 'none',
   };
 
   const policyVersionId = formData.get('policy_version_id') as string;

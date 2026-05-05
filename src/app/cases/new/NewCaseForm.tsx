@@ -66,13 +66,29 @@ export default function NewCaseForm({
   const [contractorPartyId, setContractorPartyId] = useState('');
   const [billAmount, setBillAmount] = useState(0);
   const [requestedExposure, setRequestedExposure] = useState(0);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [isLoadingContractor, setIsLoadingContractor] = useState(false);
 
   // Auto-fetch party details on selection (M1)
   const handleCustomerSelect = async (id: string) => {
     setCustomerPartyId(id);
     if (id) {
+      setIsLoadingCustomer(true);
       const details = await fetchPartyDetails(id);
       setCustomerDetails(details);
+      
+      if (details?.savedParams && details.savedParams.length > 0) {
+        setRmTaskAnswers(prev => {
+          const next = { ...prev };
+          details.savedParams.forEach((sp: any) => {
+             if (!next[sp.parameter_id]) {
+               next[sp.parameter_id] = { grade_value: sp.grade_value, raw_input_value: sp.raw_input_value };
+             }
+          });
+          return next;
+        });
+      }
+      setIsLoadingCustomer(false);
     } else {
       setCustomerDetails(null);
     }
@@ -81,8 +97,22 @@ export default function NewCaseForm({
   const handleContractorSelect = async (id: string) => {
     setContractorPartyId(id);
     if (id) {
+      setIsLoadingContractor(true);
       const details = await fetchPartyDetails(id);
       setContractorDetails(details);
+
+      if (details?.savedParams && details.savedParams.length > 0) {
+        setRmTaskAnswers(prev => {
+          const next = { ...prev };
+          details.savedParams.forEach((sp: any) => {
+             if (!next[sp.parameter_id]) {
+               next[sp.parameter_id] = { grade_value: sp.grade_value, raw_input_value: sp.raw_input_value };
+             }
+          });
+          return next;
+        });
+      }
+      setIsLoadingContractor(false);
     } else {
       setContractorDetails(null);
     }
@@ -91,7 +121,6 @@ export default function NewCaseForm({
     { type: 'percentage', value: 100, days_after_billing: 30 },
   ]);
   const [dealSizeBucket, setDealSizeBucket] = useState('');
-  const [commercialNotes, setCommercialNotes] = useState('');
   const [justification, setJustification] = useState('');
   const [rmTasks, setRmTasks] = useState<any[]>([]);
   const [rmTaskAnswers, setRmTaskAnswers] = useState<Record<string, any>>({});
@@ -109,15 +138,15 @@ export default function NewCaseForm({
   }, [scenario]);
 
   useEffect(() => {
-    async function getSiteId() {
+    const handler = setTimeout(async () => {
       if (cityCode) {
         const id = await generateSiteIdPreview(cityCode, siteDate);
         setGeneratedSiteId(id || '');
       } else {
         setGeneratedSiteId('');
       }
-    }
-    getSiteId();
+    }, 300);
+    return () => clearTimeout(handler);
   }, [cityCode, siteDate]);
 
   const formatRubricGuidance = (text: string) => {
@@ -185,6 +214,14 @@ export default function NewCaseForm({
             const band = taskDef.auto_band_config.bands.find((b: any) => numValue >= b.min && numValue <= b.max);
             if (band) mappedGrade = band.grade;
           }
+        } else if (taskDef.input_type === 'date' && taskDef.auto_band_config.bands) {
+          const dateVal = new Date(value);
+          const now = new Date();
+          const daysDiff = Math.floor((dateVal.getTime() - now.getTime()) / (1000 * 3600 * 24));
+          if (!isNaN(daysDiff)) {
+            const band = taskDef.auto_band_config.bands.find((b: any) => daysDiff >= b.min && daysDiff <= b.max);
+            if (band) mappedGrade = band.grade;
+          }
         } else if ((taskDef.input_type === 'link_list' || taskDef.input_type === 'yes_no') && taskDef.auto_band_config.mappings) {
           const mapping = taskDef.auto_band_config.mappings.find((m: any) => m.value.toLowerCase() === String(value).toLowerCase());
           if (mapping) mappedGrade = mapping.grade;
@@ -240,7 +277,6 @@ export default function NewCaseForm({
     fd.set('tranches', JSON.stringify(tranches));
     if (kamUserId) fd.set('kamUserId', kamUserId);
     fd.set('dealSizeBucket', dealSizeBucket);
-    fd.set('commercialNotes', commercialNotes);
     fd.set('justification', justification);
     fd.set('rmTaskAnswers', JSON.stringify(rmTaskAnswers));
     fd.set('action', action);
@@ -262,11 +298,19 @@ export default function NewCaseForm({
               (needsContractor ? !!contractorPartyId : true) && 
               !!scenario && 
               !!siteAddress && 
-              !!cityCode;
+              !!cityCode &&
+              !!kamUserId &&
+              billAmount > 0 && 
+              requestedExposure > 0 && 
+              requestedExposure <= billAmount &&
+              (() => {
+                const activeDetails = scenario.startsWith('customer') ? customerDetails : contractorDetails;
+                const creditLine = activeDetails?.credit_line_amount;
+                return !(creditLine !== null && creditLine !== undefined && requestedExposure > creditLine);
+              })();
     }
-    if (currentStep === 2) return billAmount > 0 && requestedExposure > 0 && requestedExposure <= billAmount;
-    if (currentStep === 3) return tranchesReconcile;
-    if (currentStep === 4) return justification.trim().length > 0;
+    if (currentStep === 2) return tranchesReconcile;
+    if (currentStep === 3) return justification.trim().length > 0;
     return true;
   };
 
@@ -275,7 +319,7 @@ export default function NewCaseForm({
       let matches = true;
       if (rule.context_rule?.exposure_min && requestedExposure < rule.context_rule.exposure_min) matches = false;
       if (rule.context_rule?.case_scenario && rule.context_rule.case_scenario !== scenario) matches = false;
-      if (rule.context_rule?.deal_size_bucket && rule.context_rule.deal_size_bucket !== dealSizeBucket) matches = false;
+      if (rule.context_rule?.deal_size_bucket && dealSizeBucket && rule.context_rule.deal_size_bucket !== dealSizeBucket) matches = false;
       // Removed product_category match as it is removed from UI
       if (matches) return rule.target_stage;
     }
@@ -296,7 +340,7 @@ export default function NewCaseForm({
 
       <div className={styles.wizard}>
         <div className={styles.sidebar}>
-          {['Scenario & Parties', 'Commercial Terms', 'Tranche Builder', 'Context', 'Intake Questions'].map((label, i) => {
+          {['Parties & Terms', 'Tranche Builder', 'Context', 'Intake Questions'].map((label, i) => {
             const stepNum = i + 1;
             const isAccessible = stepNum <= step || (stepNum === step + 1 && canGoNext(step));
             return (
@@ -340,9 +384,19 @@ export default function NewCaseForm({
                   </select>
                 </div>
                 <div className={styles.inputGroup}>
-                  <label>Generated Site ID (Preview)</label>
-                  <div className="flex h-9 w-full rounded-md border border-input bg-muted/50 px-3 py-1 text-sm shadow-sm opacity-80 items-center font-mono font-semibold text-primary">
-                    {generatedSiteId || 'Select city...'}
+                  <label>Generated Site ID</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={generatedSiteId}
+                      onChange={e => setGeneratedSiteId(e.target.value.toUpperCase())}
+                      className={`${styles.input} font-mono font-semibold`}
+                      placeholder="Select city to auto-generate..."
+                      maxLength={30}
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                      editable
+                    </span>
                   </div>
                 </div>
               </div>
@@ -371,8 +425,8 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={styles.input}>
-                    <option value="">-- Select Customer --</option>
+                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={styles.input} disabled={isLoadingCustomer}>
+                    <option value="">{isLoadingCustomer ? 'Loading details...' : '-- Select Customer --'}</option>
                     {parties
                       .filter(p => !p.party_type || p.party_type === 'customer' || p.party_type === 'both')
                       .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.customer_code ? `(${p.customer_code})` : ''}</option>)}
@@ -380,6 +434,9 @@ export default function NewCaseForm({
                   {customerDetails && (
                     <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Industry:</span> {customerDetails.industry_category || '—'}</p>
+                      {customerDetails.credit_line_amount !== null && customerDetails.credit_line_amount !== undefined && (
+                        <p><span className="font-semibold text-foreground text-warning">Credit Limit:</span> ₹{customerDetails.credit_line_amount.toLocaleString('en-IN')}</p>
+                      )}
                       {customerDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {customerDetails.address}</p>}
                       {customerDetails.lastCase && (
                         <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{customerDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {customerDetails.lastCase.composite_credit_days}d credit</p>
@@ -401,8 +458,8 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={styles.input}>
-                    <option value="">-- Select Influencer --</option>
+                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={styles.input} disabled={isLoadingContractor}>
+                    <option value="">{isLoadingContractor ? 'Loading details...' : '-- Select Influencer --'}</option>
                     {parties
                       .filter(p => p.party_type === 'influencer' || p.party_type === 'both' || p.party_type === 'contractor')
                       .map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.influencer_subtype ? `[${p.influencer_subtype}]` : ''}</option>)}
@@ -410,6 +467,9 @@ export default function NewCaseForm({
                   {contractorDetails && (
                     <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Sub-type:</span> {contractorDetails.influencer_subtype || '—'}</p>
+                      {contractorDetails.credit_line_amount !== null && contractorDetails.credit_line_amount !== undefined && (
+                        <p><span className="font-semibold text-foreground text-warning">Credit Limit:</span> ₹{contractorDetails.credit_line_amount.toLocaleString('en-IN')}</p>
+                      )}
                       {contractorDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {contractorDetails.address}</p>}
                       {contractorDetails.lastCase && (
                         <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{contractorDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {contractorDetails.lastCase.composite_credit_days}d credit</p>
@@ -427,54 +487,53 @@ export default function NewCaseForm({
                 </select>
               </div>
 
+              <div className="border-t pt-4 mt-6">
+                <h3 className="text-lg font-semibold mb-3">Commercial Terms</h3>
+                <div className={styles.row}>
+                  <div className={styles.inputGroup}>
+                    <label>Bill Amount (₹) *</label>
+                    <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" required />
+                  </div>
+                  <div className={styles.inputGroup}>
+                    <div className="flex justify-between items-center">
+                      <label className="mb-0">Requested Exposure (₹) *</label>
+                      {billAmount > 0 && (
+                        <span className={cn("text-xs font-medium", requestedExposure > billAmount ? "text-destructive" : "text-primary")}>
+                          {((requestedExposure / billAmount) * 100).toFixed(1)}% of bill
+                        </span>
+                      )}
+                    </div>
+                    <input 
+                      type="number" 
+                      value={requestedExposure || ''} 
+                      onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} 
+                      className={cn(styles.input, requestedExposure > billAmount && "border-destructive focus:border-destructive")} 
+                      placeholder="0" 
+                      required
+                    />
+                    {requestedExposure > billAmount && (
+                      <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
+                    )}
+                    {(() => {
+                      const activeDetails = scenario.startsWith('customer') ? customerDetails : contractorDetails;
+                      const creditLine = activeDetails?.credit_line_amount;
+                      if (creditLine !== null && creditLine !== undefined && requestedExposure > creditLine) {
+                        return <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure exceeds configured credit limit (₹{creditLine.toLocaleString('en-IN')}). Cannot submit.</p>;
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+              </div>
+
               <div className={styles.actions}>
                 <button type="button" className="btn-primary" onClick={() => setStep(2)} disabled={!canGoNext(1)} style={{ opacity: canGoNext(1) ? 1 : 0.5 }}>Continue</button>
               </div>
             </div>
           )}
 
-          {/* Step 2: Commercial Terms */}
+          {/* Step 2: Tranche Builder */}
           {step === 2 && (
-            <div className={styles.formSection}>
-              <h2>Commercial Terms</h2>
-              <p className={styles.helperText}>Bill amount and requested exposure are separate fields (Doc 04).</p>
-
-              <div className={styles.row}>
-                <div className={styles.inputGroup}>
-                  <label>Bill Amount (₹) *</label>
-                  <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" />
-                </div>
-                <div className={styles.inputGroup}>
-                  <div className="flex justify-between items-center">
-                    <label className="mb-0">Requested Exposure (₹) *</label>
-                    {billAmount > 0 && (
-                      <span className={cn("text-xs font-medium", requestedExposure > billAmount ? "text-destructive" : "text-primary")}>
-                        {((requestedExposure / billAmount) * 100).toFixed(1)}% of bill
-                      </span>
-                    )}
-                  </div>
-                  <input 
-                    type="number" 
-                    value={requestedExposure || ''} 
-                    onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} 
-                    className={cn(styles.input, requestedExposure > billAmount && "border-destructive focus:border-destructive")} 
-                    placeholder="0" 
-                  />
-                  {requestedExposure > billAmount && (
-                    <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className={styles.actions}>
-                <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)} style={{ opacity: canGoNext(2) ? 1 : 0.5 }}>Continue</button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Tranche Builder */}
-          {step === 3 && (
             <div className={styles.formSection}>
               <h2>Tranche Builder</h2>
               <p className={styles.helperText}>Model proposed payment terms. Total must reconcile to bill amount.</p>
@@ -511,46 +570,34 @@ export default function NewCaseForm({
                 </div>
                 <div className={styles.summaryItem}>
                   <span>Composite Credit Days:</span>
-                  <span className={styles.highlight}>{compositeDays()} days</span>
+                  <span>{compositeDays()} days</span>
                 </div>
-                {!tranchesReconcile && billAmount > 0 && (
-                  <p className={styles.trancheError}>⚠ Tranches do not reconcile to bill amount.</p>
-                )}
               </div>
 
+              {!tranchesReconcile && billAmount > 0 && (
+                <p className={styles.errorMsg}>Tranches must sum exactly to ₹{billAmount.toLocaleString('en-IN')} before continuing.</p>
+              )}
+
               <div className={styles.actions}>
-                <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={!canGoNext(3)} style={{ opacity: canGoNext(3) ? 1 : 0.5 }}>Continue</button>
+                <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
+                <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)} style={{ opacity: canGoNext(2) ? 1 : 0.5 }}>Continue</button>
               </div>
             </div>
           )}
 
-          {/* Step 4: Context & Submit */}
-          {step === 4 && (
+          {/* Step 3: Context & Strategy */}
+          {step === 3 && (
             <div className={styles.formSection}>
-              <h2>Context & Justification</h2>
-              <p className={styles.helperText}>Provide strategic justification for this credit request.</p>
-
-              <div className={styles.row}>
-                <div className={styles.inputGroup}>
-                  <label>Deal Size Bucket</label>
-                  <select value={dealSizeBucket} onChange={e => setDealSizeBucket(e.target.value)} className={styles.input}>
-                    <option value="">-- Select --</option>
-                    {dealBuckets.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
-                  </select>
-                </div>
-              </div>
+              <h2>Context & Strategy</h2>
+              <p className={styles.helperText}>Provide strategic justification for this exposure.</p>
 
               <div className={styles.inputGroup}>
-                <label>Commercial Notes</label>
-                <textarea value={commercialNotes} onChange={e => setCommercialNotes(e.target.value)} rows={3} className={styles.input} placeholder="Any relevant commercial context..." />
-              </div>
-
-              <div className={styles.inputGroup}>
-                <label>Strategic Justification *</label>
-                <select value={justification} onChange={e => setJustification(e.target.value)} className={styles.input}>
-                  <option value="">-- Select Reason for Credit (RCA) --</option>
-                  {creditReasons.map(r => <option key={r.id} value={r.value}>{r.value}</option>)}
+                <label>Strategic Justification (Reason for Credit) *</label>
+                <select name="justification" value={justification} onChange={e => setJustification(e.target.value)} className={styles.input} required>
+                  <option value="">-- Select Reason --</option>
+                  {creditReasons.map((r: any) => (
+                    <option key={r.id} value={r.value}>{r.value}</option>
+                  ))}
                 </select>
               </div>
 
@@ -558,17 +605,15 @@ export default function NewCaseForm({
                 <strong>Routing Preview:</strong> Based on the requested exposure (₹{requestedExposure.toLocaleString('en-IN')}), this case is expected to route up to <strong>Stage {expectedStage()}</strong>.
               </div>
 
-              {error && <p className={styles.errorMsg}>{error}</p>}
-
               <div className={styles.actions}>
-                <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(5)} disabled={!canGoNext(4)} style={{ opacity: canGoNext(4) ? 1 : 0.5 }}>Continue</button>
+                <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
+                <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={!canGoNext(3)} style={{ opacity: canGoNext(3) ? 1 : 0.5 }}>Continue to Questions</button>
               </div>
             </div>
           )}
 
-          {/* Step 5: RM Intake Tasks */}
-          {step === 5 && (
+          {/* Step 4: RM Intake Tasks */}
+          {step === 4 && (
             <div className={styles.formSection}>
               <h2>Stage 1 Intake Questions</h2>
               <p className={styles.helperText}>Required stage 1 items for RM completion based on selected scenario and policy.</p>
@@ -605,11 +650,19 @@ export default function NewCaseForm({
                             </>
                           ) : (
                             <>
-                              <option value="1">Grade 1 (Best)</option>
-                              <option value="2">Grade 2</option>
-                              <option value="3">Grade 3</option>
-                              <option value="4">Grade 4 (Worst)</option>
-                              <option value="5">Grade 5</option>
+                              {task.auto_band_config?.mappings ? (
+                                task.auto_band_config.mappings.map((m: any, i: number) => (
+                                  <option key={i} value={m.grade}>{m.value} (Grade {m.grade})</option>
+                                ))
+                              ) : (
+                                <>
+                                  <option value="1">Grade 1 (Best)</option>
+                                  <option value="2">Grade 2</option>
+                                  <option value="3">Grade 3</option>
+                                  <option value="4">Grade 4 (Worst)</option>
+                                  <option value="5">Grade 5</option>
+                                </>
+                              )}
                             </>
                           )}
                         </select>
@@ -657,13 +710,15 @@ export default function NewCaseForm({
               {error && <p className={styles.errorMsg}>{error}</p>}
 
               <div className={styles.actions}>
-                <button type="button" className="btn-secondary" onClick={() => setStep(4)}>Back</button>
-                <button type="button" className="btn-secondary" onClick={() => handleSubmit('draft')} disabled={submitting}>
-                  {submitting ? 'Saving...' : 'Save as Draft'}
-                </button>
-                <button type="button" className="btn-primary" onClick={() => handleSubmit('submit')} disabled={submitting}>
-                  {submitting ? 'Submitting...' : 'Submit for Review'}
-                </button>
+                <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
+                <div className="flex gap-2">
+                  <button type="button" className="btn-secondary" onClick={() => handleSubmit('draft')} disabled={submitting}>
+                    {submitting ? 'Saving...' : 'Save as Draft'}
+                  </button>
+                  <button type="button" className="btn-primary" onClick={() => handleSubmit('submit')} disabled={submitting}>
+                    {submitting ? 'Submitting...' : 'Submit for Review'}
+                  </button>
+                </div>
               </div>
             </div>
           )}

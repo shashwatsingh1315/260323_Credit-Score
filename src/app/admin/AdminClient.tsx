@@ -10,7 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PartyDialog } from '@/components/admin/PartyDialog';
-import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster } from './actions';
+import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster, recomputePartyHistoryFromOutcomes } from './actions';
+import { SubmitButton } from '@/components/ui/submit-button';
+
 import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -117,6 +119,23 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">{parties.length} parties registered</p>
             <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => {
+                  startTransition(async () => {
+                    try {
+                      const res = await recomputePartyHistoryFromOutcomes();
+                      toast.success(`Recomputed history for ${res.updated} parties.`);
+                    } catch (e: any) {
+                      toast.error(e.message || 'Failed to sync history');
+                    }
+                  });
+                }}
+                disabled={isPending}
+              >
+                <History size={15} className="mr-1" /> Sync Payment History
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
                 <Upload size={15} /> Import CSV
               </Button>
@@ -255,7 +274,7 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                         <select name="role" className="flex h-8 rounded-lg border border-input bg-transparent px-2 text-xs">
                           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
-                        <Button type="submit" size="sm" variant="outline">Assign</Button>
+                        <SubmitButton type="submit" size="sm" variant="outline">Assign</SubmitButton>
                       </form>
                     </TableCell>
                     <TableCell className="text-right">
@@ -387,8 +406,15 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
           <DialogHeader><DialogTitle>Import Parties (CSV)</DialogTitle></DialogHeader>
           <form onSubmit={handleImportSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label>Import Type</Label>
+              <select name="import_type" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                <option value="party_master">Party Master</option>
+                <option value="grandfathered_cases">Grandfathered Cases (Legacy Collections)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Upload a CSV file with the following headers: <code>legal_name, customer_code, party_type, gstin, pan, address, credit_limit</code>
+                Upload a CSV file. For Collections, headers should be: <code>customer_name, customer_id, contractor_id, rm_name, rm_id, overdue_date, bill_amount, remarks</code>
               </p>
               <Input type="file" name="file" accept=".csv" required className="cursor-pointer" />
             </div>

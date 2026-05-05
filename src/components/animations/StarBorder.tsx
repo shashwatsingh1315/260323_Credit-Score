@@ -17,6 +17,7 @@ export function StarBorder({ children, className, as: Component = "div" }: StarB
         className="absolute inset-[-100%] opacity-50"
         style={{
           background: "conic-gradient(from 0deg, transparent 0 340deg, hsl(var(--primary)) 360deg)",
+          willChange: "transform"
         }}
         animate={{ rotate: [0, 360] }}
         transition={{ repeat: Infinity, duration: 4, ease: "linear" }}

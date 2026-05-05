@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 // ─────────────────────────────────────────────
 
 async function getSystemSetting(key: string, fallback: number): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await createClient({ next: { tags: ['system_settings'] } });
   const { data } = await supabase
     .from('system_settings')
     .select('value')
@@ -32,7 +32,7 @@ export async function fetchLedgerData(caseId: string) {
   ] = await Promise.all([
     supabase
       .from('credit_cases')
-      .select('id, status, billing_date, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches')
+      .select('id, status, billing_date, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, bill_file_url')
       .eq('id', caseId)
       .single(),
     supabase
@@ -115,6 +115,7 @@ export async function fetchLedgerData(caseId: string) {
       promisedAmount: caseData.promised_bill_amount,
       actualAmount: caseData.actual_bill_amount,
       isLocked: (repayments?.length ?? 0) > 0,
+      billFileUrl: caseData.bill_file_url,
     },
     tranches,
     prefillAmount,
@@ -171,6 +172,20 @@ export async function handleSaveBillingDetails(formData: FormData) {
   }).eq('id', caseId);
 
   if (error) throw new Error(error.message);
+
+  // Snapshot the original tranche schedule (only set once, never overwritten)
+  const { data: caseForSnapshot } = await supabase
+    .from('credit_cases')
+    .select('original_tranches, proposed_tranches')
+    .eq('id', caseId)
+    .single();
+
+  if (caseForSnapshot && !caseForSnapshot.original_tranches) {
+    await supabase
+      .from('credit_cases')
+      .update({ original_tranches: caseForSnapshot.proposed_tranches })
+      .eq('id', caseId);
+  }
 
   await logAuditEvent({
     case_id: caseId,
@@ -368,12 +383,26 @@ export async function handleEditPayment(formData: FormData) {
   // Re-check close conditions after amount change
   const { data: updated } = await supabase
     .from('credit_cases')
-    .select('actual_bill_amount, promised_bill_amount')
+    .select('status, actual_bill_amount, promised_bill_amount')
     .eq('id', caseId)
     .single();
 
   if (updated) {
-    await checkAndCloseCase(caseId, updated.actual_bill_amount, updated.promised_bill_amount, user.id, supabase);
+    const actual = updated.actual_bill_amount ?? 0;
+    const promised = updated.promised_bill_amount ?? 0;
+
+    if (updated.status === 'Closed' && actual < promised) {
+      // Payment was edited downward — reopen the case
+      await supabase.from('credit_cases').update({ status: 'Billing Active' }).eq('id', caseId);
+      await logAuditEvent({
+        case_id: caseId,
+        event_type: 'case_reopened',
+        actor_id: user.id,
+        description: `Case reopened after payment edit. Actual ₹${actual.toLocaleString('en-IN')} is now below Promised ₹${promised.toLocaleString('en-IN')}.`,
+      });
+    } else {
+      await checkAndCloseCase(caseId, actual, promised, user.id, supabase);
+    }
   }
 
   revalidatePath(`/cases/${caseId}`);
@@ -444,6 +473,9 @@ export async function handleAttemptClose(formData: FormData) {
     .single();
 
   if (!caseRow) throw new Error('Case not found.');
+  if (!caseRow.promised_bill_amount || caseRow.promised_bill_amount <= 0) {
+    throw new Error('Cannot close case: billing has not been initialized. Set Billing Date and Promised Amount first.');
+  }
   if (caseRow.status === 'Closed') return; // Already closed
 
   const actual = caseRow.actual_bill_amount ?? 0;
@@ -639,7 +671,7 @@ export async function handleRestructureTranches(formData: FormData) {
 
   const { data: caseRow } = await supabase
     .from('credit_cases')
-    .select('proposed_tranches, billing_date')
+    .select('proposed_tranches, original_tranches, billing_date')
     .eq('id', caseId)
     .single();
 
@@ -648,16 +680,17 @@ export async function handleRestructureTranches(formData: FormData) {
   const maxExtensionDays = await getSystemSetting('MAX_TRANCHE_EXTENSION_DAYS', 30);
   const billingDate = new Date(caseRow.billing_date);
 
-  // Validate each tranche's extension vs the original schedule
-  const origTranches = caseRow.proposed_tranches as any[];
+  // Use original_tranches if available, fall back to proposed_tranches for legacy cases
+  const baselineTranches = (caseRow?.original_tranches || caseRow?.proposed_tranches) as any[];
+
   for (let i = 0; i < newTranches.length; i++) {
-    const origDaysAfter = origTranches[i]?.days_after_billing ?? 0;
+    const origDaysAfter = baselineTranches[i]?.days_after_billing ?? 0;
     const newDaysAfter = newTranches[i]?.days_after_billing ?? 0;
     const extension = newDaysAfter - origDaysAfter;
 
     if (extension > maxExtensionDays) {
       throw new Error(
-        `Tranche ${i + 1}: extension of ${extension} days exceeds the maximum allowed (${maxExtensionDays} days).`
+        `Tranche ${i + 1}: total extension of ${extension} days from original schedule exceeds the maximum allowed (${maxExtensionDays} days). Original was ${origDaysAfter}d, new is ${newDaysAfter}d.`
       );
     }
   }
@@ -669,7 +702,7 @@ export async function handleRestructureTranches(formData: FormData) {
     event_type: 'tranches_restructured',
     actor_id: user.id,
     description: `Tranches restructured by KAM.`,
-    field_diffs: { old_tranches: origTranches, new_tranches: newTranches },
+    field_diffs: { old_tranches: baselineTranches, new_tranches: newTranches },
   });
 
   revalidatePath(`/cases/${caseId}`);
@@ -759,5 +792,36 @@ export async function handleSaveDecidedAmount(formData: FormData) {
     description: `Decided Bill Amount set to ₹${decidedAmount.toLocaleString('en-IN')} by KAM.`,
   });
 
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function saveBillUrl(fd: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!hasAnyRole(user, ['accounts', 'kam', 'founder_admin'])) {
+    throw new Error('Only Accounts, KAM, or Admin can upload the bill document.');
+  }
+
+  const caseId = fd.get('caseId') as string;
+  const billFileUrl = fd.get('billFileUrl') as string;
+  const supabase = await createClient();
+  await supabase.from('credit_cases').update({ bill_file_url: billFileUrl }).eq('id', caseId);
+  revalidatePath(`/cases/${caseId}`);
+}
+
+export async function remindAccounts(fd: FormData) {
+  const caseId = fd.get('caseId') as string;
+  const supabase = await createClient();
+  const user = await getCurrentUser();
+  if (!user) return;
+  if (!hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) return;
+  
+  await supabase.from('escalation_logs').insert({
+    case_id: caseId,
+    logged_by: user.id,
+    action_type: 'note',
+    outcome: 'RM requested Accounts to upload bill document.',
+    escalation_id: null
+  });
   revalidatePath(`/cases/${caseId}`);
 }

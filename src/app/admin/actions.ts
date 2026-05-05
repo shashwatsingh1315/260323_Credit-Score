@@ -7,8 +7,8 @@ import { revalidatePath } from 'next/cache';
 import { parsePartiesCsv } from '@/utils/csv';
 
 export async function fetchParties(search?: string) {
-  const supabase = await createClient();
-  let query = supabase.from('parties').select('id, legal_name, display_name, customer_code, industry_category, party_type, influencer_subtype, address, is_active, gst_number, pan_number').order('legal_name').limit(100);
+  const supabase = await createClient({ next: { tags: ['parties'] } });
+  let query = supabase.from('parties').select('id, legal_name, display_name, customer_code, industry_category, party_type, influencer_subtype, address, is_active, gst_number, pan_number').order('legal_name').limit(1000);
   if (search) query = query.ilike('legal_name', `%${search}%`);
   const { data } = await query;
   return data || [];
@@ -67,7 +67,7 @@ export async function deactivateParty(formData: FormData) {
 export async function fetchAllUsers() {
   const user = await getCurrentUser();
   if (!isAdmin(user)) return { success: false, error: 'Forbidden' };
-  const supabase = await createClient();
+  const supabase = await createClient({ next: { tags: ['users'] } });
   const { data } = await supabase
     .from('profiles')
     .select('*, roles:user_roles(role)')
@@ -79,6 +79,7 @@ export async function assignRole(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized. Only Admin can assign roles' };
     const supabase = await createClient();
     const userId = formData.get('userId') as string;
     const role = formData.get('role') as string;
@@ -95,6 +96,7 @@ export async function revokeRole(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized. Only Admin can revoke roles' };
     const supabase = await createClient();
     const userId = formData.get('userId') as string;
     const role = formData.get('role') as string;
@@ -121,6 +123,7 @@ export async function importPartiesCsv(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Unauthorized' };
+    if (!isAdmin(user)) return { success: false, error: 'Unauthorized. Only Admin can import parties' };
     
     const file = formData.get('file') as File;
     if (!file) throw new Error('No file provided');
@@ -206,12 +209,20 @@ export async function adminCreateUser(formData: FormData) {
       email: email
     });
 
-    if (profileError) console.error("Profile creation error:", profileError);
+    if (profileError) {
+      console.error("Profile creation error:", profileError);
+      throw new Error(`Profile creation error: ${profileError.message}`);
+    }
 
-    await supabaseAdmin.from('user_roles').upsert({
+    const { error: roleError } = await supabaseAdmin.from('user_roles').upsert({
       user_id: newUserId,
       role: role
     });
+
+    if (roleError) {
+      console.error("Role creation error:", roleError);
+      throw new Error(`Role creation error: ${roleError.message}`);
+    }
 
     await logAuditEvent({ event_type: 'user_created', actor_id: user.id, description: `Created new user ${email} with role ${role}` });
     revalidatePath('/admin');
@@ -300,4 +311,83 @@ export async function updateCommitteeRoster(formData: FormData) {
   } catch (e: any) {
     return { success: false, error: e.message };
   }
+}
+
+/**
+ * Recomputes party_history metrics from realized_outcomes for all parties
+ * that have at least one closed case in the system.
+ * Should be run by admin after a batch of case closures.
+ */
+export async function recomputePartyHistoryFromOutcomes() {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isAdmin(user)) throw new Error('Only Admin can recompute party history.');
+
+  const supabase = await createClient();
+
+  // Fetch all realized outcomes joined to their cases
+  const { data: outcomes } = await supabase
+    .from('realized_outcomes')
+    .select(`
+      realized_delay_days,
+      realized_exposure,
+      deal_happened,
+      case:credit_cases!realized_outcomes_case_id_fkey(
+        customer_party_id, contractor_party_id, decided_bill_amount
+      )
+    `);
+
+  if (!outcomes || outcomes.length === 0) return { updated: 0 };
+
+  // Aggregate per party
+  const partyStats: Record<string, {
+    orderCount: number;
+    totalVolume: number;
+    delayDays: number[];
+    maxDelay: number;
+  }> = {};
+
+  for (const o of outcomes) {
+    if (!o.deal_happened) continue;
+    const c = o.case as any;
+    const parties = [c?.customer_party_id, c?.contractor_party_id].filter(Boolean);
+    for (const partyId of parties) {
+      if (!partyStats[partyId]) {
+        partyStats[partyId] = { orderCount: 0, totalVolume: 0, delayDays: [], maxDelay: 0 };
+      }
+      partyStats[partyId].orderCount++;
+      partyStats[partyId].totalVolume += c?.decided_bill_amount ?? 0;
+      if (o.realized_delay_days != null) {
+        partyStats[partyId].delayDays.push(o.realized_delay_days);
+        partyStats[partyId].maxDelay = Math.max(partyStats[partyId].maxDelay, o.realized_delay_days);
+      }
+    }
+  }
+
+  let updated = 0;
+  for (const [partyId, stats] of Object.entries(partyStats)) {
+    const avgDelay = stats.delayDays.length > 0
+      ? stats.delayDays.reduce((a, b) => a + b, 0) / stats.delayDays.length
+      : 0;
+
+    await supabase.from('party_history').upsert({
+      party_id: partyId,
+      import_job_id: null,
+      order_count: stats.orderCount,
+      total_volume: stats.totalVolume,
+      average_delay_days: Math.round(avgDelay * 10) / 10,
+      max_delay_days: stats.maxDelay,
+      data_as_of: new Date().toISOString(),
+    }, { onConflict: 'party_id,import_job_id' });
+    updated++;
+  }
+
+  await logAuditEvent({
+    event_type: 'party_history_recomputed',
+    actor_id: user.id,
+    description: `Recomputed party_history from realized_outcomes for ${updated} parties.`,
+  });
+
+  revalidatePath('/admin');
+  return { updated };
 }

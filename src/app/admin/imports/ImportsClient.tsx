@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download, Upload, AlertCircle, FileSpreadsheet } from 'lucide-react';
-import Papa from 'papaparse'; // Ensure papaparse is installed or handled via CDN. Assuming standard import here.
 import { processImportJob } from './actions';
 
 export default function ImportsClient({ jobs }: { jobs: any[] }) {
@@ -14,12 +13,15 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
   const [preview, setPreview] = useState<any[]>([]);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [ignoreMissing, setIgnoreMissing] = useState(false);
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
     setFile(selected);
     setError('');
+
+    const Papa = (await import('papaparse')).default;
 
     Papa.parse(selected, {
       header: true,
@@ -43,6 +45,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
       const fd = new FormData();
       fd.set('import_type', importType);
       fd.set('payload', JSON.stringify(preview));
+      fd.set('ignore_missing_parties', ignoreMissing.toString());
 
       await processImportJob(fd);
 
@@ -59,7 +62,8 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
   const templates = {
     'party_master': 'legal_name,customer_code,industry_category\nAcme Corp,CUST-101,Manufacturing',
     'historical_exposure': 'party_id,order_count,total_volume,payment_recency_days,average_delay_days,max_delay_days,data_as_of\nUUID-HERE,50,5000000,14,2.5,15,2024-01-01',
-    'outstanding_exposure': 'party_id,outstanding_amount,overdue_amount,overdue_days,data_as_of\nUUID-HERE,1500000,0,0,2024-01-01'
+    'outstanding_exposure': 'party_id,outstanding_amount,overdue_amount,overdue_days,data_as_of\nUUID-HERE,1500000,0,0,2024-01-01',
+    'grandfathered_cases': 'customer_name,party_id,contractor_id,rm_name,rm_id,overdue_date,bill_amount,remarks\nGlobal Corp,UUID-HERE,CONT-100,John Doe,RM-501,2024-01-01,750000,Legacy pending case'
   };
 
   const downloadTemplate = () => {
@@ -99,13 +103,23 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                 <option value="party_master">Party Master</option>
                 <option value="historical_exposure">Historical History & Metrics</option>
                 <option value="outstanding_exposure">Outstanding Exposure (Live)</option>
+                <option value="grandfathered_cases">Grandfathered Cases (Legacy Collections)</option>
               </select>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
               <Button type="button" variant="outline" size="sm" onClick={downloadTemplate}>
                 <Download size={14} className="mr-2" /> Download Template
               </Button>
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50 transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={ignoreMissing} 
+                  onChange={(e) => setIgnoreMissing(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm font-medium">Ignore missing/invalid Party IDs (skip rows)</span>
+              </label>
             </div>
 
             <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-3 hover:bg-muted/50 transition-colors">
@@ -179,6 +193,17 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                       </TableCell>
                       <TableCell className="text-xs">
                         {j.records_processed} / {j.records_total}
+                        {j.records_failed > 0 && (
+                          <div className="text-destructive text-[10px] mt-0.5 flex items-center gap-1">
+                            <AlertCircle size={10} />
+                            {j.records_failed} failed
+                            {j.error_details && j.error_details[0] && (
+                              <span className="text-muted-foreground italic truncate max-w-[150px]">
+                                ({j.error_details[0].error})
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-tiny text-muted-foreground">
                         {new Date(j.created_at).toLocaleString()}

@@ -22,6 +22,8 @@ import {
   handleWriteOffApproval,
   handleCreditNoteApproval,
   handleRestructureTranches,
+  saveBillUrl,
+  remindAccounts,
 } from './billing-actions';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +65,7 @@ interface LedgerData {
     promisedAmount: number | null;
     actualAmount: number;
     isLocked: boolean;
+    billFileUrl?: string | null;
   };
   tranches: Tranche[];
   prefillAmount: number;
@@ -141,6 +144,9 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
   const [showCreditNote, setShowCreditNote]   = useState(false);
   const [cnAmount, setCnAmount]               = useState('');
   const [cnReason, setCnReason]               = useState('');
+
+  // ── Bill Document State ─────────────────────────────────────────
+  const [newBillUrl, setNewBillUrl]           = useState('');
 
   // ── Cancel State ────────────────────────────────────────────────
   const [showCancel, setShowCancel]           = useState(false);
@@ -325,6 +331,43 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                     </Button>
                   </form>
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* Bill Document Section */}
+          {billing.billingDate && (
+            <>
+              <Separator />
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Bill Document</p>
+                {billing.billFileUrl ? (
+                  <a href={billing.billFileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-primary hover:underline">
+                    <ExternalLink size={14} /> View Bill Document
+                  </a>
+                ) : (
+                  <div className="bg-muted/30 border rounded p-3">
+                    <p className="text-sm mb-2 text-muted-foreground">No bill uploaded yet.</p>
+                    {isKam ? (
+                      <form action={async (fd) => {
+                        fd.set('caseId', caseId);
+                        fd.set('billFileUrl', newBillUrl);
+                        wrap(() => saveBillUrl(fd));
+                      }} className="flex items-center gap-2">
+                        <Input placeholder="Enter Bill File URL..." value={newBillUrl} onChange={e => setNewBillUrl(e.target.value)} className="h-8 text-sm max-w-xs" required />
+                        <Button type="submit" size="sm" disabled={isPending}>{isPending ? 'Saving...' : 'Save Bill Link'}</Button>
+                      </form>
+                    ) : isRm ? (
+                      <form action={async (fd) => {
+                        fd.set('caseId', caseId);
+                        wrap(() => remindAccounts(fd));
+                        alert('Reminder sent to Accounts team.');
+                      }}>
+                        <Button type="submit" size="sm" variant="outline" disabled={isPending}>Remind Accounts</Button>
+                      </form>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </>
           )}
