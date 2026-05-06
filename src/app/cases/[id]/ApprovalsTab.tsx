@@ -34,7 +34,7 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                   <input type="hidden" name="caseId" value={c.id} />
                   <input type="hidden" name="cycleId" value={cycle.id} />
                   <input type="hidden" name="stage" value={cycle.active_stage} />
-                  <input type="hidden" name="roundType" value="ambiguity_board" />
+                  <input type="hidden" name="roundType" value="appeal" />
                   <Button type="submit" size="sm" variant="outline" className="border-amber-500 text-amber-600">
                     Convene Ambiguity Board
                   </Button>

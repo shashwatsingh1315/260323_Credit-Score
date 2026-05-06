@@ -15,6 +15,18 @@ export default function BoardClient({ data }: { data: any }) {
   const { caseData, approvalRound, boardRound, votes, rosterMembers } = data;
   const [override, setOverride] = useState(false);
 
+  if (!boardRound) {
+    return (
+      <div className="p-12 text-center space-y-4">
+        <h2 className="text-xl font-bold text-destructive">Board Review Not Found</h2>
+        <p className="text-muted-foreground">This case does not have an active board review round.</p>
+        <Link href={`/cases/${caseData?.id}`} passHref>
+          <Button variant="outline">Return to Case</Button>
+        </Link>
+      </div>
+    );
+  }
+
   // Voting stats
   const approvals = votes.filter((v: any) => v.decision === 'approve').length;
   const rejections = votes.filter((v: any) => v.decision === 'reject').length;
@@ -24,6 +36,11 @@ export default function BoardClient({ data }: { data: any }) {
 
   const windowEnd = new Date(boardRound.vote_window_end);
   const isExpired = windowEnd < new Date();
+
+  const rosterCount = rosterMembers.length || 1;
+  const approvalPct = (approvals / rosterCount) * 100;
+  const rejectionPct = (rejections / rosterCount) * 100;
+  const abstainPct = (abstains / rosterCount) * 100;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -95,9 +112,9 @@ export default function BoardClient({ data }: { data: any }) {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="h-4 w-full bg-muted rounded-full overflow-hidden flex">
-                <div style={{ width: `${(approvals / rosterMembers.length) * 100}%` }} className="bg-success" />
-                <div style={{ width: `${(rejections / rosterMembers.length) * 100}%` }} className="bg-destructive" />
-                <div style={{ width: `${(abstains / rosterMembers.length) * 100}%` }} className="bg-muted-foreground/40" />
+                <div style={{ width: `${approvalPct}%` }} className="bg-success" />
+                <div style={{ width: `${rejectionPct}%` }} className="bg-destructive" />
+                <div style={{ width: `${abstainPct}%` }} className="bg-muted-foreground/40" />
               </div>
               <div className="flex justify-between text-tiny font-bold mt-1">
                 <div className="text-success">{approvals} App</div>
@@ -191,7 +208,22 @@ export default function BoardClient({ data }: { data: any }) {
                     </div>
                   )}
 
-                  <Button type="submit" className="w-full bg-warning text-warning-foreground hover:bg-warning/90">Finalize Decision & Close Voting</Button>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-warning text-warning-foreground hover:bg-warning/90"
+                    onClick={(e) => {
+                      if (override) {
+                        const form = e.currentTarget.form;
+                        const overrideDays = form?.elements.namedItem('overrideDays') as HTMLInputElement;
+                        if (!overrideDays?.value) {
+                          e.preventDefault();
+                          alert('Please specify the number of override credit days.');
+                        }
+                      }
+                    }}
+                  >
+                    Finalize Decision & Close Voting
+                  </Button>
                 </form>
               </CardContent>
             </Card>

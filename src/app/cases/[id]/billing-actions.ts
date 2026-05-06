@@ -295,7 +295,7 @@ export async function handleLogPayment(formData: FormData) {
     .single();
 
   if (updated) {
-    await checkAndCloseCase(caseId, updated.actual_bill_amount, updated.promised_bill_amount, user.id, supabase);
+    await checkAndCloseCase(caseId, updated.actual_bill_amount ?? 0, updated.promised_bill_amount ?? 0, user.id, supabase);
   }
 
   await logAuditEvent({

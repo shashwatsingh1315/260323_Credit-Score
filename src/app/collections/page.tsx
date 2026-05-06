@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
 import CollectionsClient from './CollectionsClient';
+import { refreshPtpStatuses } from './actions';
 
 export default async function CollectionsPage() {
   const role = await getImpersonationRole() || 'viewer';
@@ -16,6 +17,7 @@ export default async function CollectionsPage() {
   }
 
   const supabase = await createClient();
+  await refreshPtpStatuses();
   const user = await getCurrentUser();
 
   let casesQuery = supabase
@@ -25,7 +27,8 @@ export default async function CollectionsPage() {
       billing_date, decided_bill_amount, actual_bill_amount, proposed_tranches,
       rm_user_id, kam_user_id, case_attributes,
       customer:parties!credit_cases_customer_party_id_fkey(legal_name),
-      rm:profiles!credit_cases_rm_user_id_fkey(full_name)
+      rm:profiles!credit_cases_rm_user_id_fkey(full_name),
+      escalations (id, status, ptp_date, last_hq_update_at)
     `)
     .in('status', ['Billing Active', 'Pending Write-Off Approval']);
 

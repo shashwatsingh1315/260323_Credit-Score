@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { randomUUID } from 'crypto';
 
 export interface PartyImportRow {
   legal_name: string;
@@ -51,7 +52,7 @@ export function parsePartiesCsv(text: string): PartyImportRow[] {
       throw new Error('CSV contains a row missing a legal_name, which is required.');
     }
 
-    const customer_code = (obj.customer_code || '').trim() || `CUST-IMP-${crypto.randomUUID()}`;
+    const customer_code = (obj.customer_code || '').trim() || `CUST-IMP-${randomUUID()}`;
     const party_type = (obj.party_type || '').trim() || 'both';
     const influencer_subtype = (obj.influencer_subtype || '').trim() || null;
     const gst_number = (obj.gstin || obj.gst_number || '').trim() || null;

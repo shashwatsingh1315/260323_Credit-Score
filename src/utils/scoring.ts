@@ -174,8 +174,10 @@ export async function calculateFinalCaseScore(params: {
           break;
         case 'power_law':
           const exp = dom.exponent > 0 ? dom.exponent : 1;
+          const clampedCustomer = Math.max(0, Math.min(100, customerScore));
+          const clampedContractor = Math.max(0, Math.min(100, contractorScore));
           finalScore = Math.pow(
-            Math.pow(customerScore, dom.customer_weight) * Math.pow(Math.max(contractorScore, 0), dom.contractor_weight),
+            Math.pow(clampedCustomer, dom.customer_weight) * Math.pow(clampedContractor, dom.contractor_weight),
             1 / exp
           );
           break;

@@ -42,6 +42,7 @@ export async function processImportJob(formData: FormData) {
     records_total: payload.length
   }).select().single();
   if (jobErr) throw jobErr;
+  if (!job) throw new Error('Failed to create import job');
 
   let partyIdResolutionMap = new Map<string, string>(); // input_value -> actual_uuid
   if (['historical_exposure', 'outstanding_exposure', 'parameter_bulk_values', 'grandfathered_cases'].includes(importType)) {
@@ -145,6 +146,9 @@ export async function processImportJob(formData: FormData) {
           if (ignoreMissing) continue;
           throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
+        if (row.total_volume != null && row.total_volume !== '' && isNaN(parseFloat(row.total_volume))) throw new Error(`Invalid numeric value for total_volume: ${row.total_volume}`);
+        if (row.average_delay_days != null && row.average_delay_days !== '' && isNaN(parseFloat(row.average_delay_days))) throw new Error(`Invalid numeric value for average_delay_days: ${row.average_delay_days}`);
+
         const { error: histErr } = await supabase.from('party_history').insert({
           party_id: resolvedId,
           import_job_id: job.id,
@@ -162,6 +166,9 @@ export async function processImportJob(formData: FormData) {
           if (ignoreMissing) continue;
           throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
+        if (row.outstanding_amount != null && row.outstanding_amount !== '' && isNaN(parseFloat(row.outstanding_amount))) throw new Error(`Invalid numeric value for outstanding_amount: ${row.outstanding_amount}`);
+        if (row.overdue_amount != null && row.overdue_amount !== '' && isNaN(parseFloat(row.overdue_amount))) throw new Error(`Invalid numeric value for overdue_amount: ${row.overdue_amount}`);
+
         const { error: expErr } = await supabase.from('party_exposure').insert({
           party_id: resolvedId,
           import_job_id: job.id,
@@ -178,6 +185,8 @@ export async function processImportJob(formData: FormData) {
           throw new Error(`Party ID/Code "${row.party_id}" not found in system.`);
         }
         if (!row.parameter_id) throw new Error('Missing parameter_id');
+        if (row.grade_value != null && row.grade_value !== '' && isNaN(parseFloat(row.grade_value))) throw new Error(`Invalid numeric value for grade_value: ${row.grade_value}`);
+
         const { error: valErr } = await supabase.from('party_parameter_values').upsert({
           party_id: resolvedId,
           parameter_id: row.parameter_id,
@@ -195,7 +204,7 @@ export async function processImportJob(formData: FormData) {
         }
 
         // Resolve Contractor
-        const contractorId = row.contractor_id ? partyIdResolutionMap.get(row.contractor_id) : null;
+        const contractorId = row.contractor_id ? (partyIdResolutionMap.get(row.contractor_id) || null) : null;
 
         // Resolve RM — try to match by full name, preserve original name regardless
         const originalRmName = row.rm_name || row.rm_id || null;
@@ -223,6 +232,9 @@ export async function processImportJob(formData: FormData) {
         // case_attributes stores the original RM name from CSV so it's never lost,
         // even when the RM user account doesn't exist in the system yet.
         const rowIndex = processed + failed; // stable unique index per import job
+        const billAmt = row.bill_amount || row.outstanding_amount;
+        if (billAmt != null && billAmt !== '' && isNaN(parseFloat(billAmt))) throw new Error(`Invalid numeric value for bill_amount: ${billAmt}`);
+
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
           customer_party_id: resolvedId,
           contractor_party_id: contractorId,
@@ -230,7 +242,7 @@ export async function processImportJob(formData: FormData) {
           rm_user_id: rmId,
           status: 'Billing Active',
           billing_date: billingDate,
-          decided_bill_amount: parseFloat(row.bill_amount || row.outstanding_amount) || 0,
+          decided_bill_amount: parseFloat(billAmt) || 0,
           actual_bill_amount: 0,
           proposed_tranches: [{"type": "percentage", "value": 100, "days_after_billing": 0}],
           // Use job.id prefix + zero-padded index — guaranteed unique, no timestamp collision

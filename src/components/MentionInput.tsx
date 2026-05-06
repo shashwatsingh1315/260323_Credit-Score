@@ -87,7 +87,7 @@ export default function MentionInput({ caseId, users }: Props) {
       <div className="flex items-center justify-between">
         {mentionedIds.length > 0 && (
           <span className="text-xs text-muted-foreground">
-            Tagging: {mentionedIds.map(id => users.find(u => u.id === id)?.full_name).join(', ')}
+            Tagging: {mentionedIds.map(id => users.find(u => u.id === id)).filter(Boolean).map(u => u!.full_name).join(', ')}
           </span>
         )}
         <Button type="submit" size="sm" className="ml-auto">Post Comment</Button>
