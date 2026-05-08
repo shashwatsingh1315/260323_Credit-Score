@@ -258,7 +258,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
         <div className="grid grid-cols-2 md:grid-cols-4 lg:flex items-center gap-3 w-full lg:w-auto">
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">RM</label>
-            <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background min-w-[120px]">
+            <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background min-w-32">
               <option value="all">All RMs</option>
               {uniqueRms.map(name => <option key={name} value={name}>{name}</option>)}
             </select>

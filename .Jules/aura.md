@@ -1,0 +1,3 @@
+## 2025-05-08 - [Token System Architecture]
+**Learning:** The previous codebase heavily relied on arbitrary CSS variable hex values scattered in individual component modules. Magic brackets were also deeply nested within Tailwind utilities (e.g., `w-[200px]`, `min-h-[80px]`).
+**Action:** Replaced static arbitrary numbers with a formal base-4 rhythm in the Tailwind scale (`w-48`, `min-h-20`), mapped explicit hex variables across the app to the CSS variable HSL root standard, and created the foundational `DESIGN_STYLE.md`. Replaced `style={{ opacity: 0.5 }}` disabled states with proper `disabled:opacity-50` modifiers.
