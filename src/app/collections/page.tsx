@@ -49,24 +49,31 @@ export default async function CollectionsPage() {
   const now = new Date();
 
   const overdueCases = (cases || []).filter(c => {
-    if (!c.billing_date || !c.proposed_tranches || !c.decided_bill_amount) return false;
-    const billingDate = new Date(c.billing_date);
-    const billAmt = c.decided_bill_amount;
-    let remaining = c.actual_bill_amount ?? 0;
-    for (const t of c.proposed_tranches as any[]) {
-      const amt = t.type === 'percentage'
-        ? Math.round((t.value / 100) * billAmt)
-        : Math.round(t.value);
-      const fill = Math.min(remaining, amt);
-      remaining -= fill;
-      if (fill < amt) {
-        // This tranche is not fully paid
-        const due = new Date(billingDate);
-        due.setDate(due.getDate() + (t.days_after_billing ?? 0));
-        if (due < now) return true; // past due date with unpaid amount
+    if (!c.billing_date) return false;
+
+    // Precise tranche-based check when tranche data is available
+    if (c.proposed_tranches && (c.proposed_tranches as any[]).length > 0 && c.decided_bill_amount) {
+      const billingDate = new Date(c.billing_date);
+      const billAmt = c.decided_bill_amount;
+      let remaining = c.actual_bill_amount ?? 0;
+      for (const t of c.proposed_tranches as any[]) {
+        const amt = t.type === 'percentage'
+          ? Math.round((t.value / 100) * billAmt)
+          : Math.round(t.value);
+        const fill = Math.min(remaining, amt);
+        remaining -= fill;
+        if (fill < amt) {
+          const due = new Date(billingDate);
+          due.setDate(due.getDate() + (t.days_after_billing ?? 0));
+          if (due < now) return true;
+        }
       }
+      return false;
     }
-    return false;
+
+    // Fallback for cases without tranche data: use composite credit days
+    const passedDays = Math.floor((now.getTime() - new Date(c.billing_date).getTime()) / 86400000);
+    return passedDays > (c.composite_credit_days || 0);
   });
 
   const stats = {
