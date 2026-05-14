@@ -21,6 +21,7 @@ interface Case {
   composite_credit_days?: number;
   escalation_level?: number;
   billing_date?: string | null;
+  proposed_tranches?: any;
   customer?: { legal_name: string }[] | { legal_name: string } | null;
   rm?: { full_name: string }[] | { full_name: string } | null;
   proposed_tranches?: any;
@@ -185,9 +186,33 @@ export default function CollectionsClient({ collections, stats, escalations, rms
   const uniqueRms = Array.from(new Set(collections.map(c => getRmName(c)))).sort();
 
   const getOverdueDays = (c: Case): number => {
-    if (!c.billing_date) return 0;
-    const passedDays = Math.floor((new Date().getTime() - new Date(c.billing_date).getTime()) / 86400000);
-    return Math.max(0, passedDays - (c.composite_credit_days || 0));
+    if (!c.billing_date || !c.proposed_tranches || !c.decided_bill_amount) return 0;
+    
+    const now = new Date();
+    const billingDate = new Date(c.billing_date);
+    let remaining = c.actual_bill_amount ?? 0;
+    
+    let maxOverdue = 0;
+  
+    for (const t of c.proposed_tranches as any[]) {
+      const amt = t.type === 'percentage'
+        ? Math.round((t.value / 100) * c.decided_bill_amount)
+        : Math.round(t.value);
+      const due = new Date(billingDate);
+      due.setDate(due.getDate() + (t.days_after_billing ?? 0));
+      
+      const fill = Math.min(remaining, amt);
+      remaining -= fill;
+      const unpaid = amt - fill;
+      
+      if (unpaid > 0) {
+        const daysOverdue = Math.floor((now.getTime() - due.getTime()) / 86400000);
+        if (daysOverdue > maxOverdue) {
+          maxOverdue = daysOverdue;
+        }
+      }
+    }
+    return maxOverdue;
   };
 
   const getOutstanding = (c: Case): number => {
