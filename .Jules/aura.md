@@ -1,0 +1,1 @@
+## 2024-05-14 - [Layout Constraints] **Learning:** Extensive use of "magic numbers" for widths/heights (e.g., `w-[100px]`, `w-[200px]`, `text-[10px]`) breaks the design token rhythm and scalability. **Action:** Replace bracketed pixel notations with standard Base-4 Tailwind sizing tokens (`w-24`, `w-48`, `text-tiny`).
