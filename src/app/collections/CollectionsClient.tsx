@@ -24,7 +24,6 @@ interface Case {
   proposed_tranches?: any;
   customer?: { legal_name: string }[] | { legal_name: string } | null;
   rm?: { full_name: string }[] | { full_name: string } | null;
-  proposed_tranches?: any;
   case_attributes?: any;
 }
 
