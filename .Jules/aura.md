@@ -1,0 +1,1 @@
+## 2024-05-16 - Initial Aura Setup **Learning:** Establishing the base design token architecture to resolve arbitrary values. **Action:** Enforce strict usage of Tailwind variables defined in globals.css.
