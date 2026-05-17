@@ -1,0 +1,1 @@
+## 2025-05-18 - Missing text-tiny token **Learning:** The codebase has several hardcoded `text-[10px]` arbitrary classes which conflict with standard tailwind sizing scales. **Action:** We need to use the predefined `text-tiny` token defined in `tailwind.config.js` instead.

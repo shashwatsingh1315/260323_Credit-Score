@@ -194,7 +194,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                       <TableCell className="text-xs">
                         {j.records_processed} / {j.records_total}
                         {j.records_failed > 0 && (
-                          <div className="text-destructive text-[10px] mt-0.5 flex items-center gap-1">
+                          <div className="text-destructive text-tiny mt-0.5 flex items-center gap-1">
                             <AlertCircle size={10} />
                             {j.records_failed} failed
                             {j.error_details && j.error_details[0] && (
