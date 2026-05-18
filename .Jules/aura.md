@@ -1,0 +1,1 @@
+## 2024-05-18 - Missing .dark scope for global vars **Learning:** The `color-scheme: dark;` rule in `.dark` scope is missing from globals.css to ensure native UI dropdowns render properly on dark mode. **Action:** Add `.dark` to globals.css with `color-scheme: dark;`.
