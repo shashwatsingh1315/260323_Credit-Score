@@ -35,7 +35,9 @@ export default async function CollectionsPage() {
   if (role === 'rm' && user) {
     casesQuery = casesQuery.eq('rm_user_id', user.id);
   } else if (role === 'kam' && user) {
-    casesQuery = casesQuery.eq('kam_user_id', user.id);
+    // Show KAM their directly assigned cases AND grandfathered/imported cases
+    // (which have kam_user_id = null because they pre-date the system)
+    casesQuery = casesQuery.or(`kam_user_id.eq.${user.id},kam_user_id.is.null`);
   }
 
   const { data: cases } = await casesQuery;
