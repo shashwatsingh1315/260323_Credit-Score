@@ -1,6 +1,6 @@
 # Credit Issuance App
 
-260505
+260520
 A robust, enterprise-grade Next.js application designed to facilitate structured, auditable reactive credit decision processes. The primary goal of this application is to lower credit risk by replacing informal, relationship-driven credit issuance with a disciplined policy engine and strict workflow logic.
 
 This repository implements the complete lifecycle of credit issuance—from intake and risk scoring (Phase 1) to comprehensive billing, repayment ledgers, margin tracking, and write-off governance (Phase 2).
