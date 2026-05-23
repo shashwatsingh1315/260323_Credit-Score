@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
 import { handleNewCase, fetchParties, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds, fetchKams, fetchPartyDetails, fetchCityCodes, generateSiteIdPreview } from './actions';
 import { PartyDialog } from '@/components/admin/PartyDialog';
-import styles from './page.module.css';
+
 import { cn } from '@/lib/utils';
 
 interface Tranche {
@@ -327,70 +327,65 @@ export default function NewCaseForm({
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.breadcrumbs}>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2 mb-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Cases</span>
           <ChevronRight size={16} />
-          <span className={styles.currentBreadcrumb}>New Intake</span>
+          <span className="text-foreground font-medium">New Intake</span>
         </div>
-        <h1 className={styles.title}>New Credit Case</h1>
-        <p className={styles.subtitle}>Create a draft or submit a case for review.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">New Credit Case</h1>
+        <p className="text-sm text-muted-foreground">Create a draft or submit a case for review.</p>
       </div>
 
-      <div className={styles.wizard}>
-        <div className={styles.sidebar}>
+      <div className="grid grid-cols-[220px_1fr] gap-6">
+        <div className="flex flex-col gap-1">
           {['Parties & Terms', 'Tranche Builder', 'Context', 'Intake Questions'].map((label, i) => {
             const stepNum = i + 1;
             const isAccessible = stepNum <= step || (stepNum === step + 1 && canGoNext(step));
             return (
               <div 
                 key={i} 
-                className={cn(
-                  styles.step, 
-                  step === stepNum && styles.active, 
-                  step > stepNum && styles.done,
-                  !isAccessible && styles.disabled
-                )} 
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg cursor-pointer transition-colors ${step === stepNum ? "bg-white/10" : "hover:bg-white/5"} ${!isAccessible ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
                 onClick={() => isAccessible && setStep(stepNum)}
               >
-                <div className={styles.stepNum}>{step > stepNum ? '✓' : stepNum}</div>
-                <div className={styles.stepText}>{label}</div>
+                <div className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs font-semibold shrink-0 ${step === stepNum ? "bg-foreground text-background border-foreground" : step > stepNum ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground"}`}>{step > stepNum ? '✓' : stepNum}</div>
+                <div className="text-sm font-medium text-foreground">{label}</div>
               </div>
             );
           })}
         </div>
 
-        <div className={`card ${styles.formContent}`}>
+        <div className="card p-8">
           {/* Step 1: Scenario & Parties */}
           {step === 1 && (
-            <div className={styles.formSection}>
-              <h2>Case Scenario & Parties</h2>
-              <p className={styles.helperText}>Select the billing/payment scenario and link relevant parties.</p>
+            <div className="p-8">
+              <h2 className="text-lg font-semibold text-foreground mb-1 tracking-tight">Case Scenario & Parties</h2>
+              <p className="text-sm text-muted-foreground mb-6">Select the billing/payment scenario and link relevant parties.</p>
 
-              <div className={styles.inputGroup}>
+              <div className="flex flex-col gap-2 mb-5">
                 <label>Case Scenario *</label>
-                <select value={scenario} onChange={e => setScenario(e.target.value)} className={styles.input}>
+                <select value={scenario} onChange={e => setScenario(e.target.value)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full">
                   {SCENARIOS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className={styles.inputGroup}>
+                <div className="flex flex-col gap-2 mb-5">
                   <label>City Code *</label>
-                  <select value={cityCode} onChange={e => setCityCode(e.target.value)} className={styles.input}>
+                  <select value={cityCode} onChange={e => setCityCode(e.target.value)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full">
                     <option value="">-- Select City --</option>
                     {cityCodes.map(c => <option key={c.id} value={c.code}>{c.name} ({c.code})</option>)}
                   </select>
                 </div>
-                <div className={styles.inputGroup}>
+                <div className="flex flex-col gap-2 mb-5">
                   <label>Generated Site ID</label>
                   <div className="relative">
                     <input
                       type="text"
                       value={generatedSiteId}
                       onChange={e => setGeneratedSiteId(e.target.value.toUpperCase())}
-                      className={`${styles.input} font-mono font-semibold`}
+                      className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-mono font-semibold w-full"
                       placeholder="Select city to auto-generate..."
                       maxLength={30}
                     />
@@ -401,12 +396,12 @@ export default function NewCaseForm({
                 </div>
               </div>
 
-              <div className={styles.inputGroup}>
+              <div className="flex flex-col gap-2 mb-5">
                 <label>Site Address *</label>
                 <textarea 
                   value={siteAddress} 
                   onChange={e => setSiteAddress(e.target.value)} 
-                  className={styles.input} 
+                  className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full"
                   rows={2} 
                   placeholder="Street address of the site..." 
                   required 
@@ -414,7 +409,7 @@ export default function NewCaseForm({
               </div>
 
               {needsCustomer && (
-                <div className={styles.inputGroup}>
+                <div className="flex flex-col gap-2 mb-5">
                   <div className="flex justify-between items-center mb-1">
                     <label className="mb-0">Customer Party *</label>
                     <button
@@ -425,7 +420,7 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={styles.input} disabled={isLoadingCustomer}>
+                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full" disabled={isLoadingCustomer}>
                     <option value="">{isLoadingCustomer ? 'Loading details...' : '-- Select Customer --'}</option>
                     {parties
                       .filter(p => !p.party_type || p.party_type === 'customer' || p.party_type === 'both')
@@ -447,7 +442,7 @@ export default function NewCaseForm({
               )}
 
               {needsContractor && (
-                <div className={styles.inputGroup}>
+                <div className="flex flex-col gap-2 mb-5">
                   <div className="flex justify-between items-center mb-1">
                     <label className="mb-0">Contractor / Influencer Party *</label>
                     <button
@@ -458,7 +453,7 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={styles.input} disabled={isLoadingContractor}>
+                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full" disabled={isLoadingContractor}>
                     <option value="">{isLoadingContractor ? 'Loading details...' : '-- Select Influencer --'}</option>
                     {parties
                       .filter(p => p.party_type === 'influencer' || p.party_type === 'both' || p.party_type === 'contractor')
@@ -479,9 +474,9 @@ export default function NewCaseForm({
                 </div>
               )}
 
-              <div className={styles.inputGroup}>
+              <div className="flex flex-col gap-2 mb-5">
                 <label>KAM Assignee *</label>
-                <select value={kamUserId} onChange={e => setKamUserId(e.target.value)} className={styles.input}>
+                <select value={kamUserId} onChange={e => setKamUserId(e.target.value)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full">
                   <option value="">-- Select KAM --</option>
                   {kams.map((k: any) => <option key={k.id} value={k.id}>{k.full_name}</option>)}
                 </select>
@@ -489,12 +484,12 @@ export default function NewCaseForm({
 
               <div className="border-t pt-4 mt-6">
                 <h3 className="text-lg font-semibold mb-3">Commercial Terms</h3>
-                <div className={styles.row}>
-                  <div className={styles.inputGroup}>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2 mb-5">
                     <label>Bill Amount (₹) *</label>
-                    <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" required />
+                    <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full" placeholder="0" required />
                   </div>
-                  <div className={styles.inputGroup}>
+                  <div className="flex flex-col gap-2 mb-5">
                     <div className="flex justify-between items-center">
                       <label className="mb-0">Requested Exposure (₹) *</label>
                       {billAmount > 0 && (
@@ -507,7 +502,7 @@ export default function NewCaseForm({
                       type="number" 
                       value={requestedExposure || ''} 
                       onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} 
-                      className={cn(styles.input, requestedExposure > billAmount && "border-destructive focus:border-destructive")} 
+                      className={cn("px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full", requestedExposure > billAmount && "border-destructive focus:border-destructive")}
                       placeholder="0" 
                       required
                     />
@@ -526,7 +521,7 @@ export default function NewCaseForm({
                 </div>
               </div>
 
-              <div className={styles.actions}>
+              <div className="flex gap-3 justify-end mt-6">
                 <button type="button" className="btn-primary" onClick={() => setStep(2)} disabled={!canGoNext(1)} style={{ opacity: canGoNext(1) ? 1 : 0.5 }}>Continue</button>
               </div>
             </div>
@@ -534,51 +529,51 @@ export default function NewCaseForm({
 
           {/* Step 2: Tranche Builder */}
           {step === 2 && (
-            <div className={styles.formSection}>
-              <h2>Tranche Builder</h2>
-              <p className={styles.helperText}>Model proposed payment terms. Total must reconcile to bill amount.</p>
+            <div className="p-8">
+              <h2 className="text-lg font-semibold text-foreground mb-1 tracking-tight">Tranche Builder</h2>
+              <p className="text-sm text-muted-foreground mb-6">Model proposed payment terms. Total must reconcile to bill amount.</p>
 
-              <div className={styles.trancheHeader}>
+              <div className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <span>Type</span><span>Value</span><span>Days After Billing</span><span></span>
               </div>
               {tranches.map((t, i) => (
-                <div key={i} className={styles.trancheRow}>
-                  <select value={t.type} onChange={e => updateTranche(i, 'type', e.target.value)} className={styles.input}>
+                <div key={i} className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 mb-2">
+                  <select value={t.type} onChange={e => updateTranche(i, 'type', e.target.value)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full">
                     <option value="amount">Amount (₹)</option>
                     <option value="percentage">Percentage (%)</option>
                   </select>
-                  <input type="number" value={t.value || ''} onChange={e => updateTranche(i, 'value', parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" />
-                  <input type="number" value={t.days_after_billing || ''} onChange={e => updateTranche(i, 'days_after_billing', parseInt(e.target.value) || 0)} className={styles.input} placeholder="0" />
-                  <button type="button" onClick={() => removeTranche(i)} className={styles.deleteBtn} disabled={tranches.length === 1}>
+                  <input type="number" value={t.value || ''} onChange={e => updateTranche(i, 'value', parseFloat(e.target.value) || 0)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full" placeholder="0" />
+                  <input type="number" value={t.days_after_billing || ''} onChange={e => updateTranche(i, 'days_after_billing', parseInt(e.target.value) || 0)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full" placeholder="0" />
+                  <button type="button" onClick={() => removeTranche(i)} className="flex items-center justify-center border border-border rounded-md text-muted-foreground hover:text-destructive hover:border-destructive transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-transparent" disabled={tranches.length === 1}>
                     <Trash2 size={16} />
                   </button>
                 </div>
               ))}
 
-              <button type="button" onClick={addTranche} className={styles.addTrancheBtn}>
+              <button type="button" onClick={addTranche} className="flex items-center gap-2 bg-transparent border border-dashed border-border px-4 py-2.5 rounded-lg text-muted-foreground text-sm font-medium hover:border-primary hover:text-foreground transition-colors mt-2">
                 <Plus size={16} /> Add Tranche
               </button>
 
-              <div className={styles.trancheSummary}>
-                <div className={styles.summaryItem}>
+              <div className="mt-6 p-4 bg-muted rounded-lg flex flex-col gap-2">
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Tranche Total:</span>
-                  <span className={tranchesReconcile ? styles.success : styles.danger}>₹{trancheTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                  <span className={`font-semibold ${tranchesReconcile ? "text-success" : "text-destructive"}`}>₹{trancheTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className={styles.summaryItem}>
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Bill Amount:</span>
                   <span>₹{billAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className={styles.summaryItem}>
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Composite Credit Days:</span>
                   <span>{compositeDays()} days</span>
                 </div>
               </div>
 
               {!tranchesReconcile && billAmount > 0 && (
-                <p className={styles.errorMsg}>Tranches must sum exactly to ₹{billAmount.toLocaleString('en-IN')} before continuing.</p>
+                <p className="text-sm text-destructive bg-destructive/10 px-4 py-3 rounded-lg mt-2">Tranches must sum exactly to ₹{billAmount.toLocaleString('en-IN')} before continuing.</p>
               )}
 
-              <div className={styles.actions}>
+              <div className="flex gap-3 justify-end mt-6">
                 <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
                 <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)} style={{ opacity: canGoNext(2) ? 1 : 0.5 }}>Continue</button>
               </div>
@@ -587,13 +582,13 @@ export default function NewCaseForm({
 
           {/* Step 3: Context & Strategy */}
           {step === 3 && (
-            <div className={styles.formSection}>
-              <h2>Context & Strategy</h2>
-              <p className={styles.helperText}>Provide strategic justification for this exposure.</p>
+            <div className="p-8">
+              <h2 className="text-lg font-semibold text-foreground mb-1 tracking-tight">Context & Strategy</h2>
+              <p className="text-sm text-muted-foreground mb-6">Provide strategic justification for this exposure.</p>
 
-              <div className={styles.inputGroup}>
+              <div className="flex flex-col gap-2 mb-5">
                 <label>Strategic Justification (Reason for Credit) *</label>
-                <select name="justification" value={justification} onChange={e => setJustification(e.target.value)} className={styles.input} required>
+                <select name="justification" value={justification} onChange={e => setJustification(e.target.value)} className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full" required>
                   <option value="">-- Select Reason --</option>
                   {creditReasons.map((r: any) => (
                     <option key={r.id} value={r.value}>{r.value}</option>
@@ -605,7 +600,7 @@ export default function NewCaseForm({
                 <strong>Routing Preview:</strong> Based on the requested exposure (₹{requestedExposure.toLocaleString('en-IN')}), this case is expected to route up to <strong>Stage {expectedStage()}</strong>.
               </div>
 
-              <div className={styles.actions}>
+              <div className="flex gap-3 justify-end mt-6">
                 <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
                 <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={!canGoNext(3)} style={{ opacity: canGoNext(3) ? 1 : 0.5 }}>Continue to Questions</button>
               </div>
@@ -614,9 +609,9 @@ export default function NewCaseForm({
 
           {/* Step 4: RM Intake Tasks */}
           {step === 4 && (
-            <div className={styles.formSection}>
-              <h2>Stage 1 Intake Questions</h2>
-              <p className={styles.helperText}>Required stage 1 items for RM completion based on selected scenario and policy.</p>
+            <div className="p-8">
+              <h2 className="text-lg font-semibold text-foreground mb-1 tracking-tight">Stage 1 Intake Questions</h2>
+              <p className="text-sm text-muted-foreground mb-6">Required stage 1 items for RM completion based on selected scenario and policy.</p>
 
               {rmTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground my-4">No specific intake questions required for this scenario.</p>
@@ -638,7 +633,7 @@ export default function NewCaseForm({
                       <div className="flex flex-col gap-2">
                         {task.input_type === 'grade_select' || task.input_type === 'yes_no' ? (
                         <select
-                          className={styles.input}
+                          className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full"
                           value={rmTaskAnswers[task.id]?.grade_value ?? ''}
                           onChange={(e) => handleTaskAnswerChange(task.id, 'grade_value', e.target.value === '' ? undefined : Number(e.target.value))}
                         >
@@ -668,7 +663,7 @@ export default function NewCaseForm({
                         </select>
                       ) : task.input_type === 'link_list' || task.input_type === 'dropdown' ? (
                          <select
-                           className={styles.input}
+                           className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full"
                            value={rmTaskAnswers[task.id]?.raw_input_value ?? ''}
                            onChange={(e) => handleTaskAnswerChange(task.id, 'raw_input_value', e.target.value)}
                          >
@@ -680,7 +675,7 @@ export default function NewCaseForm({
                       ) : (
                         <input
                           type={task.input_type === 'numeric' ? 'number' : task.input_type === 'date' ? 'date' : 'text'}
-                          className={styles.input}
+                          className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full"
                           placeholder="Enter value"
                           value={rmTaskAnswers[task.id]?.raw_input_value || ''}
                           onChange={(e) => handleTaskAnswerChange(task.id, 'raw_input_value', e.target.value)}
@@ -695,7 +690,7 @@ export default function NewCaseForm({
                       )}
 
                       <textarea
-                        className={styles.input}
+                        className="px-4 py-3 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary transition-colors font-sans w-full"
                         placeholder="Reason or notes (optional)"
                         rows={2}
                         value={rmTaskAnswers[task.id]?.reason || ''}
@@ -707,9 +702,9 @@ export default function NewCaseForm({
                 </div>
               )}
 
-              {error && <p className={styles.errorMsg}>{error}</p>}
+              {error && <p className="text-sm text-destructive bg-destructive/10 px-4 py-3 rounded-lg mt-2">{error}</p>}
 
-              <div className={styles.actions}>
+              <div className="flex gap-3 justify-end mt-6">
                 <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
                 <div className="flex gap-2">
                   <button type="button" className="btn-secondary" onClick={() => handleSubmit('draft')} disabled={submitting}>
