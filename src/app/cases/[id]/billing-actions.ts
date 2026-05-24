@@ -249,8 +249,8 @@ export async function handleLogPayment(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
-    throw new Error('Only KAM or Admin can log payments.');
+  if (!hasAnyRole(user, ['kam', 'accounts', 'founder_admin'])) {
+    throw new Error('Only KAM, Accounts, or Admin can log payments.');
   }
 
   const caseId = formData.get('caseId') as string;
