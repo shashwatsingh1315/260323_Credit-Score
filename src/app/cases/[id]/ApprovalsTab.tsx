@@ -19,7 +19,7 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
 
           {/* Ambiguity Warning Banner */}
           {cycle?.is_ambiguous && (
-            <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+            <div className="mb-4 rounded-lg border border-attention/40 bg-attention/10 p-4">
               <div className="flex items-center gap-2 mb-1">
                 <AlertCircle size={16} className="text-amber-500" />
                 <h3 className="font-semibold text-sm text-amber-600 dark:text-amber-400">
@@ -35,7 +35,7 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                   <input type="hidden" name="cycleId" value={cycle.id} />
                   <input type="hidden" name="stage" value={cycle.active_stage} />
                   <input type="hidden" name="roundType" value="appeal" />
-                  <Button type="submit" size="sm" variant="outline" className="border-amber-500 text-amber-600">
+                  <Button type="submit" size="sm" variant="outline" className="border-attention text-attention">
                     Convene Ambiguity Board
                   </Button>
                 </form>

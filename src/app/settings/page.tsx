@@ -84,7 +84,7 @@ export default async function SettingsPage() {
         </TabsList>
 
         <TabsContent value="variables" className="space-y-6">
-          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 rounded-lg px-4 py-3 flex items-start gap-2 text-sm max-w-2xl">
+          <div className="bg-attention/10 border border-attention/30 text-attention rounded-lg px-4 py-3 flex items-start gap-2 text-sm max-w-2xl">
             <ShieldAlert size={16} className="mt-0.5 shrink-0" />
             <p>These settings affect live business logic. Modify with caution.</p>
           </div>

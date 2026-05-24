@@ -281,7 +281,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
         
         <div className="grid grid-cols-2 md:grid-cols-4 lg:flex items-center gap-3 w-full lg:w-auto">
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">RM</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">RM</label>
             <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background min-w-[120px]">
               <option value="all">All RMs</option>
               {uniqueRms.map(name => <option key={name} value={name}>{name}</option>)}
@@ -289,7 +289,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Status</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Status</label>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">All Status</option>
               <option value="Billing Active">Billing Active</option>
@@ -298,7 +298,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">HQ Update</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">HQ Update</label>
             <select value={filterHqUpdate} onChange={e => setFilterHqUpdate(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">Any Update</option>
               <option value="updated">With Logs</option>
@@ -307,7 +307,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Escalation</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Escalation</label>
             <select value={filterEscalation} onChange={e => setFilterEscalation(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">All Levels</option>
               <option value="0">Level 0</option>
@@ -318,7 +318,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Recency</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Recency</label>
             <select value={filterRecency} onChange={e => setFilterRecency(e.target.value)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="all">All Time</option>
               <option value="7d">Last 7 Days</option>
@@ -328,7 +328,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Sort</label>
+            <label className="text-tiny uppercase font-bold text-muted-foreground ml-1">Sort</label>
             <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="text-sm border rounded px-2 py-1 h-9 bg-background">
               <option value="overdue_days">By Overdue</option>
               <option value="outstanding">By Amount</option>
@@ -432,7 +432,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="border-green-500 text-green-700 hover:bg-green-50"
+                      className="border-success/30 text-success hover:bg-success/10"
                       onClick={() => setLoggingPaymentForCase(loggingPaymentForCase === c.id ? null : c.id)}
                     >
                       ₹ Log Payment
@@ -446,7 +446,7 @@ export default function CollectionsClient({ collections, stats, escalations, rms
                         type="submit"
                         variant={isEscalated ? "destructive" : "outline"}
                         size="sm"
-                        className={!isEscalated ? "border-amber-500 text-amber-600 hover:bg-amber-50" : ""}
+                        className={!isEscalated ? "border-attention/30 text-attention hover:bg-attention/10" : ""}
                         loadingText="Escalating..."
                       >
                         <ArrowUpRight size={14} className="mr-1.5" /> 
@@ -463,21 +463,21 @@ export default function CollectionsClient({ collections, stats, escalations, rms
                   </div>
                 </CardContent>
                 {loggingPaymentForCase === c.id && (
-                  <div className="mx-6 mb-6 mt-0 p-4 border border-green-200 rounded-md bg-green-50 space-y-3">
-                    <p className="text-sm font-semibold text-green-800">Log a Payment</p>
+                  <div className="mx-6 mb-6 mt-0 p-4 border border-success/30 rounded-md bg-success/10 space-y-3">
+                    <p className="text-sm font-semibold text-success">Log a Payment</p>
                     <div className="flex gap-3">
                       <input
                         type="number"
                         placeholder="Amount (₹)"
                         value={paymentAmount}
                         onChange={e => setPaymentAmount(e.target.value)}
-                        className="flex-1 border rounded px-2 py-1 text-sm bg-white"
+                        className="flex-1 border rounded px-2 py-1 text-sm bg-background"
                       />
                       <input
                         type="date"
                         value={paymentDate}
                         onChange={e => setPaymentDate(e.target.value)}
-                        className="border rounded px-2 py-1 text-sm bg-white"
+                        className="border rounded px-2 py-1 text-sm bg-background"
                       />
                     </div>
                     <input
@@ -485,9 +485,9 @@ export default function CollectionsClient({ collections, stats, escalations, rms
                       placeholder="Note (optional)"
                       value={paymentNote}
                       onChange={e => setPaymentNote(e.target.value)}
-                      className="w-full border rounded px-2 py-1 text-sm bg-white"
+                      className="w-full border rounded px-2 py-1 text-sm bg-background"
                     />
-                    {paymentError && <p className="text-xs text-red-600">{paymentError}</p>}
+                    {paymentError && <p className="text-xs text-destructive">{paymentError}</p>}
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => handleQuickLogPayment(c.id)} disabled={!paymentAmount || paymentSubmitting}>
                         {paymentSubmitting ? 'Saving...' : 'Save Payment'}

@@ -512,13 +512,13 @@ export default function NewCaseForm({
                       required
                     />
                     {requestedExposure > billAmount && (
-                      <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
+                      <p className="text-tiny text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
                     )}
                     {(() => {
                       const activeDetails = scenario.startsWith('customer') ? customerDetails : contractorDetails;
                       const creditLine = activeDetails?.credit_line_amount;
                       if (creditLine !== null && creditLine !== undefined && requestedExposure > creditLine) {
-                        return <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure exceeds configured credit limit (₹{creditLine.toLocaleString('en-IN')}). Cannot submit.</p>;
+                        return <p className="text-tiny text-destructive mt-1 font-medium">⚠ Exposure exceeds configured credit limit (₹{creditLine.toLocaleString('en-IN')}). Cannot submit.</p>;
                       }
                       return null;
                     })()}
@@ -625,7 +625,7 @@ export default function NewCaseForm({
                   {rmTasks.map((task) => (
                     <div key={task.id} className="p-4 border border-border rounded-md bg-muted">
                       <label className="font-semibold block mb-1">
-                        {task.name} {task.is_required && <span className="text-red-500">*</span>}
+                        {task.name} {task.is_required && <span className="text-destructive">*</span>}
                       </label>
                       {task.rubric_guidance && (
                         <div
@@ -689,7 +689,7 @@ export default function NewCaseForm({
 
                       {/* Display automatically mapped grade if applicable */}
                       {task.auto_band_config && rmTaskAnswers[task.id]?.grade_value !== undefined && (
-                        <div className="mt-1 text-xs text-green-600 font-medium">
+                        <div className="mt-1 text-xs text-success font-medium">
                            Auto-mapped to Grade {rmTaskAnswers[task.id].grade_value}
                         </div>
                       )}
