@@ -59,12 +59,15 @@ export async function publishDraftPolicy(formData: FormData) {
   // Archive current active
   await supabase.from('policy_versions').update({ is_active: false, is_draft: false }).eq('is_active', true);
   // Publish new
-  await supabase.from('policy_versions').update({ 
-    is_active: true, 
-    is_draft: false, 
-    published_at: new Date().toISOString(), 
+  await supabase.from('policy_versions').update({
+    is_active: true,
+    is_draft: false,
+    published_at: new Date().toISOString(),
   }).eq('id', versionId);
-  
+
+  // Purge stale preapproved bands; readers will repopulate lazily under the new policy.
+  await supabase.rpc('refresh_party_preapproved_bands');
+
   await logAuditEvent({ event_type: 'policy_published', actor_id: user.id, description: `Policy version ${versionId} published.` });
   revalidatePath('/policy');
 }
@@ -116,6 +119,7 @@ export async function upsertParameter(formData: FormData) {
     signal_lag: formData.get('signal_lag') as string || 'Leading',
     sla_days: parseInt(formData.get('sla_days') as string) || null,
     require_reasoning: formData.get('require_reasoning') === 'true',
+    is_stable: formData.get('is_stable') === 'true',
     persistence_scope: formData.get('persistence_scope') as string || 'none',
   };
 

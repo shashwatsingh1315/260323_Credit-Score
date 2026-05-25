@@ -14,19 +14,20 @@ import { Pencil, Trash2, Plus, ChevronLeft, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
 
 interface Parameter {
-  id: string; 
-  name: string; 
-  subject_type: string; 
+  id: string;
+  name: string;
+  subject_type: string;
   input_type: string;
   stage: number;
   default_owning_role: string;
   signal_strength: string;
   signal_cost: string;
   signal_lag: string;
-  weight: number; 
+  weight: number;
   sla_days?: number;
   require_reasoning?: boolean;
-  rubric_guidance: string; 
+  is_stable?: boolean;
+  rubric_guidance: string;
   auto_band_config?: any;
   is_active: boolean;
   policy_version_id: string;
@@ -196,6 +197,15 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                   <div className="flex gap-1">
                     <Badge variant="secondary">{p.default_owning_role.toUpperCase()}</Badge>
                     <Badge variant="outline">{p.signal_lag}</Badge>
+                    {p.is_stable && (
+                      <Badge
+                        variant="outline"
+                        className="border-blue-500 text-blue-700 bg-blue-50"
+                        title="Stable parameter — feeds the preapproved credit-days band"
+                      >
+                        S
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
@@ -293,6 +303,24 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
               <div className="flex items-center gap-2 pt-6">
                 <input type="checkbox" name="require_reasoning" id="require_reasoning" value="true" defaultChecked={editing?.require_reasoning || false} className="w-4 h-4 rounded border-gray-300" />
                 <Label htmlFor="require_reasoning">Require Mandatory Reasoning</Label>
+              </div>
+              <div className="col-span-2 flex items-start gap-2 p-3 border rounded-md bg-blue-50/40">
+                <input
+                  type="checkbox"
+                  name="is_stable"
+                  id="is_stable"
+                  value="true"
+                  defaultChecked={editing?.is_stable || false}
+                  className="w-4 h-4 rounded border-gray-300 mt-0.5"
+                />
+                <div>
+                  <Label htmlFor="is_stable" className="font-medium">Stable parameter</Label>
+                  <p className="text-tiny text-muted-foreground">
+                    Mark when this parameter reflects party-level history (e.g. repayment track record).
+                    Stable parameters are sourced from party history / cached answers and feed the
+                    preapproved credit-days band shown before scoring runs.
+                  </p>
+                </div>
               </div>
               <div className="col-span-2 space-y-1">
                 <Label>Rubric Guidance (Description & Ratings)</Label>

@@ -5,6 +5,7 @@ import { getCurrentUser, logAuditEvent, hasAnyRole, isAdmin } from '@/utils/auth
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { parsePartiesCsv } from '@/utils/csv';
+import { refreshPreapprovedBand } from '@/utils/preapproval';
 
 export async function fetchParties(search?: string) {
   const supabase = await createClient({ next: { tags: ['parties'] } });
@@ -387,6 +388,13 @@ export async function recomputePartyHistoryFromOutcomes() {
     actor_id: user.id,
     description: `Recomputed party_history from realized_outcomes for ${updated} parties.`,
   });
+
+  // Refresh preapproved bands for every touched party (both roles) in parallel.
+  const refreshTasks = Object.keys(partyStats).flatMap(partyId => [
+    refreshPreapprovedBand(partyId, 'customer'),
+    refreshPreapprovedBand(partyId, 'contractor'),
+  ]);
+  await Promise.all(refreshTasks);
 
   revalidatePath('/admin');
   return { updated };

@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser, logAuditEvent, hasAnyRole, isAdmin as checkIsAdmin } from '@/utils/auth';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { refreshPreapprovedBand } from '@/utils/preapproval';
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -329,6 +330,19 @@ async function checkAndCloseCase(
       actor_id: actorId,
       description: `Case auto-closed: Actual (₹${actualAmount.toLocaleString('en-IN')}) met Promised (₹${promisedAmount.toLocaleString('en-IN')}).`,
     });
+
+    // Refresh preapproved bands for the parties on this case (both roles, both parties).
+    const { data: parties } = await supabase
+      .from('credit_cases')
+      .select('customer_party_id, contractor_party_id')
+      .eq('id', caseId)
+      .maybeSingle();
+    if (parties) {
+      const tasks = [] as Promise<unknown>[];
+      if (parties.customer_party_id) tasks.push(refreshPreapprovedBand(parties.customer_party_id, 'customer'));
+      if (parties.contractor_party_id) tasks.push(refreshPreapprovedBand(parties.contractor_party_id, 'contractor'));
+      await Promise.all(tasks);
+    }
   }
   // If promisedAmount not yet met, we just stay Billing Active.
   // Write-off trigger only fires when KAM explicitly "closes" with a shortfall.
