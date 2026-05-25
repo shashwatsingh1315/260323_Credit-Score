@@ -1,5 +1,6 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,8 +8,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Download, Upload, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { processImportJob } from './actions';
 
+const ALLOWED_TYPES = ['party_master', 'historical_exposure', 'outstanding_exposure', 'grandfathered_cases'];
+
 export default function ImportsClient({ jobs }: { jobs: any[] }) {
-  const [importType, setImportType] = useState('party_master');
+  const searchParams = useSearchParams();
+  const initialType = (() => {
+    const t = searchParams.get('type');
+    return t && ALLOWED_TYPES.includes(t) ? t : 'party_master';
+  })();
+  const [importType, setImportType] = useState(initialType);
+
+  // Honor in-flight URL changes (e.g. browser back/forward, deep-link click).
+  useEffect(() => {
+    const t = searchParams.get('type');
+    if (t && ALLOWED_TYPES.includes(t) && t !== importType) {
+      setImportType(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<any[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -63,7 +80,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
     'party_master': 'legal_name,customer_code,industry_category\nAcme Corp,CUST-101,Manufacturing',
     'historical_exposure': 'party_id,order_count,total_volume,payment_recency_days,average_delay_days,max_delay_days,data_as_of\nUUID-HERE,50,5000000,14,2.5,15,2024-01-01',
     'outstanding_exposure': 'party_id,outstanding_amount,overdue_amount,overdue_days,data_as_of\nUUID-HERE,1500000,0,0,2024-01-01',
-    'grandfathered_cases': 'customer_name,party_id,contractor_id,rm_name,rm_id,overdue_date,bill_amount,remarks\nGlobal Corp,UUID-HERE,CONT-100,John Doe,RM-501,2024-01-01,750000,Legacy pending case'
+    'grandfathered_cases': 'customer_name,party_id,contractor_id,rm_name,rm_id,overdue_date,bill_amount,actual_bill_amount,composite_credit_days,proposed_tranches,remarks\nGlobal Corp,UUID-HERE,CONT-100,John Doe,,2024-01-01,750000,250000,45,"[{\\"type\\":\\"percentage\\",\\"value\\":50,\\"days_after_billing\\":30},{\\"type\\":\\"percentage\\",\\"value\\":50,\\"days_after_billing\\":60}]",Legacy pending case'
   };
 
   const downloadTemplate = () => {

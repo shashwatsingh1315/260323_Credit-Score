@@ -9,7 +9,7 @@ import {
   ShieldAlert, ArrowUpRight, Search, FileText,
   MessageSquare, IndianRupee, Phone, TrendingUp,
   Clock, ChevronDown, Filter, X, Users, ExternalLink,
-  CheckSquare,
+  CheckSquare, Plus,
 } from 'lucide-react';
 import { handleEscalateCase, bulkAssignRMs, addHqCollectionLog } from './actions';
 import { handleLogPayment } from '@/app/cases/[id]/billing-actions';
@@ -116,11 +116,12 @@ function getDpdBand(days: number): 'soft' | 'mid' | 'hard' | 'critical' {
   return 'critical';
 }
 
+// Single-hue amber severity ladder. Intensity = severity, not hue.
 const bandStyles: Record<string, { strip: string; pill: string; label: string }> = {
-  soft:     { strip: 'bg-amber-400',  pill: 'bg-amber-100 text-amber-800 border-amber-300',   label: '1–30d' },
-  mid:      { strip: 'bg-orange-500', pill: 'bg-orange-100 text-orange-800 border-orange-300', label: '31–60d' },
-  hard:     { strip: 'bg-red-500',    pill: 'bg-red-100 text-red-800 border-red-300',         label: '61–90d' },
-  critical: { strip: 'bg-red-700',    pill: 'bg-red-200 text-red-900 border-red-400',         label: '90d+' },
+  soft:     { strip: 'bg-amber-300', pill: 'bg-amber-100 text-amber-900 border-amber-200', label: '1–30d' },
+  mid:      { strip: 'bg-amber-500', pill: 'bg-amber-200 text-amber-900 border-amber-300', label: '31–60d' },
+  hard:     { strip: 'bg-amber-700', pill: 'bg-amber-300 text-amber-950 border-amber-400', label: '61–90d' },
+  critical: { strip: 'bg-amber-900', pill: 'bg-amber-400 text-amber-950 border-amber-500', label: '90d+' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -287,13 +288,26 @@ export default function CollectionsClient({
   return (
     <div className="space-y-6 pb-24">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight mb-1">Collections</h1>
-        <p className="text-sm text-muted-foreground">
-          {isAccounts
-            ? 'Review outstanding dues and record incoming payments.'
-            : 'Triage overdue cases, log contact, and drive recovery.'}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Collections</h1>
+          <p className="text-sm text-muted-foreground">
+            {isAccounts
+              ? 'Review outstanding dues and record incoming payments.'
+              : 'Triage overdue cases, log contact, and drive recovery.'}
+          </p>
+        </div>
+        {canBulkAssign && (
+          <Link
+            href="/admin/imports?type=grandfathered_cases"
+            className="shrink-0"
+            title="Import legacy outstanding cases via CSV"
+          >
+            <Button variant="outline" size="sm" className="border-amber-400 text-amber-900 hover:bg-amber-50">
+              <Plus size={14} className="mr-1.5" /> Add legacy case
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Stat strip — 5 compact metrics */}
@@ -310,14 +324,14 @@ export default function CollectionsClient({
           label="90+ DPD"
           value={formatCompactINR(stats.highRiskAmt)}
           sublabel={`${stats.highRiskCount} high-risk`}
-          tone="danger"
+          tone="severe"
         />
         <StatTile
           icon={<Phone size={14} />}
           label="PTP Due Today"
           value={`${stats.ptpDueTodayCount}`}
           sublabel="follow up"
-          tone="info"
+          tone="neutral"
         />
         <StatTile
           icon={<Clock size={14} />}
@@ -382,10 +396,10 @@ export default function CollectionsClient({
 
           <div className="flex flex-wrap items-center gap-1.5">
             <FilterChip active={view === 'all'}     onClick={() => setView('all')}>All</FilterChip>
-            <FilterChip active={view === '90plus'}  onClick={() => setView('90plus')} tone="danger">90+ DPD</FilterChip>
-            <FilterChip active={view === 'ptp'}     onClick={() => setView('ptp')} tone="info">PTP today</FilterChip>
+            <FilterChip active={view === '90plus'}  onClick={() => setView('90plus')} tone="severe">90+ DPD</FilterChip>
+            <FilterChip active={view === 'ptp'}     onClick={() => setView('ptp')}>PTP today</FilterChip>
             <FilterChip active={view === 'untouched'} onClick={() => setView('untouched')} tone="warn">Untouched 14d+</FilterChip>
-            <FilterChip active={view === 'escalated'} onClick={() => setView('escalated')} tone="danger">Escalated</FilterChip>
+            <FilterChip active={view === 'escalated'} onClick={() => setView('escalated')} tone="severe">Escalated</FilterChip>
           </div>
 
           <Button
@@ -568,12 +582,12 @@ export default function CollectionsClient({
 // ─────────────────────────────────────────────────────────────────────────────
 // Subcomponents
 // ─────────────────────────────────────────────────────────────────────────────
+// Tones use only: neutral grayscale, amber severity ladder, and one emerald positive accent.
 const toneClasses: Record<string, { bg: string; text: string; icon: string }> = {
-  neutral: { bg: 'bg-card',             text: 'text-foreground',    icon: 'text-muted-foreground' },
-  danger:  { bg: 'bg-destructive/5',    text: 'text-destructive',   icon: 'text-destructive' },
-  warn:    { bg: 'bg-amber-50',         text: 'text-amber-900',     icon: 'text-amber-600' },
-  info:    { bg: 'bg-blue-50',          text: 'text-blue-900',      icon: 'text-blue-600' },
-  success: { bg: 'bg-green-50',         text: 'text-green-900',     icon: 'text-green-600' },
+  neutral: { bg: 'bg-card',     text: 'text-foreground', icon: 'text-muted-foreground' },
+  severe:  { bg: 'bg-amber-50', text: 'text-amber-900',  icon: 'text-amber-700' },
+  warn:    { bg: 'bg-amber-50', text: 'text-amber-900',  icon: 'text-amber-600' },
+  success: { bg: 'bg-emerald-50', text: 'text-emerald-900', icon: 'text-emerald-600' },
 };
 
 function StatTile({ icon, label, value, sublabel, tone = 'neutral' }: {
@@ -595,13 +609,12 @@ function StatTile({ icon, label, value, sublabel, tone = 'neutral' }: {
 }
 
 function FilterChip({ active, onClick, children, tone }: {
-  active: boolean; onClick: () => void; children: React.ReactNode; tone?: 'danger' | 'warn' | 'info';
+  active: boolean; onClick: () => void; children: React.ReactNode; tone?: 'severe' | 'warn';
 }) {
   const inactiveBase = 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted/60';
   const activeMap = {
-    danger: 'bg-destructive/10 border-destructive/30 text-destructive',
+    severe: 'bg-amber-100 border-amber-400 text-amber-900',
     warn: 'bg-amber-100 border-amber-300 text-amber-900',
-    info: 'bg-blue-100 border-blue-300 text-blue-900',
     default: 'bg-primary/10 border-primary/30 text-primary',
   };
   const activeCls = active ? activeMap[tone || 'default'] : inactiveBase;
@@ -691,13 +704,21 @@ function CaseRow(props: {
                   {overdueDays}d
                 </span>
                 {isEscalated && (
-                  <Badge variant="destructive" className="text-[10px] py-0 px-1.5 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-amber-200 text-amber-900 border-amber-300">
                     L{c.escalation_level}
-                  </Badge>
+                  </span>
                 )}
                 {hasPtpToday && (
-                  <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                  <span className="text-[10px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
                     PTP today
+                  </span>
+                )}
+                {(c.case_attributes?.grandfathered || c.case_attributes?.imported) && (
+                  <span
+                    className="text-[10px] font-semibold text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5 uppercase tracking-wider"
+                    title="Imported from legacy system — no scoring history"
+                  >
+                    Legacy
                   </span>
                 )}
               </div>
@@ -756,6 +777,11 @@ function CaseRow(props: {
           {/* Expanded panel */}
           {expanded && (
             <div className="border-t bg-muted/20 px-3 sm:px-4 py-4 space-y-4">
+              {(c.case_attributes?.grandfathered || c.case_attributes?.imported) && (
+                <p className="text-xs text-muted-foreground italic">
+                  No scoring trail — this case was grandfathered from a legacy system.
+                </p>
+              )}
               {/* Tranche breakdown */}
               {overdueTranches.length > 0 && (
                 <div>
@@ -806,7 +832,7 @@ function CaseRow(props: {
                 {/* Inline payment form — prominent for accounts */}
                 <div className="rounded-md border bg-background p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <IndianRupee size={14} className="text-green-700" />
+                    <IndianRupee size={14} className="text-emerald-700" />
                     <p className="text-xs font-semibold">Record payment</p>
                     {worstTranche && (
                       <span className="text-[10px] text-muted-foreground ml-auto">
@@ -840,7 +866,7 @@ function CaseRow(props: {
                   <div className="flex gap-2 pt-1">
                     <Button
                       size="sm"
-                      className="bg-green-700 hover:bg-green-800"
+                      className="bg-emerald-700 hover:bg-emerald-800"
                       onClick={() => onSubmitPayment(c.id)}
                       disabled={!paymentAmount || paymentSubmitting}
                     >
@@ -904,8 +930,9 @@ function CaseRow(props: {
                     <input type="hidden" name="targetRole" value={targetRole} />
                     <SubmitButton
                       type="submit"
-                      variant={isEscalated ? "destructive" : "outline"}
+                      variant="outline"
                       size="sm"
+                      className={isEscalated ? "border-amber-500 text-amber-900 hover:bg-amber-50" : ""}
                       loadingText="Escalating…"
                     >
                       <ArrowUpRight size={13} className="mr-1.5" />

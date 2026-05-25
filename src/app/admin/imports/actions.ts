@@ -2,6 +2,37 @@
 import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser, logAuditEvent } from '@/utils/auth';
 import { revalidatePath } from 'next/cache';
+import { calculateCompositeDays } from '@/utils/engine';
+
+type GrandfatheredTranche = { type: 'percentage' | 'amount'; value: number; days_after_billing: number };
+
+function parseGrandfatheredTranches(raw: unknown): GrandfatheredTranche[] {
+  if (raw === undefined || raw === null || raw === '') {
+    return [{ type: 'percentage', value: 100, days_after_billing: 0 }];
+  }
+  let parsed: unknown = raw;
+  if (typeof raw === 'string') {
+    try { parsed = JSON.parse(raw); }
+    catch (e) { throw new Error(`Invalid proposed_tranches JSON: ${(e as Error).message}`); }
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error('proposed_tranches must be a non-empty array');
+  }
+  const out: GrandfatheredTranche[] = [];
+  for (const t of parsed) {
+    if (!t || typeof t !== 'object') throw new Error('Each tranche must be an object');
+    const tt = t as Record<string, unknown>;
+    if (tt.type !== 'percentage' && tt.type !== 'amount') {
+      throw new Error(`Tranche type must be 'percentage' or 'amount', got: ${String(tt.type)}`);
+    }
+    const value = Number(tt.value);
+    const days = Number(tt.days_after_billing);
+    if (!Number.isFinite(value) || value <= 0) throw new Error(`Invalid tranche value: ${String(tt.value)}`);
+    if (!Number.isFinite(days) || days < 0) throw new Error(`Invalid tranche days_after_billing: ${String(tt.days_after_billing)}`);
+    out.push({ type: tt.type, value, days_after_billing: days });
+  }
+  return out;
+}
 
 export async function fetchImportJobs() {
   const supabase = await createClient();
@@ -235,6 +266,34 @@ export async function processImportJob(formData: FormData) {
         const billAmt = row.bill_amount || row.outstanding_amount;
         if (billAmt != null && billAmt !== '' && isNaN(parseFloat(billAmt))) throw new Error(`Invalid numeric value for bill_amount: ${billAmt}`);
 
+        const decidedAmount = parseFloat(billAmt) || 0;
+
+        // Optional already-paid amount (partial-payment carry-in from legacy system).
+        const actualAmount = row.actual_bill_amount != null && row.actual_bill_amount !== ''
+          ? parseFloat(row.actual_bill_amount)
+          : 0;
+        if (isNaN(actualAmount) || actualAmount < 0) {
+          throw new Error(`Invalid actual_bill_amount: ${row.actual_bill_amount}`);
+        }
+        if (actualAmount > decidedAmount) {
+          throw new Error(`actual_bill_amount (${actualAmount}) cannot exceed bill_amount (${decidedAmount}).`);
+        }
+
+        // Optional multi-tranche schedule. Falls back to a single 100% on billing date.
+        const tranches = parseGrandfatheredTranches(row.proposed_tranches);
+
+        // Optional composite-credit-days override; else compute from tranches.
+        let compositeDays: number;
+        if (row.composite_credit_days != null && row.composite_credit_days !== '') {
+          const parsedCompo = parseFloat(row.composite_credit_days);
+          if (isNaN(parsedCompo) || parsedCompo < 0) {
+            throw new Error(`Invalid composite_credit_days: ${row.composite_credit_days}`);
+          }
+          compositeDays = parsedCompo;
+        } else {
+          compositeDays = calculateCompositeDays(tranches, decidedAmount);
+        }
+
         const { data: newCase, error: caseErr } = await supabase.from('credit_cases').insert({
           customer_party_id: resolvedId,
           contractor_party_id: contractorId,
@@ -242,22 +301,34 @@ export async function processImportJob(formData: FormData) {
           rm_user_id: rmId,
           status: 'Billing Active',
           billing_date: billingDate,
-          decided_bill_amount: parseFloat(billAmt) || 0,
-          actual_bill_amount: 0,
-          proposed_tranches: [{"type": "percentage", "value": 100, "days_after_billing": 0}],
+          decided_bill_amount: decidedAmount,
+          actual_bill_amount: actualAmount,
+          composite_credit_days: compositeDays,
+          proposed_tranches: tranches,
           // Use job.id prefix + zero-padded index — guaranteed unique, no timestamp collision
           case_number: row.case_number || `GF-${job.id.split('-')[0]}-${String(rowIndex).padStart(4, '0')}`,
           case_attributes: {
             imported: true,
+            grandfathered: true,
             import_job_id: job.id,
             // Preserve original RM name from CSV for display and future reassignment
             original_rm_name: originalRmName,
             rm_matched: profileNameMap.has(row.rm_name?.toLowerCase()),
           },
         }).select('id').single();
-        
+
         if (caseErr) throw caseErr;
-        
+
+        // Per-case audit trail (the import-job-level event is logged separately below).
+        if (newCase) {
+          await logAuditEvent({
+            case_id: newCase.id,
+            event_type: 'case_grandfathered',
+            actor_id: user.id,
+            description: `Grandfathered via import job ${job.id}${originalRmName ? `, original RM "${originalRmName}"` : ''}.`,
+          });
+        }
+
         // If remarks are provided, log them as an HQ interaction
         if (row.remarks && newCase) {
            await supabase.from('hq_collection_logs').insert({
