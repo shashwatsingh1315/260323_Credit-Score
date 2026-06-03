@@ -44,7 +44,7 @@ export default function PrefixManager({ prefixes }: { prefixes: IdPrefix[] }) {
             <TableRow>
               <TableHead>Entity Type</TableHead>
               <TableHead>Prefix</TableHead>
-              <TableHead className="w-[100px]"></TableHead>
+              <TableHead className="w-24"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
