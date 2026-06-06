@@ -417,14 +417,14 @@ export default function CollectionsClient({
         {showAdvanced && (
           <div className="flex flex-wrap items-end gap-3 bg-muted/30 border rounded-md p-3">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase font-bold text-muted-foreground">RM</label>
-              <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-8 bg-background min-w-[140px]">
+              <label className="text-tiny uppercase font-bold text-muted-foreground">RM</label>
+              <select value={filterRm} onChange={e => setFilterRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-8 bg-background min-w-36">
                 <option value="all">All RMs</option>
                 {uniqueRms.map(name => <option key={name} value={name}>{name}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase font-bold text-muted-foreground">Sort by</label>
+              <label className="text-tiny uppercase font-bold text-muted-foreground">Sort by</label>
               <select value={sortBy} onChange={e => setSortBy(e.target.value as SortKey)} className="text-sm border rounded px-2 py-1 h-8 bg-background">
                 <option value="overdue_days">Most overdue first</option>
                 <option value="outstanding">Largest amount</option>
@@ -525,7 +525,7 @@ export default function CollectionsClient({
             className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm"
             onClick={() => setChatOpenForCase(null)}
           />
-          <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="fixed inset-y-0 right-0 z-50 w-full sm:max-w-md bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div>
                 <h3 className="font-semibold text-sm">HQ Contact Log</h3>
@@ -599,10 +599,10 @@ function StatTile({ icon, label, value, sublabel, tone = 'neutral' }: {
       <CardContent className="p-3">
         <div className={`flex items-center gap-1.5 ${t.icon} mb-1`}>
           {icon}
-          <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+          <span className="text-tiny font-bold uppercase tracking-wider">{label}</span>
         </div>
         <p className={`text-xl font-bold leading-tight ${t.text}`}>{value}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">{sublabel}</p>
+        <p className="text-tiny text-muted-foreground mt-0.5">{sublabel}</p>
       </CardContent>
     </Card>
   );
@@ -700,22 +700,22 @@ function CaseRow(props: {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-sm sm:text-base truncate">{getCustomerName(c)}</h3>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${bandStyles[band].pill}`}>
+                <span className={`text-tiny font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${bandStyles[band].pill}`}>
                   {overdueDays}d
                 </span>
                 {isEscalated && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-amber-200 text-amber-900 border-amber-300">
+                  <span className="text-tiny font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-amber-200 text-amber-900 border-amber-300">
                     L{c.escalation_level}
                   </span>
                 )}
                 {hasPtpToday && (
-                  <span className="text-[10px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                  <span className="text-tiny font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
                     PTP today
                   </span>
                 )}
                 {(c.case_attributes?.grandfathered || c.case_attributes?.imported) && (
                   <span
-                    className="text-[10px] font-semibold text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5 uppercase tracking-wider"
+                    className="text-tiny font-semibold text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5 uppercase tracking-wider"
                     title="Imported from legacy system — no scoring history"
                   >
                     Legacy
@@ -753,7 +753,7 @@ function CaseRow(props: {
               <p className="font-semibold text-sm sm:text-base tabular-nums">
                 {formatINR(outstanding)}
               </p>
-              <p className="text-[11px] text-muted-foreground tabular-nums">
+              <p className="text-tiny text-muted-foreground tabular-nums">
                 {formatCompactINR(collected)} of {formatCompactINR(billed)} · {collectedPct}%
               </p>
             </div>
@@ -785,7 +785,7 @@ function CaseRow(props: {
               {/* Tranche breakdown */}
               {overdueTranches.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
+                  <p className="text-tiny uppercase font-bold tracking-wider text-muted-foreground mb-2">
                     Overdue tranches
                   </p>
                   <div className="rounded-md border bg-background overflow-hidden">
@@ -809,7 +809,7 @@ function CaseRow(props: {
                             <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatINR(t.paidAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums font-semibold">{formatINR(t.outstanding)}</td>
                             <td className="px-3 py-2 text-right">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${bandStyles[getDpdBand(t.daysOverdue)].pill}`}>
+                              <span className={`text-tiny font-bold px-1.5 py-0.5 rounded border ${bandStyles[getDpdBand(t.daysOverdue)].pill}`}>
                                 {t.daysOverdue}d
                               </span>
                             </td>
@@ -819,7 +819,7 @@ function CaseRow(props: {
                     </table>
                   </div>
                   {c.billing_date && (
-                    <p className="text-[11px] text-muted-foreground mt-2">
+                    <p className="text-tiny text-muted-foreground mt-2">
                       Billing date: {new Date(c.billing_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       {' · '}Credit terms: {c.composite_credit_days || 0} days
                     </p>
@@ -835,7 +835,7 @@ function CaseRow(props: {
                     <IndianRupee size={14} className="text-emerald-700" />
                     <p className="text-xs font-semibold">Record payment</p>
                     {worstTranche && (
-                      <span className="text-[10px] text-muted-foreground ml-auto">
+                      <span className="text-tiny text-muted-foreground ml-auto">
                         applies to T{worstTranche.trancheIndex + 1}
                       </span>
                     )}
@@ -904,7 +904,7 @@ function CaseRow(props: {
                     <div className="space-y-2">
                       {hqLogs.slice(-2).reverse().map(log => (
                         <div key={log.id} className="text-xs">
-                          <div className="flex justify-between text-muted-foreground text-[10px] mb-0.5">
+                          <div className="flex justify-between text-muted-foreground text-tiny mb-0.5">
                             <span className="font-semibold text-foreground">{log.logged_by_user?.full_name || 'System'}</span>
                             <span>{new Date(log.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
                           </div>
