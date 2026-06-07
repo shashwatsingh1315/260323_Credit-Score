@@ -25,17 +25,6 @@
     --ring: 222.2 84% 4.9%;
     --radius: 0.75rem;
 
-    --bg-primary: #f8fafc;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #f1f5f9;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --text-muted: #94a3b8;
-    --accent-primary: #cbd5e1;
-    --accent-hover: #e2e8f0;
-    --border-primary: #e2e8f0;
-    --border-color: #e2e8f0;
-    
     --color-success: 142.1 70.6% 45.3%;
     --color-success-foreground: 144.9 80.4% 10%;
     --color-warning: 38 92% 50%;
@@ -50,6 +39,29 @@
     --color-brand-foreground: 210 40% 98%;
     
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
 
@@ -97,18 +109,18 @@
 @layer base {
   /* Fix dropdown option colors for dark theme to prevent white-on-white text */
   select {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--muted));
   }
 
   select option {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
   }
 
   /* Ensure inputs and textareas have correct dark background and text color */
   input, textarea {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--muted));
   }
 }

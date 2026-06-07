@@ -1,0 +1,55 @@
+
+> app@0.1.0 build /app
+> next build
+
+▲ Next.js 16.2.1 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  ✓ authInterrupts
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 12.7s
+  Running TypeScript ...
+  Finished TypeScript in 14.2s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/27) ...
+  Generating static pages using 3 workers (6/27)
+  Generating static pages using 3 workers (13/27)
+  Generating static pages using 3 workers (20/27)
+✓ Generating static pages using 3 workers (27/27) in 408ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /admin
+├ ƒ /admin/aliases
+├ ƒ /admin/imports
+├ ƒ /audit
+├ ƒ /auth/callback
+├ ƒ /cases
+├ ƒ /cases/[id]
+├ ƒ /cases/[id]/board
+├ ƒ /cases/new
+├ ƒ /collections
+├ ƒ /login
+├ ƒ /policy
+├ ƒ /policy/bands
+├ ƒ /policy/dominance
+├ ƒ /policy/grades
+├ ƒ /policy/parameters
+├ ƒ /policy/personas
+├ ƒ /policy/routing
+├ ƒ /policy/simulation
+├ ƒ /policy/stages
+├ ƒ /policy/validity
+├ ƒ /policy/weights
+├ ƒ /reset-password
+├ ƒ /search
+└ ƒ /settings
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand

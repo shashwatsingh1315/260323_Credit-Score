@@ -1,0 +1,3 @@
+## 2024-05-18 - Forcing Dark Theme Exposes Missing Color Scheme Token
+**Learning:** The application forces a `<html className="dark">` layout but lacks the required `.dark` definition block in `src/app/globals.css` with `color-scheme: dark;`. It also relies on legacy hex CSS variables (like `--bg-primary` mapped to `#f8fafc`) which are fundamentally light-mode biased and do not scale dynamically with the system.
+**Action:** Establish a proper `.dark` token block containing `color-scheme: dark;` to render native browser elements properly, and systematically map/migrate all legacy hex variables across the codebase to the responsive Tailwind HSL token variables (e.g., `--background`, `--foreground`).
