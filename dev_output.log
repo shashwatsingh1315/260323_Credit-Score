@@ -1,0 +1,15 @@
+
+> app@0.1.0 dev /app
+> next dev
+
+▲ Next.js 16.2.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+- Environments: .env.local
+✓ Ready in 638ms
+- Experiments (use with caution):
+  ✓ authInterrupts
+  · optimizePackageImports
+
+○ Compiling /login ...
+ GET /login 200 in 9.1s (next.js: 7.9s, proxy.ts: 18ms, application-code: 1234ms)
