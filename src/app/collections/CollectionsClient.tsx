@@ -140,12 +140,12 @@ function getBucket(days: number): BucketKey {
   return '90+';
 }
 
-// Severity ladder: neutral → amber → red. Only 90+ shouts.
+// Severity heat ramp: slate → amber → orange → red. Only 90+ shouts.
 const bucketStyles: Record<BucketKey, { strip: string; pill: string; label: string }> = {
-  '1-30':  { strip: 'bg-zinc-300 dark:bg-zinc-600',  pill: 'bg-muted text-muted-foreground border-border', label: '1–30 days' },
-  '31-60': { strip: 'bg-amber-400', pill: 'bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900', label: '31–60 days' },
-  '61-90': { strip: 'bg-amber-600', pill: 'bg-amber-200 text-amber-950 border-amber-300 dark:bg-amber-900/50 dark:text-amber-100 dark:border-amber-800', label: '61–90 days' },
-  '90+':   { strip: 'bg-red-600',   pill: 'bg-red-100 text-red-900 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900', label: 'Critical · 90+ days' },
+  '1-30':  { strip: 'bg-slate-300',  pill: 'bg-slate-100 text-slate-600 border-slate-200', label: '1–30 days' },
+  '31-60': { strip: 'bg-amber-400',  pill: 'bg-amber-50 text-amber-700 border-amber-200', label: '31–60 days' },
+  '61-90': { strip: 'bg-orange-500', pill: 'bg-orange-50 text-orange-700 border-orange-200', label: '61–90 days' },
+  '90+':   { strip: 'bg-red-500',    pill: 'bg-red-50 text-red-700 border-red-200', label: 'Critical · 90+ days' },
 };
 
 // Structured log parsing: "[call] text\n[PTP 2026-06-20 ₹50,000]"
@@ -456,9 +456,6 @@ export default function CollectionsClient({
 
   const chatCase = chatOpenForCase ? collections.find(c => c.id === chatOpenForCase) : null;
 
-  // An RM only sees their own queue — repeating their name on every row is noise.
-  const showRm = currentRole !== 'rm';
-
   const renderRow = (c: Case) => (
     <CaseRow
       key={c.id}
@@ -469,7 +466,6 @@ export default function CollectionsClient({
       selected={selectedCaseIds.has(c.id)}
       onToggleSelect={() => toggleSelection(c.id)}
       showSelect={canBulkAssign}
-      showRm={showRm}
       canEscalate={canEscalate}
       canHqChat={canHqChat}
       canLogPayment={canLogPayment}
@@ -568,7 +564,7 @@ export default function CollectionsClient({
           label="Untouched 14d+"
           value={`${stats.untouched}`}
           sublabel="needs contact"
-          tone="warn"
+          tone={stats.untouched > 0 ? 'warn' : 'neutral'}
           active={view === 'untouched'}
           onClick={() => setView(v => v === 'untouched' ? 'all' : 'untouched')}
         />
@@ -707,7 +703,6 @@ export default function CollectionsClient({
           boardColOf={boardColOf}
           moveCard={moveCard}
           canHqChat={canHqChat}
-          showRm={showRm}
           onOpenChat={setChatOpenForCase}
           paidTodayByCase={paidTodayByCase}
         />
@@ -788,11 +783,12 @@ export default function CollectionsClient({
 // ─────────────────────────────────────────────────────────────────────────────
 // Stat tile
 // ─────────────────────────────────────────────────────────────────────────────
-const toneClasses: Record<string, { bg: string; text: string; icon: string }> = {
-  neutral: { bg: 'bg-card', text: 'text-foreground', icon: 'text-muted-foreground' },
-  severe:  { bg: 'bg-red-50 dark:bg-red-950/30', text: 'text-red-900 dark:text-red-200', icon: 'text-red-700 dark:text-red-400' },
-  warn:    { bg: 'bg-amber-50 dark:bg-amber-950/30', text: 'text-amber-900 dark:text-amber-200', icon: 'text-amber-600' },
-  success: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', text: 'text-emerald-900 dark:text-emerald-200', icon: 'text-emerald-600' },
+// Quiet white tiles; the numeral carries the color, never the whole card.
+const toneClasses: Record<string, { icon: string; value: string }> = {
+  neutral: { icon: 'text-muted-foreground', value: 'text-foreground' },
+  severe:  { icon: 'text-red-500',     value: 'text-red-600' },
+  warn:    { icon: 'text-amber-500',   value: 'text-amber-600' },
+  success: { icon: 'text-emerald-500', value: 'text-emerald-600' },
 };
 
 function StatTile({ icon, label, value, sublabel, tone = 'neutral', active, onClick, hint }: {
@@ -802,17 +798,17 @@ function StatTile({ icon, label, value, sublabel, tone = 'neutral', active, onCl
   const t = toneClasses[tone];
   const inner = (
     <CardContent className="p-3">
-      <div className={`flex items-center gap-1.5 ${t.icon} mb-1`}>
-        {icon}
-        <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
+      <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
+        <span className={t.icon}>{icon}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
       </div>
-      <p className={`text-xl font-bold leading-tight tabular-nums ${t.text}`}>{value}</p>
+      <p className={`text-xl font-bold leading-tight tabular-nums ${t.value}`}>{value}</p>
       <p className="text-[11px] text-muted-foreground mt-0.5">{hint || sublabel}</p>
     </CardContent>
   );
-  if (!onClick) return <Card className={`${t.bg} border-muted/50`}>{inner}</Card>;
+  if (!onClick) return <Card className="bg-card">{inner}</Card>;
   return (
-    <Card className={`${t.bg} text-left transition-shadow cursor-pointer ${active ? 'ring-2 ring-primary border-primary/40' : 'border-muted/50 hover:border-foreground/25'}`}>
+    <Card className={`bg-card text-left transition-all cursor-pointer ${active ? 'ring-2 ring-primary border-primary/40 shadow-sm' : 'hover:border-foreground/25'}`}>
       <button type="button" onClick={onClick} className="w-full text-left" aria-pressed={active}>
         {inner}
       </button>
@@ -830,13 +826,12 @@ const BOARD_COLS: { key: BoardCol; label: string; hint: string }[] = [
   { key: 'done',    label: 'Done today', hint: 'Followed up or paid' },
 ];
 
-function BoardView({ cases, d, boardColOf, moveCard, canHqChat, showRm, onOpenChat, paidTodayByCase }: {
+function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paidTodayByCase }: {
   cases: Case[];
   d: (c: Case) => Derived;
   boardColOf: (c: Case) => BoardCol;
   moveCard: (caseId: string, col: BoardCol) => void;
   canHqChat: boolean;
-  showRm: boolean;
   onOpenChat: (caseId: string) => void;
   paidTodayByCase: Map<string, number>;
 }) {
@@ -903,17 +898,17 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, showRm, onOpenCh
                     <p className="font-semibold text-sm tabular-nums">{formatINR(dv.outstanding)}</p>
                     <div className="flex flex-wrap gap-1">
                       {dv.activePtp && (
-                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900' : 'bg-muted text-muted-foreground border-border'}`}>
+                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-muted text-muted-foreground border-border'}`}>
                           PTP {shortDate(dv.activePtp.date)}{dv.activePtp.amount ? ` · ${formatCompactINR(dv.activePtp.amount)}` : ''}
                         </span>
                       )}
                       {dv.brokenPtp && (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-red-100 text-red-900 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
                           Broke PTP {shortDate(dv.brokenPtp.date)}
                         </span>
                       )}
                       {paidToday && (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-100 text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-900">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
                           ₹ {formatCompactINR(paidToday)} received today
                         </span>
                       )}
@@ -925,10 +920,10 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, showRm, onOpenCh
                     </div>
                     <div className="flex items-center justify-between pt-0.5">
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {showRm ? `${dv.rmName} · ` : ''}
+                        {dv.rmName}
                         {dv.lastContactDays !== null
-                          ? `contact ${dv.lastContactDays}d ago`
-                          : 'no contact'}
+                          ? ` · contact ${dv.lastContactDays}d ago`
+                          : ' · no contact'}
                       </p>
                       <div className="flex items-center gap-0.5 shrink-0">
                         {canHqChat && (
@@ -965,7 +960,7 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, showRm, onOpenCh
 // ─────────────────────────────────────────────────────────────────────────────
 // Case row (list view)
 // ─────────────────────────────────────────────────────────────────────────────
-function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, showSelect, showRm, canEscalate, canHqChat, canLogPayment, escalationThresholds, hqLogs, relatedCases, onOpenChat }: {
+function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, showSelect, canEscalate, canHqChat, canLogPayment, escalationThresholds, hqLogs, relatedCases, onOpenChat }: {
   c: Case;
   dv: Derived;
   expanded: boolean;
@@ -973,7 +968,6 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   selected: boolean;
   onToggleSelect: () => void;
   showSelect: boolean;
-  showRm: boolean;
   canEscalate: boolean;
   canHqChat: boolean;
   canLogPayment: boolean;
@@ -1079,12 +1073,12 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                   {dv.worstDpd}d{isEscalated ? ` · L${c.escalation_level}` : ''}
                 </span>
                 {dv.activePtp && (
-                  <span className={`text-[11px] font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-amber-900 bg-amber-100 border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900' : 'text-muted-foreground bg-muted border-border'}`}>
+                  <span className={`text-[11px] font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-muted-foreground bg-muted border-border'}`}>
                     PTP {shortDate(dv.activePtp.date)}
                   </span>
                 )}
                 {dv.brokenPtp && (
-                  <span className="text-[11px] font-semibold text-red-900 bg-red-100 border border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
                     Broke PTP
                   </span>
                 )}
@@ -1097,12 +1091,8 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     <Building2 size={11} /> {dv.contractorName}
                   </span>
                 )}
-                {showRm && (
-                  <>
-                    <span>·</span>
-                    <span>RM: <span className="text-foreground">{dv.rmName}</span></span>
-                  </>
-                )}
+                <span>·</span>
+                <span>RM: <span className="text-foreground">{dv.rmName}</span></span>
                 {(dv.lastContactDays === null || dv.lastContactDays >= 14) && (
                   <>
                     <span>·</span>
@@ -1329,13 +1319,13 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     </Button>
                   </div>
                   {dv.activePtp && (
-                    <p className="text-xs rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 px-2 py-1.5 mb-2 flex items-center gap-1.5">
+                    <p className="text-xs rounded bg-amber-50 border border-amber-200 text-amber-900 px-2 py-1.5 mb-2 flex items-center gap-1.5">
                       <CalendarClock size={12} className="shrink-0" />
                       Promised{dv.activePtp.amount ? ` ${formatINR(dv.activePtp.amount)}` : ''} by {shortDate(dv.activePtp.date)}
                     </p>
                   )}
                   {dv.brokenPtp && (
-                    <p className="text-xs rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-900 dark:text-red-200 px-2 py-1.5 mb-2 flex items-center gap-1.5">
+                    <p className="text-xs rounded bg-red-50 border border-red-200 text-red-900 px-2 py-1.5 mb-2 flex items-center gap-1.5">
                       <AlertTriangle size={12} className="shrink-0" />
                       Missed promise{dv.brokenPtp.amount ? ` of ${formatINR(dv.brokenPtp.amount)}` : ''} — was due {shortDate(dv.brokenPtp.date)}
                     </p>
@@ -1497,7 +1487,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
 
         {/* PTP status banner */}
         {dv.activePtp && (
-          <div className="px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
+          <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex items-center gap-2">
             <CalendarClock size={14} className="shrink-0" />
             <span>
               Promised{dv.activePtp.amount ? ` ${formatINR(dv.activePtp.amount)}` : ''} by{' '}
@@ -1507,7 +1497,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
           </div>
         )}
         {dv.brokenPtp && (
-          <div className="px-4 py-2.5 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-900 text-red-900 dark:text-red-200 text-xs flex items-center gap-2">
+          <div className="px-4 py-2.5 bg-red-50 border-b border-red-200 text-red-900 text-xs flex items-center gap-2">
             <AlertTriangle size={14} className="shrink-0" />
             <span>
               Missed promise{dv.brokenPtp.amount ? ` of ${formatINR(dv.brokenPtp.amount)}` : ''} — was due{' '}
@@ -1541,7 +1531,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
                   </div>
                   {parsed.text && <p className="text-sm leading-relaxed">{parsed.text}</p>}
                   {parsed.ptp && (
-                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold rounded border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 px-2 py-0.5">
+                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold rounded border bg-amber-50 border-amber-200 text-amber-900 px-2 py-0.5">
                       <CalendarClock size={11} />
                       PTP {new Date(parsed.ptp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                       {parsed.ptp.amount ? ` · ${formatINR(parsed.ptp.amount)}` : ''}
