@@ -141,11 +141,11 @@ function getBucket(days: number): BucketKey {
 }
 
 // Severity ladder: neutral → amber → red. Only 90+ shouts.
-const bucketStyles: Record<BucketKey, { strip: string; pill: string }> = {
-  '1-30':  { strip: 'bg-zinc-300 dark:bg-zinc-600',  pill: 'bg-muted text-muted-foreground border-border' },
-  '31-60': { strip: 'bg-amber-400', pill: 'bg-amber-100 text-amber-900 border-amber-200' },
-  '61-90': { strip: 'bg-amber-600', pill: 'bg-amber-200 text-amber-950 border-amber-300' },
-  '90+':   { strip: 'bg-red-600',   pill: 'bg-red-100 text-red-900 border-red-200' },
+const bucketStyles: Record<BucketKey, { strip: string; pill: string; label: string }> = {
+  '1-30':  { strip: 'bg-zinc-300 dark:bg-zinc-600',  pill: 'bg-muted text-muted-foreground border-border', label: '1–30 days' },
+  '31-60': { strip: 'bg-amber-400', pill: 'bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900', label: '31–60 days' },
+  '61-90': { strip: 'bg-amber-600', pill: 'bg-amber-200 text-amber-950 border-amber-300 dark:bg-amber-900/50 dark:text-amber-100 dark:border-amber-800', label: '61–90 days' },
+  '90+':   { strip: 'bg-red-600',   pill: 'bg-red-100 text-red-900 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900', label: 'Critical · 90+ days' },
 };
 
 // Structured log parsing: "[call] text\n[PTP 2026-06-20 ₹50,000]"
@@ -224,10 +224,38 @@ export default function CollectionsClient({
 
   const todayIso = istToday();
 
+  // Filters live in the URL — views are shareable and survive refresh.
+  const didInitFromUrl = useRef(false);
   useEffect(() => {
-    const stored = window.localStorage.getItem('collections:viewMode');
-    if (stored === 'board' || stored === 'list') setViewMode(stored);
+    const p = new URLSearchParams(window.location.search);
+    const q = p.get('q'); if (q) setSearch(q);
+    const v = p.get('view'); if (v && ['ptp', 'broken', 'untouched', 'escalated'].includes(v)) setView(v as View);
+    const b = p.get('band'); if (b && ['1-30', '31-60', '61-90', '90+'].includes(b)) setBucketFilter(b as BucketKey);
+    const rm = p.get('rm'); if (rm) setFilterRm(rm);
+    const s = p.get('sort'); if (s && ['overdue_days', 'outstanding', 'name'].includes(s)) setSortBy(s as SortKey);
+    const m = p.get('mode');
+    if (m === 'board' || m === 'list') {
+      setViewMode(m);
+    } else {
+      const stored = window.localStorage.getItem('collections:viewMode');
+      if (stored === 'board' || stored === 'list') setViewMode(stored);
+    }
+    didInitFromUrl.current = true;
   }, []);
+
+  useEffect(() => {
+    if (!didInitFromUrl.current) return;
+    const p = new URLSearchParams();
+    if (search) p.set('q', search);
+    if (view !== 'all') p.set('view', view);
+    if (bucketFilter) p.set('band', bucketFilter);
+    if (filterRm !== 'all') p.set('rm', filterRm);
+    if (sortBy !== 'overdue_days') p.set('sort', sortBy);
+    if (viewMode !== 'list') p.set('mode', viewMode);
+    const qs = p.toString();
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
+  }, [search, view, bucketFilter, filterRm, sortBy, viewMode]);
+
   const switchViewMode = (m: ViewMode) => {
     setViewMode(m);
     window.localStorage.setItem('collections:viewMode', m);
@@ -427,6 +455,30 @@ export default function CollectionsClient({
   const clearFilters = () => { setView('all'); setSearch(''); setFilterRm('all'); setBucketFilter(null); };
 
   const chatCase = chatOpenForCase ? collections.find(c => c.id === chatOpenForCase) : null;
+
+  // An RM only sees their own queue — repeating their name on every row is noise.
+  const showRm = currentRole !== 'rm';
+
+  const renderRow = (c: Case) => (
+    <CaseRow
+      key={c.id}
+      c={c}
+      dv={d(c)}
+      expanded={expandedCaseId === c.id}
+      onToggleExpand={() => setExpandedCaseId(expandedCaseId === c.id ? null : c.id)}
+      selected={selectedCaseIds.has(c.id)}
+      onToggleSelect={() => toggleSelection(c.id)}
+      showSelect={canBulkAssign}
+      showRm={showRm}
+      canEscalate={canEscalate}
+      canHqChat={canHqChat}
+      canLogPayment={canLogPayment}
+      escalationThresholds={escalations}
+      hqLogs={hqLogs.filter(l => l.case_id === c.id)}
+      relatedCases={relatedCases}
+      onOpenChat={() => setChatOpenForCase(c.id)}
+    />
+  );
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -655,31 +707,32 @@ export default function CollectionsClient({
           boardColOf={boardColOf}
           moveCard={moveCard}
           canHqChat={canHqChat}
+          showRm={showRm}
           onOpenChat={setChatOpenForCase}
           paidTodayByCase={paidTodayByCase}
         />
-      ) : (
-        <div className="space-y-2">
-          {sorted.map(c => (
-            <CaseRow
-              key={c.id}
-              c={c}
-              dv={d(c)}
-              expanded={expandedCaseId === c.id}
-              onToggleExpand={() => setExpandedCaseId(expandedCaseId === c.id ? null : c.id)}
-              selected={selectedCaseIds.has(c.id)}
-              onToggleSelect={() => toggleSelection(c.id)}
-              showSelect={canBulkAssign}
-              canEscalate={canEscalate}
-              canHqChat={canHqChat}
-              canLogPayment={canLogPayment}
-              escalationThresholds={escalations}
-              hqLogs={hqLogs.filter(l => l.case_id === c.id)}
-              relatedCases={relatedCases}
-              onOpenChat={() => setChatOpenForCase(c.id)}
-            />
-          ))}
+      ) : sortBy === 'overdue_days' && !bucketFilter ? (
+        // Default sort groups the queue into severity sections — the sections
+        // themselves are the aging distribution, worst first.
+        <div className="space-y-5">
+          {(['90+', '61-90', '31-60', '1-30'] as BucketKey[]).map(bk => {
+            const group = sorted.filter(c => d(c).bucket === bk);
+            if (group.length === 0) return null;
+            const sum = group.reduce((s, c) => s + d(c).outstanding, 0);
+            return (
+              <div key={bk} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-block w-2 h-2 rounded-sm ${bucketStyles[bk].strip}`} />
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{bucketStyles[bk].label}</p>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{group.length} · {formatCompactINR(sum)}</span>
+                </div>
+                {group.map(renderRow)}
+              </div>
+            );
+          })}
         </div>
+      ) : (
+        <div className="space-y-2">{sorted.map(renderRow)}</div>
       )}
 
       {/* Floating bulk-action bar */}
@@ -777,12 +830,13 @@ const BOARD_COLS: { key: BoardCol; label: string; hint: string }[] = [
   { key: 'done',    label: 'Done today', hint: 'Followed up or paid' },
 ];
 
-function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paidTodayByCase }: {
+function BoardView({ cases, d, boardColOf, moveCard, canHqChat, showRm, onOpenChat, paidTodayByCase }: {
   cases: Case[];
   d: (c: Case) => Derived;
   boardColOf: (c: Case) => BoardCol;
   moveCard: (caseId: string, col: BoardCol) => void;
   canHqChat: boolean;
+  showRm: boolean;
   onOpenChat: (caseId: string) => void;
   paidTodayByCase: Map<string, number>;
 }) {
@@ -842,39 +896,39 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
                           </p>
                         )}
                       </div>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${bucketStyles[dv.bucket].pill}`}>
+                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${bucketStyles[dv.bucket].pill}`}>
                         {dv.worstDpd}d
                       </span>
                     </div>
                     <p className="font-semibold text-sm tabular-nums">{formatINR(dv.outstanding)}</p>
                     <div className="flex flex-wrap gap-1">
                       {dv.activePtp && (
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-muted text-muted-foreground border-border'}`}>
+                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900' : 'bg-muted text-muted-foreground border-border'}`}>
                           PTP {shortDate(dv.activePtp.date)}{dv.activePtp.amount ? ` · ${formatCompactINR(dv.activePtp.amount)}` : ''}
                         </span>
                       )}
                       {dv.brokenPtp && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-red-100 text-red-900 border-red-200">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-red-100 text-red-900 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900">
                           Broke PTP {shortDate(dv.brokenPtp.date)}
                         </span>
                       )}
                       {paidToday && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-100 text-emerald-900 border-emerald-200">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-100 text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-900">
                           ₹ {formatCompactINR(paidToday)} received today
                         </span>
                       )}
                       {(c.escalation_level ?? 0) > 0 && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-muted text-muted-foreground border-border">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-muted text-muted-foreground border-border">
                           L{c.escalation_level}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center justify-between pt-0.5">
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {dv.rmName}
+                        {showRm ? `${dv.rmName} · ` : ''}
                         {dv.lastContactDays !== null
-                          ? ` · contact ${dv.lastContactDays}d ago`
-                          : ' · no contact'}
+                          ? `contact ${dv.lastContactDays}d ago`
+                          : 'no contact'}
                       </p>
                       <div className="flex items-center gap-0.5 shrink-0">
                         {canHqChat && (
@@ -911,7 +965,7 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
 // ─────────────────────────────────────────────────────────────────────────────
 // Case row (list view)
 // ─────────────────────────────────────────────────────────────────────────────
-function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, showSelect, canEscalate, canHqChat, canLogPayment, escalationThresholds, hqLogs, relatedCases, onOpenChat }: {
+function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, showSelect, showRm, canEscalate, canHqChat, canLogPayment, escalationThresholds, hqLogs, relatedCases, onOpenChat }: {
   c: Case;
   dv: Derived;
   expanded: boolean;
@@ -919,6 +973,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   selected: boolean;
   onToggleSelect: () => void;
   showSelect: boolean;
+  showRm: boolean;
   canEscalate: boolean;
   canHqChat: boolean;
   canLogPayment: boolean;
@@ -935,7 +990,11 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   const [paymentError, setPaymentError] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState('');
   const [confirmEscalate, setConfirmEscalate] = useState(false);
+  const [payTrancheIdx, setPayTrancheIdx] = useState<number | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
+
+  // Payment allocation: oldest overdue tranche by default, user can choose.
+  const payTranche = dv.overdueTranches.find(t => t.trancheIndex === payTrancheIdx) || dv.overdueTranches[0];
 
   const isEscalated = (c.escalation_level ?? 0) > 0;
   const nextLevel = (c.escalation_level ?? 0) + 1;
@@ -959,7 +1018,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   const submitPayment = async () => {
     setPaymentSubmitting(true);
     setPaymentError('');
-    if (dv.overdueTranches.length === 0) {
+    if (!payTranche) {
       setPaymentError('No overdue tranches found for this case.');
       setPaymentSubmitting(false);
       return;
@@ -969,7 +1028,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
     fd.set('amount', paymentAmount);
     fd.set('paymentDate', paymentDate);
     fd.set('description', paymentNote || 'Logged from Collections dashboard');
-    fd.set('trancheIndex', dv.overdueTranches[0].trancheIndex.toString());
+    fd.set('trancheIndex', payTranche.trancheIndex.toString());
     try {
       await handleLogPayment(fd);
       setPaymentSuccess(`Payment of ${formatINR(parseInt(paymentAmount, 10) || 0)} recorded.`);
@@ -989,10 +1048,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
 
   return (
     <Card className="overflow-hidden border-border hover:border-foreground/20 transition-colors">
-      <div className="flex">
-        <div className={`w-1 shrink-0 ${bucketStyles[dv.bucket].strip}`} />
-
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0">
           {/* Collapsed row */}
           <div
             role="button"
@@ -1019,16 +1075,16 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-sm sm:text-base truncate">{dv.customerName}</h3>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${bucketStyles[dv.bucket].pill}`}>
+                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${bucketStyles[dv.bucket].pill}`}>
                   {dv.worstDpd}d{isEscalated ? ` · L${c.escalation_level}` : ''}
                 </span>
                 {dv.activePtp && (
-                  <span className={`text-[10px] font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-amber-900 bg-amber-100 border-amber-300' : 'text-muted-foreground bg-muted border-border'}`}>
+                  <span className={`text-[11px] font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-amber-900 bg-amber-100 border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900' : 'text-muted-foreground bg-muted border-border'}`}>
                     PTP {shortDate(dv.activePtp.date)}
                   </span>
                 )}
                 {dv.brokenPtp && (
-                  <span className="text-[10px] font-semibold text-red-900 bg-red-100 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-red-900 bg-red-100 border border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900 rounded px-1.5 py-0.5 uppercase tracking-wider">
                     Broke PTP
                   </span>
                 )}
@@ -1041,8 +1097,12 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     <Building2 size={11} /> {dv.contractorName}
                   </span>
                 )}
-                <span>·</span>
-                <span>RM: <span className="text-foreground">{dv.rmName}</span></span>
+                {showRm && (
+                  <>
+                    <span>·</span>
+                    <span>RM: <span className="text-foreground">{dv.rmName}</span></span>
+                  </>
+                )}
                 {(dv.lastContactDays === null || dv.lastContactDays >= 14) && (
                   <>
                     <span>·</span>
@@ -1054,10 +1114,10 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
               </div>
             </div>
 
-            {/* Money block */}
-            <div className="text-right shrink-0 w-28 sm:w-36">
+            {/* Money block — compact in the row, exact figures in the expanded panel */}
+            <div className="text-right shrink-0 w-24 sm:w-32" title={`${formatINR(dv.outstanding)} outstanding · ${formatINR(dv.collected)} of ${formatINR(dv.billed)} collected`}>
               <p className="font-semibold text-sm sm:text-base tabular-nums">
-                {formatINR(dv.outstanding)}
+                {formatCompactINR(dv.outstanding)}
               </p>
               <div className="h-1 rounded-full bg-muted mt-1.5 overflow-hidden" title={`${formatCompactINR(dv.collected)} of ${formatCompactINR(dv.billed)} collected`}>
                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${dv.collectedPct}%` }} />
@@ -1095,7 +1155,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
               {/* Tranche breakdown */}
               {dv.overdueTranches.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
+                  <p className="text-[11px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
                     Overdue tranches
                   </p>
                   <div className="rounded-md border bg-background overflow-hidden">
@@ -1119,7 +1179,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                             <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatINR(t.paidAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums font-semibold">{formatINR(t.outstanding)}</td>
                             <td className="px-3 py-2 text-right">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(t.daysOverdue)].pill}`}>
+                              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(t.daysOverdue)].pill}`}>
                                 {t.daysOverdue}d
                               </span>
                             </td>
@@ -1163,7 +1223,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                           <span className="truncate flex-1">{partyName(r.customer) || displayCaseNumber(r) || 'Case'}</span>
                           <span className="text-muted-foreground">{r.status}</span>
                           {rDpd > 0 && (
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(rDpd)].pill}`}>
+                            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(rDpd)].pill}`}>
                               {rDpd}d
                             </span>
                           )}
@@ -1186,9 +1246,22 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     <div className="flex items-center gap-2">
                       <IndianRupee size={14} className="text-emerald-700" />
                       <p className="text-xs font-semibold">Record payment</p>
-                      {worstTranche && (
-                        <span className="text-[10px] text-muted-foreground ml-auto">
-                          applies to T{dv.overdueTranches[0].trancheIndex + 1}
+                      {dv.overdueTranches.length > 1 ? (
+                        <select
+                          value={payTranche?.trancheIndex ?? 0}
+                          onChange={e => setPayTrancheIdx(parseInt(e.target.value, 10))}
+                          className="text-[11px] border rounded px-1.5 py-0.5 bg-background ml-auto"
+                          aria-label="Apply payment to tranche"
+                        >
+                          {dv.overdueTranches.map(t => (
+                            <option key={t.trancheIndex} value={t.trancheIndex}>
+                              T{t.trancheIndex + 1} · due {shortDate(t.dueDate)} · {formatCompactINR(t.outstanding)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : payTranche && (
+                        <span className="text-[11px] text-muted-foreground ml-auto">
+                          applies to T{payTranche.trancheIndex + 1}
                         </span>
                       )}
                     </div>
@@ -1226,14 +1299,14 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                       >
                         {paymentSubmitting ? 'Saving…' : 'Save payment'}
                       </Button>
-                      {worstTranche && (
+                      {payTranche && (
                         <Button
                           size="sm"
                           variant="ghost"
                           type="button"
-                          onClick={() => setPaymentAmount(worstTranche.outstanding.toString())}
+                          onClick={() => setPaymentAmount(payTranche.outstanding.toString())}
                         >
-                          Settle T{worstTranche.trancheIndex + 1} ({formatINR(worstTranche.outstanding)})
+                          Settle T{payTranche.trancheIndex + 1} ({formatINR(payTranche.outstanding)})
                         </Button>
                       )}
                     </div>
@@ -1275,7 +1348,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                         const parsed = parseLog(log.message);
                         return (
                           <div key={log.id} className="text-xs">
-                            <div className="flex justify-between text-muted-foreground text-[10px] mb-0.5">
+                            <div className="flex justify-between text-muted-foreground text-[11px] mb-0.5">
                               <span className="font-semibold text-foreground">{log.logged_by_user?.full_name || 'System'}</span>
                               <span>{shortDate(log.created_at)}</span>
                             </div>
@@ -1307,13 +1380,19 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                   </Button>
                 )}
                 {canEscalate && confirmEscalate && (
-                  <form action={handleEscalateCase} className="flex items-center gap-2">
+                  <form action={handleEscalateCase} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="caseId" value={c.id} />
                     <input type="hidden" name="trancheIndex" value={worstTranche?.trancheIndex ?? 0} />
                     <input type="hidden" name="targetRole" value={targetRole} />
                     <span className="text-xs text-muted-foreground">
                       Escalate to L{Math.min(3, nextLevel)} ({targetRole.replace('_', ' ')})?
                     </span>
+                    <input
+                      type="text"
+                      name="reason"
+                      placeholder="Reason (optional)"
+                      className="border rounded px-2 h-8 text-xs bg-background w-44"
+                    />
                     <SubmitButton type="submit" variant="destructive" size="sm" loadingText="Escalating…">
                       Confirm
                     </SubmitButton>
@@ -1331,7 +1410,6 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
             </div>
           )}
         </div>
-      </div>
     </Card>
   );
 }
