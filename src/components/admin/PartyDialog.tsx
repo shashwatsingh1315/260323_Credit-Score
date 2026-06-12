@@ -27,6 +27,7 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedType(editingParty?.party_type || 'both');
       setInfluencerSubtype(editingParty?.influencer_subtype || 'contractor');
     }
@@ -106,7 +107,7 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
               <div className="flex justify-between items-center">
                 <Label>Customer Code / ID *</Label>
                 {(selectedType === 'influencer' || selectedType === 'both') && (
-                  <button type="button" onClick={handleGenerate} className="text-[10px] text-primary flex items-center gap-1 hover:underline disabled:opacity-50" disabled={generating}>
+                  <button type="button" onClick={handleGenerate} className="text-xs text-primary flex items-center gap-1 hover:underline disabled:opacity-50" disabled={generating}>
                     <Wand2 size={10} /> {generating ? '...' : 'Auto-Generate'}
                   </button>
                 )}

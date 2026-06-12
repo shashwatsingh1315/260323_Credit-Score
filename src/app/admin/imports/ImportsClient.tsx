@@ -173,7 +173,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                     <tbody className="divide-y">
                       {preview.slice(0, 5).map((row, i) => (
                         <tr key={i}>
-                          {Object.values(row).map((v: any, j) => <td key={j} className="p-2 truncate max-w-[150px]">{v}</td>)}
+                          {Object.values(row).map((v: any, j) => <td key={j} className="p-2 truncate max-w-36">{v}</td>)}
                         </tr>
                       ))}
                     </tbody>
@@ -204,25 +204,25 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                     <TableRow key={j.id}>
                       <TableCell className="capitalize text-xs font-medium">{j.import_type.replace('_', ' ')}</TableCell>
                       <TableCell>
-                        <Badge variant={j.status === 'completed' ? 'success' : j.status === 'failed' ? 'destructive' : 'warning'} className="text-tiny">
+                        <Badge variant={j.status === 'completed' ? 'success' : j.status === 'failed' ? 'destructive' : 'warning'} className="text-xs">
                           {j.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs">
                         {j.records_processed} / {j.records_total}
                         {j.records_failed > 0 && (
-                          <div className="text-destructive text-[10px] mt-0.5 flex items-center gap-1">
+                          <div className="text-destructive text-xs mt-0.5 flex items-center gap-1">
                             <AlertCircle size={10} />
                             {j.records_failed} failed
                             {j.error_details && j.error_details[0] && (
-                              <span className="text-muted-foreground italic truncate max-w-[150px]">
+                              <span className="text-muted-foreground italic truncate max-w-36">
                                 ({j.error_details[0].error})
                               </span>
                             )}
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-tiny text-muted-foreground">
+                      <TableCell className="text-xs text-muted-foreground">
                         {new Date(j.created_at).toLocaleString()}
                       </TableCell>
                     </TableRow>
