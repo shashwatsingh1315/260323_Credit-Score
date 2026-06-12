@@ -1,0 +1,6 @@
+✨ Aura: Design System Magic Number Refactoring
+
+- Established DESIGN_STYLE.md and token learning process
+- Removed percentage brackets `left-[50%]` and replaced with standard `left-1/2`
+- Replaced `w-[200px]`, `min-h-[80px]` etc. with standard tokens `w-48`, `min-h-20`
+- Replaced arbitrary text sizing `text-[10px]` with standard tokens `text-xs`
