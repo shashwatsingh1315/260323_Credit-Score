@@ -21,7 +21,7 @@ export default async function RootLayout({
   const initialActiveRole = await getImpersonationRole();
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className={`${inter.variable} font-sans`}>
         <Shell initialActiveRole={initialActiveRole || 'viewer'}>{children}</Shell>
         <Toaster richColors position="top-right" />
