@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
@@ -11,7 +12,8 @@ export default async function CollectionsPage() {
     return (
       <div className="flex flex-col items-center justify-center p-20 text-center">
         <h2 className="text-2xl font-bold tracking-tight mb-2">Access Denied</h2>
-        <p className="text-muted-foreground">You do not have permission to view collections.</p>
+        <p className="text-muted-foreground mb-4">You do not have permission to view collections.</p>
+        <Link href="/" className="text-sm text-primary hover:underline">← Back to dashboard</Link>
       </div>
     );
   }

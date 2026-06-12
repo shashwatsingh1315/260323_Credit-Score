@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 export async function handleEscalateCase(fd: FormData) {
   const caseId = fd.get('caseId') as string;
   const trancheIndex = parseInt((fd.get('trancheIndex') as string) || '0', 10);
+  const reason = ((fd.get('reason') as string) || '').trim();
   if (!caseId) return;
 
   const supabase = await createClient();
@@ -34,7 +35,7 @@ export async function handleEscalateCase(fd: FormData) {
       tranche_index: trancheIndex,
       level: nextLevel,
       status: 'open',
-      trigger_reason: 'Manual escalation from collections dashboard',
+      trigger_reason: reason || 'Manual escalation from collections dashboard',
       assigned_to: user.id,
     }, { onConflict: 'case_id,tranche_index,level' })
     .select('id')
@@ -46,7 +47,7 @@ export async function handleEscalateCase(fd: FormData) {
       escalation_id: escalation.id,
       logged_by: user.id,
       action_type: 'note',
-      outcome: `Escalated to Level ${nextLevel} by ${user.full_name ?? 'unknown'}`,
+      outcome: `Escalated to Level ${nextLevel} by ${user.full_name ?? 'unknown'}${reason ? ` — ${reason}` : ''}`,
       next_followup_at: null,
     });
   }
