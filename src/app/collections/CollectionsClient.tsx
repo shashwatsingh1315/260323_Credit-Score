@@ -181,6 +181,7 @@ interface Derived {
   contractorName: string | null;
   rmName: string;
   caseNo: string | null;
+  siteId: string | null;
   isLegacy: boolean;
   activePtp: { date: string; amount: number | null } | null;
   brokenPtp: { date: string; amount: number | null } | null;
@@ -218,6 +219,7 @@ export default function CollectionsClient({
   const [selectedCaseIds, setSelectedCaseIds] = useState<Set<string>>(new Set());
   const [selectedRm, setSelectedRm] = useState('');
   const [chatOpenForCase, setChatOpenForCase] = useState<string | null>(null);
+  const [boardDetailCaseId, setBoardDetailCaseId] = useState<string | null>(null);
 
   // Optimistic board moves (caseId → column), reconciled by revalidation.
   const [boardOverrides, setBoardOverrides] = useState<Record<string, BoardCol>>({});
@@ -314,6 +316,7 @@ export default function CollectionsClient({
         contractorName: contractorName && contractorName !== customerName ? contractorName : null,
         rmName: getRmName(c),
         caseNo: displayCaseNumber(c),
+        siteId: (c.case_attributes as any)?.site_id || null,
         isLegacy: !!(c.case_attributes?.grandfathered || c.case_attributes?.imported),
         activePtp,
         brokenPtp,
@@ -340,6 +343,7 @@ export default function CollectionsClient({
         const hit = dv.customerName.toLowerCase().includes(q)
           || (dv.contractorName || '').toLowerCase().includes(q)
           || (dv.caseNo || '').toLowerCase().includes(q)
+          || (dv.siteId || '').toLowerCase().includes(q)
           || dv.rmName.toLowerCase().includes(q);
         if (!hit) return false;
       }
@@ -704,6 +708,7 @@ export default function CollectionsClient({
           moveCard={moveCard}
           canHqChat={canHqChat}
           onOpenChat={setChatOpenForCase}
+          onOpenDetail={setBoardDetailCaseId}
           paidTodayByCase={paidTodayByCase}
         />
       ) : sortBy === 'overdue_days' && !bucketFilter ? (
@@ -776,6 +781,27 @@ export default function CollectionsClient({
           onClose={() => setChatOpenForCase(null)}
         />
       )}
+
+      {/* Board card detail drawer */}
+      {boardDetailCaseId && (() => {
+        const bc = collections.find(x => x.id === boardDetailCaseId);
+        if (!bc) return null;
+        const bdv = d(bc);
+        return (
+          <BoardDetailDrawer
+            c={bc}
+            dv={bdv}
+            canLogPayment={canLogPayment}
+            canEscalate={canEscalate}
+            canHqChat={canHqChat}
+            escalationThresholds={escalations}
+            hqLogs={hqLogs.filter(l => l.case_id === bc.id)}
+            relatedCases={relatedCases}
+            onOpenChat={() => { setBoardDetailCaseId(null); setChatOpenForCase(bc.id); }}
+            onClose={() => setBoardDetailCaseId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -826,13 +852,14 @@ const BOARD_COLS: { key: BoardCol; label: string; hint: string }[] = [
   { key: 'done',    label: 'Done today', hint: 'Followed up or paid' },
 ];
 
-function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paidTodayByCase }: {
+function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, onOpenDetail, paidTodayByCase }: {
   cases: Case[];
   d: (c: Case) => Derived;
   boardColOf: (c: Case) => BoardCol;
   moveCard: (caseId: string, col: BoardCol) => void;
   canHqChat: boolean;
   onOpenChat: (caseId: string) => void;
+  onOpenDetail: (caseId: string) => void;
   paidTodayByCase: Map<string, number>;
 }) {
   const [dragOverCol, setDragOverCol] = useState<BoardCol | null>(null);
@@ -880,11 +907,15 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
                     key={c.id}
                     draggable
                     onDragStart={e => e.dataTransfer.setData('text/plain', c.id)}
-                    className="rounded-md border bg-background p-2.5 shadow-sm cursor-grab active:cursor-grabbing space-y-1.5"
+                    onClick={() => onOpenDetail(c.id)}
+                    className="rounded-md border bg-background p-2.5 shadow-sm cursor-pointer hover:border-foreground/30 space-y-1.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-sm truncate">{dv.customerName}</p>
+                        {dv.siteId && (
+                          <p className="text-[11px] text-muted-foreground truncate font-mono">{dv.siteId}</p>
+                        )}
                         {dv.contractorName && (
                           <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
                             <Building2 size={10} className="shrink-0" /> {dv.contractorName}
@@ -1084,10 +1115,10 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                {dv.caseNo && <span className="font-mono">{dv.caseNo}</span>}
+                {(dv.siteId || dv.caseNo) && <span className="font-mono">{dv.siteId || dv.caseNo}</span>}
                 {dv.contractorName && (
                   <span className="flex items-center gap-1">
-                    {dv.caseNo && <span>·</span>}
+                    {(dv.siteId || dv.caseNo) && <span>·</span>}
                     <Building2 size={11} /> {dv.contractorName}
                   </span>
                 )}
@@ -1401,6 +1432,401 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
           )}
         </div>
     </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Board detail drawer — shows same content as list-view expanded panel
+// ─────────────────────────────────────────────────────────────────────────────
+function BoardDetailDrawer({ c, dv, canLogPayment, canEscalate, canHqChat, escalationThresholds, hqLogs, relatedCases, onOpenChat, onClose }: {
+  c: Case;
+  dv: Derived;
+  canLogPayment: boolean;
+  canEscalate: boolean;
+  canHqChat: boolean;
+  escalationThresholds: any[];
+  hqLogs: any[];
+  relatedCases: RelatedCase[];
+  onOpenChat: () => void;
+  onClose: () => void;
+}) {
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(istToday());
+  const [paymentNote, setPaymentNote] = useState('');
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentSuccess, setPaymentSuccess] = useState('');
+  const [confirmEscalate, setConfirmEscalate] = useState(false);
+  const [payTrancheIdx, setPayTrancheIdx] = useState<number | null>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+
+  const payTranche = dv.overdueTranches.find(t => t.trancheIndex === payTrancheIdx) || dv.overdueTranches[0];
+  const isEscalated = (c.escalation_level ?? 0) > 0;
+  const nextLevel = (c.escalation_level ?? 0) + 1;
+  const targetRole = escalationThresholds.find(e => e.escalation_level === nextLevel)?.escalate_to_role || 'founder_admin';
+  const worstTranche = dv.overdueTranches.length > 0
+    ? dv.overdueTranches.reduce((a, b) => (b.daysOverdue > a.daysOverdue ? b : a))
+    : undefined;
+
+  const keyParty = c.contractor_party_id || c.customer_party_id;
+  const related = useMemo(() =>
+    keyParty
+      ? relatedCases.filter(r => r.id !== c.id && (r.contractor_party_id === keyParty || r.customer_party_id === keyParty))
+      : [],
+    [relatedCases, keyParty, c.id]
+  );
+  const relatedBilled = related.reduce((s, r) => s + (r.decided_bill_amount || r.bill_amount || 0), 0);
+  const relatedOutstanding = related.reduce((s, r) => s + getOutstanding(r), 0);
+  const relatedOverdueCount = related.filter(r => computeOverdueTranches(r).length > 0).length;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const submitPayment = async () => {
+    setPaymentSubmitting(true);
+    setPaymentError('');
+    if (!payTranche) {
+      setPaymentError('No overdue tranches found for this case.');
+      setPaymentSubmitting(false);
+      return;
+    }
+    const fd = new FormData();
+    fd.set('caseId', c.id);
+    fd.set('amount', paymentAmount);
+    fd.set('paymentDate', paymentDate);
+    fd.set('description', paymentNote || 'Logged from Collections board');
+    fd.set('trancheIndex', payTranche.trancheIndex.toString());
+    try {
+      await handleLogPayment(fd);
+      setPaymentSuccess(`Payment of ${formatINR(parseInt(paymentAmount, 10) || 0)} recorded.`);
+      setPaymentAmount('');
+      setPaymentNote('');
+    } catch (e: any) {
+      setPaymentError(e.message);
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[520px] bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
+        role="dialog"
+        aria-label="Case details"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-sm truncate">{dv.customerName}</h3>
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[dv.bucket].pill}`}>
+                {dv.worstDpd}d{isEscalated ? ` · L${c.escalation_level}` : ''}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground truncate">
+              {dv.siteId && <span className="font-mono">{dv.siteId} · </span>}
+              {dv.contractorName ? `${dv.contractorName} · ` : ''}
+              {formatINR(dv.outstanding)} outstanding
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+            <X size={16} />
+          </Button>
+        </div>
+
+        {/* PTP / broken banners */}
+        {dv.activePtp && (
+          <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+            <CalendarClock size={14} className="shrink-0" />
+            Promised{dv.activePtp.amount ? ` ${formatINR(dv.activePtp.amount)}` : ''} by {shortDate(dv.activePtp.date)}
+          </div>
+        )}
+        {dv.brokenPtp && (
+          <div className="px-4 py-2.5 bg-red-50 border-b border-red-200 text-red-900 text-xs flex items-center gap-2">
+            <AlertTriangle size={14} className="shrink-0" />
+            Missed promise{dv.brokenPtp.amount ? ` of ${formatINR(dv.brokenPtp.amount)}` : ''} — was due {shortDate(dv.brokenPtp.date)}
+          </div>
+        )}
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Money summary */}
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="text-[11px] uppercase font-bold tracking-wider text-muted-foreground">Outstanding</p>
+              <p className="text-lg font-bold tabular-nums">{formatINR(dv.outstanding)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase font-bold tracking-wider text-muted-foreground">Billed</p>
+              <p className="text-sm tabular-nums text-muted-foreground">{formatINR(dv.billed)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase font-bold tracking-wider text-muted-foreground">Collected</p>
+              <p className="text-sm tabular-nums text-muted-foreground">{formatINR(dv.collected)} ({dv.collectedPct}%)</p>
+            </div>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${dv.collectedPct}%` }} />
+          </div>
+
+          {dv.isLegacy && (
+            <p className="text-xs text-muted-foreground italic">
+              No scoring trail — this case was grandfathered from a legacy system.
+            </p>
+          )}
+
+          {/* RM info */}
+          <p className="text-xs text-muted-foreground">
+            RM: <span className="text-foreground font-medium">{dv.rmName}</span>
+            {dv.lastContactDays !== null
+              ? ` · last contact ${dv.lastContactDays}d ago`
+              : ' · no contact logged'}
+          </p>
+
+          {/* Tranche breakdown */}
+          {dv.overdueTranches.length > 0 && (
+            <div>
+              <p className="text-[11px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
+                Overdue tranches
+              </p>
+              <div className="rounded-md border bg-background overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/40">
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-3 py-2 font-medium">#</th>
+                      <th className="px-3 py-2 font-medium">Due date</th>
+                      <th className="px-3 py-2 font-medium text-right">Expected</th>
+                      <th className="px-3 py-2 font-medium text-right">Paid</th>
+                      <th className="px-3 py-2 font-medium text-right">Outstanding</th>
+                      <th className="px-3 py-2 font-medium text-right">DPD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dv.overdueTranches.map(t => (
+                      <tr key={t.trancheIndex} className="border-t">
+                        <td className="px-3 py-2 font-mono">T{t.trancheIndex + 1}</td>
+                        <td className="px-3 py-2">{t.dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatINR(t.expectedAmount)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatINR(t.paidAmount)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold">{formatINR(t.outstanding)}</td>
+                        <td className="px-3 py-2 text-right">
+                          <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(t.daysOverdue)].pill}`}>
+                            {t.daysOverdue}d
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {c.billing_date && (
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Billing date: {new Date(c.billing_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {' · '}Credit terms: {c.composite_credit_days || 0} days
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Contractor exposure roll-up */}
+          {related.length > 0 && (
+            <div className="rounded-md border bg-background p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 size={14} className="text-muted-foreground" />
+                <p className="text-xs font-semibold">
+                  {dv.contractorName || dv.customerName} — {related.length} other billed case{related.length !== 1 ? 's' : ''}
+                </p>
+                <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
+                  {formatCompactINR(relatedBilled)} billed · {formatCompactINR(relatedOutstanding)} outstanding
+                  {relatedOverdueCount > 0 && <span className="text-red-700 font-medium"> · {relatedOverdueCount} overdue</span>}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {related.slice(0, 6).map(r => {
+                  const rOut = getOutstanding(r);
+                  const rDpd = Math.max(0, ...computeOverdueTranches(r).map(t => t.daysOverdue));
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/cases/${r.id}`}
+                      className="flex items-center gap-2 text-xs rounded px-2 py-1.5 -mx-2 hover:bg-muted/60"
+                    >
+                      <span className="truncate flex-1">{partyName(r.customer) || displayCaseNumber(r) || 'Case'}</span>
+                      <span className="text-muted-foreground">{r.status}</span>
+                      {rDpd > 0 && (
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(rDpd)].pill}`}>
+                          {rDpd}d
+                        </span>
+                      )}
+                      <span className="font-semibold tabular-nums w-20 text-right">{rOut > 0 ? formatINR(rOut) : 'Paid'}</span>
+                      <ExternalLink size={11} className="text-muted-foreground shrink-0" />
+                    </Link>
+                  );
+                })}
+                {related.length > 6 && (
+                  <p className="text-[11px] text-muted-foreground px-2">+{related.length - 6} more</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Payment form */}
+          {canLogPayment ? (
+            <div className="rounded-md border bg-background p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <IndianRupee size={14} className="text-emerald-700" />
+                <p className="text-xs font-semibold">Record payment</p>
+                {dv.overdueTranches.length > 1 ? (
+                  <select
+                    value={payTranche?.trancheIndex ?? 0}
+                    onChange={e => setPayTrancheIdx(parseInt(e.target.value, 10))}
+                    className="text-[11px] border rounded px-1.5 py-0.5 bg-background ml-auto"
+                    aria-label="Apply payment to tranche"
+                  >
+                    {dv.overdueTranches.map(t => (
+                      <option key={t.trancheIndex} value={t.trancheIndex}>
+                        T{t.trancheIndex + 1} · due {shortDate(t.dueDate)} · {formatCompactINR(t.outstanding)}
+                      </option>
+                    ))}
+                  </select>
+                ) : payTranche && (
+                  <span className="text-[11px] text-muted-foreground ml-auto">
+                    applies to T{payTranche.trancheIndex + 1}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={amountRef}
+                  type="number"
+                  placeholder="Amount ₹"
+                  value={paymentAmount}
+                  onChange={e => setPaymentAmount(e.target.value)}
+                  className="flex-1 border rounded px-2 py-1.5 text-sm bg-background"
+                />
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={e => setPaymentDate(e.target.value)}
+                  className="border rounded px-2 py-1.5 text-sm bg-background"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Reference / note (optional)"
+                value={paymentNote}
+                onChange={e => setPaymentNote(e.target.value)}
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+              />
+              {paymentError && <p className="text-xs text-destructive">{paymentError}</p>}
+              {paymentSuccess && <p className="text-xs text-emerald-700 font-medium">{paymentSuccess}</p>}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  className="bg-emerald-700 hover:bg-emerald-800"
+                  onClick={submitPayment}
+                  disabled={!paymentAmount || paymentSubmitting}
+                >
+                  {paymentSubmitting ? 'Saving…' : 'Save payment'}
+                </Button>
+                {payTranche && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    onClick={() => setPaymentAmount(payTranche.outstanding.toString())}
+                  >
+                    Settle T{payTranche.trancheIndex + 1} ({formatINR(payTranche.outstanding)})
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-md border bg-background p-3 text-xs text-muted-foreground">
+              Payments are recorded by Accounts / KAM. Outstanding here: <span className="font-semibold text-foreground">{formatINR(dv.outstanding)}</span>.
+            </div>
+          )}
+
+          {/* Recent contact */}
+          <div className="rounded-md border bg-background p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <MessageSquare size={14} className="text-muted-foreground" />
+                <p className="text-xs font-semibold">Recent contact</p>
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={onOpenChat}>
+                {canHqChat ? 'Log / view' : 'View log'} <ExternalLink size={11} className="ml-1" />
+              </Button>
+            </div>
+            {hqLogs.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No interactions logged yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {hqLogs.slice(-3).reverse().map(log => {
+                  const parsed = parseLog(log.message);
+                  return (
+                    <div key={log.id} className="text-xs">
+                      <div className="flex justify-between text-muted-foreground text-[11px] mb-0.5">
+                        <span className="font-semibold text-foreground">{log.logged_by_user?.full_name || 'System'}</span>
+                        <span>{shortDate(log.created_at)}</span>
+                      </div>
+                      <p className="line-clamp-2">{parsed.text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div className="border-t px-4 py-3 flex flex-wrap items-center gap-2">
+          <Link href={`/cases/${c.id}`}>
+            <Button variant="outline" size="sm">
+              <ExternalLink size={13} className="mr-1.5" /> Open case
+            </Button>
+          </Link>
+          {canEscalate && !confirmEscalate && (
+            <Button variant="outline" size="sm" type="button" onClick={() => setConfirmEscalate(true)}>
+              <ArrowUpRight size={13} className="mr-1.5" />
+              {isEscalated ? `Escalate to L${Math.min(3, nextLevel)}` : 'Escalate'}
+            </Button>
+          )}
+          {canEscalate && confirmEscalate && (
+            <form action={handleEscalateCase} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="caseId" value={c.id} />
+              <input type="hidden" name="trancheIndex" value={worstTranche?.trancheIndex ?? 0} />
+              <input type="hidden" name="targetRole" value={targetRole} />
+              <span className="text-xs text-muted-foreground">
+                Escalate to L{Math.min(3, nextLevel)} ({targetRole.replace('_', ' ')})?
+              </span>
+              <input
+                type="text"
+                name="reason"
+                placeholder="Reason (optional)"
+                className="border rounded px-2 h-8 text-xs bg-background w-44"
+              />
+              <SubmitButton type="submit" variant="destructive" size="sm" loadingText="Escalating…">
+                Confirm
+              </SubmitButton>
+              <Button variant="ghost" size="sm" type="button" onClick={() => setConfirmEscalate(false)}>
+                Cancel
+              </Button>
+            </form>
+          )}
+          {canHqChat && (
+            <Button variant="outline" size="sm" onClick={onOpenChat}>
+              <MessageSquare size={13} className="mr-1.5" /> Contact log
+            </Button>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
