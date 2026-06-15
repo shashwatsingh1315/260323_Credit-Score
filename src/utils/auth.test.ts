@@ -18,12 +18,9 @@ let mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
-<<<<<<< HEAD
       getSession: mockGetUser,
-=======
       getUser: mockGetUser,
       getSession: mockGetSession,
->>>>>>> origin/main
     },
     from: vi.fn(() => {
       const builder = {
@@ -134,7 +131,7 @@ describe('auth.ts', () => {
     });
   });
 
-  describe('logAuditEvent', () => {
+        describe('logAuditEvent', () => {
     it('inserts audit event correctly', async () => {
       mockInsert.mockResolvedValueOnce({ error: null });
 
@@ -146,25 +143,6 @@ describe('auth.ts', () => {
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
         event_type: 'test_event',
         description: 'Testing audit'
-      }));
-    });
-  });
-});
-     });
-
-      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-        event_type: 'test_event',
-        description: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
       }));
     });
   });
