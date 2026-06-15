@@ -12,7 +12,7 @@ interface StarBorderProps {
 
 export function StarBorder({ children, className, as: Component = "div" }: StarBorderProps) {
   return (
-    <Component className={cn("relative inline-block overflow-hidden rounded-xl p-[2px]", className)}>
+    <Component className={cn("relative inline-block overflow-hidden rounded-xl p-0.5", className)}>
       <motion.div
         className="absolute inset-[-100%] opacity-50"
         style={{
@@ -22,7 +22,7 @@ export function StarBorder({ children, className, as: Component = "div" }: StarB
         animate={{ rotate: [0, 360] }}
         transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
       />
-      <div className="relative h-full w-full rounded-[10px] bg-background p-4">
+      <div className="relative h-full w-full rounded-md bg-background p-4">
         {children}
       </div>
     </Component>
