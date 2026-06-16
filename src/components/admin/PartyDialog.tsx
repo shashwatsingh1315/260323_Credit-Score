@@ -27,7 +27,7 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
 
   useEffect(() => {
     if (open) {
-      setSelectedType(editingParty?.party_type || 'both');
+      setSelectedType(editingParty?.party_type || 'both'); // eslint-disable-line react-hooks/set-state-in-effect
       setInfluencerSubtype(editingParty?.influencer_subtype || 'contractor');
     }
   }, [open, editingParty]);
