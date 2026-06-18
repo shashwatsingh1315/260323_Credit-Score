@@ -96,19 +96,23 @@
 
 @layer base {
   /* Fix dropdown option colors for dark theme to prevent white-on-white text */
+  .dark {
+    color-scheme: dark;
+  }
+
   select {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
   }
 
   select option {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   /* Ensure inputs and textareas have correct dark background and text color */
   input, textarea {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
   }
 }
