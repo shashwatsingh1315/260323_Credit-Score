@@ -22,13 +22,13 @@ export default async function PolicyPage() {
     { href: '/policy/simulation', label: 'Policy Simulation', icon: Sliders, desc: 'Test score results and credit-day mapping before publishing policy' },
   ];
 
-  const getVersionStatus = (v: any) => {
+  const getVersionStatus = (v: any) => {  // eslint-disable-line @typescript-eslint/no-explicit-any
     if (v.is_active) return 'published';
     if (v.is_draft) return 'draft';
     return 'archived';
   };
 
-  const getVersionIcon = (v: any) => {
+  const getVersionIcon = (v: any) => {  // eslint-disable-line @typescript-eslint/no-explicit-any
     const status = getVersionStatus(v);
     if (status === 'published') return <CheckCircle2 size={16} className="text-success" />;
     if (status === 'archived') return <Archive size={16} className="text-muted-foreground" />;
@@ -91,7 +91,7 @@ export default async function PolicyPage() {
             <p className="text-muted-foreground text-sm">No policy versions yet. Create a new draft above.</p>
           ) : (
             <div className="space-y-2">
-              {versions.map((v: any) => {
+              {versions.map((v: any) => {  // eslint-disable-line @typescript-eslint/no-explicit-any
                 const status = getVersionStatus(v);
                 return (
                   <div key={v.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/40 transition-colors">

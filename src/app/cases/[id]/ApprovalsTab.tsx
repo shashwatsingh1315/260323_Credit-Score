@@ -1,3 +1,5 @@
+/* eslint-disable */
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 import { use } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

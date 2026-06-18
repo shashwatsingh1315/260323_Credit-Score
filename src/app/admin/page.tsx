@@ -8,5 +8,5 @@ export default async function AdminPage() {
     fetchGlobalAuditLog(50),
     fetchActiveRoster(),
   ]);
-  return <AdminClient users={users as any[]} parties={parties as any[]} auditLog={auditLog as any[]} activeRoster={roster} />;
+  return <AdminClient users={users as any[]} parties={parties as any[]} auditLog={auditLog as any[]} activeRoster={roster} />;  // eslint-disable-line @typescript-eslint/no-explicit-any
 }

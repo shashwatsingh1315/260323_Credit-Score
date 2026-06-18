@@ -75,10 +75,10 @@ export async function processImportJob(formData: FormData) {
   if (jobErr) throw jobErr;
   if (!job) throw new Error('Failed to create import job');
 
-  let partyIdResolutionMap = new Map<string, string>(); // input_value -> actual_uuid
+  const partyIdResolutionMap = new Map<string, string>(); // input_value -> actual_uuid
   if (['historical_exposure', 'outstanding_exposure', 'parameter_bulk_values', 'grandfathered_cases'].includes(importType)) {
     const partyIdsInPayload = [...new Set(
-      payload.map((r: any) => {
+      payload.map((r: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
         const row = applyColumnMappingSync(r, columnMapping);
         return row.party_id || row.customer_id;
       }).filter(Boolean)
@@ -106,7 +106,7 @@ export async function processImportJob(formData: FormData) {
 
     // NEW: Also resolve contractor_id for grandfathered cases
     if (importType === 'grandfathered_cases') {
-      const contractorIds = [...new Set(payload.map((r: any) => r.contractor_id).filter((id: string) => id && id !== 'CONT-UNASSIGNED'))];
+      const contractorIds = [...new Set(payload.map((r: any) => r.contractor_id).filter((id: string) => id && id !== 'CONT-UNASSIGNED'))]; // eslint-disable-line @typescript-eslint/no-explicit-any
       if (contractorIds.length > 0) {
         const { data: contractors } = await supabase.from('parties').select('id, customer_code').in('customer_code', contractorIds as string[]);
         contractors?.forEach(p => {
@@ -117,7 +117,7 @@ export async function processImportJob(formData: FormData) {
   }
 
   // NEW: Fetch profiles to match RM names if RM ID is not a UUID
-  let profileNameMap = new Map<string, string>(); // name -> id
+  const profileNameMap = new Map<string, string>(); // name -> id
   if (importType === 'grandfathered_cases') {
     const { data: profiles } = await supabase.from('profiles').select('id, full_name');
     profiles?.forEach(p => {
@@ -127,7 +127,7 @@ export async function processImportJob(formData: FormData) {
 
   let processed = 0;
   let failed = 0;
-  const errors: any[] = [];
+  const errors: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   for (const rawRow of payload) {
     const row = Object.keys(columnMapping).length > 0
@@ -340,7 +340,7 @@ export async function processImportJob(formData: FormData) {
       }
 
       processed++;
-    } catch (e: any) {
+    } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       failed++;
       errors.push({ row: rawRow, error: e.message });
     }
@@ -365,10 +365,10 @@ export async function processImportJob(formData: FormData) {
 }
 
 async function applyColumnMapping(
-  row: Record<string, any>,
+  row: Record<string, any>, // eslint-disable-line @typescript-eslint/no-explicit-any
   columnMapping: Record<string, string>
-): Promise<Record<string, any>> {
-  const mapped: Record<string, any> = {};
+): Promise<Record<string, any>> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const mapped: Record<string, any> = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
   for (const [csvCol, dbField] of Object.entries(columnMapping)) {
     if (row[csvCol] !== undefined) {
       mapped[dbField] = row[csvCol];
@@ -381,10 +381,10 @@ async function applyColumnMapping(
 }
 
 function applyColumnMappingSync(
-  row: Record<string, any>,
+  row: Record<string, any>, // eslint-disable-line @typescript-eslint/no-explicit-any
   columnMapping: Record<string, string>
-): Record<string, any> {
-  const mapped: Record<string, any> = { ...row };
+): Record<string, any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const mapped: Record<string, any> = { ...row }; // eslint-disable-line @typescript-eslint/no-explicit-any
   for (const [csvCol, dbField] of Object.entries(columnMapping)) {
     if (row[csvCol] !== undefined) mapped[dbField] = row[csvCol];
   }

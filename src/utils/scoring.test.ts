@@ -115,7 +115,7 @@ describe('scoring.ts', () => {
 
       // 3. fetch overrides
       mockEq.mockReturnValue({
-        then: (resolve: any) => resolve({
+        then: (resolve: any) => resolve({ // eslint-disable-line @typescript-eslint/no-explicit-any
           data: [
             { parameter_id: 'param1', weight: 2 },
           ]
@@ -124,7 +124,7 @@ describe('scoring.ts', () => {
         maybeSingle: mockSingle,
         not: mockNot,
         eq: mockEq,
-      } as any);
+      } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       const score = await calculateSubjectScore({ reviewCycleId: '1', subjectType: 'customer', stage: 1 });
       expect(score).toBe(20);

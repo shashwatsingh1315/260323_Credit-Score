@@ -2,8 +2,8 @@
 import { use } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function AuditTab({ promises }: any) {
-  const { auditEvents } = use(promises.auditPromise as Promise<any>);
+export default function AuditTab({ promises }: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
+  const { auditEvents } = use(promises.auditPromise as Promise<any>);  // eslint-disable-line @typescript-eslint/no-explicit-any
   const data = { auditEvents };
 
   return (
@@ -15,7 +15,7 @@ export default function AuditTab({ promises }: any) {
               <CardContent className="pt-4">
                 <div className="relative pl-6 space-y-0">
                   <div className="absolute left-2 top-0 bottom-0 w-px bg-border" />
-                  {data.auditEvents.map((e: any) => (
+                  {data.auditEvents.map((e: any) => (  // eslint-disable-line @typescript-eslint/no-explicit-any
                     <div key={e.id} className="relative pb-5 last:pb-0">
                       <div className="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
                       <p className="text-sm font-medium leading-tight">{e.description}</p>

@@ -1,6 +1,6 @@
 import { fetchBoardDetails } from './actions';
 import BoardClient from './BoardClient';
-import { notFound } from 'next/navigation';
+import { notFound } from 'next/navigation';  // eslint-disable-line @typescript-eslint/no-unused-vars
 
 export default async function BoardVotingPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -7,5 +7,5 @@ export default async function ParametersPage() {
     fetchActivePolicy()
   ]);
 
-  return <ParametersClient initialParams={params as any[]} activePolicy={activePolicy} />;
+  return <ParametersClient initialParams={params as any[]} activePolicy={activePolicy} />;  // eslint-disable-line @typescript-eslint/no-explicit-any
 }

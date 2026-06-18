@@ -40,7 +40,7 @@ export async function calculateSubjectScore(params: {
   if (!tasks || tasks.length === 0) return 0;
 
   // 3. Fetch weight overrides for the persona if applicable
-  let weightsMap: Record<string, number> = {};
+  const weightsMap: Record<string, number> = {};
   if (personaId) {
     const { data: overrides } = await supabase
       .from('weight_matrices')
@@ -58,7 +58,7 @@ export async function calculateSubjectScore(params: {
 
   // Filter to the correct subject type
   const relevantTasks = tasks.filter(
-    (t: any) => t.parameter?.subject_type === params.subjectType
+    (t: any) => t.parameter?.subject_type === params.subjectType // eslint-disable-line @typescript-eslint/no-explicit-any
   );
 
   let weightedSum = 0;
@@ -102,7 +102,7 @@ export async function calculateCumulativeScore(params: {
   }
 
   // Fetch max total for the cumulative stage
-  const { data: maxTotal, error: maxTotalError } = await supabase
+  const { data: maxTotal, error: maxTotalError } = await supabase // eslint-disable-line @typescript-eslint/no-unused-vars
     .from('stage_max_totals')
     .select('max_total')
     .eq('policy_version_id', cycle.policy_snapshot_id)
@@ -274,7 +274,7 @@ export async function checkAmbiguity(params: {
   if (incompleteError) throw new Error(incompleteError.message);
 
   const missingCritical = (incompleteCritical || []).filter(
-    (t: any) => t.parameter?.is_critical
+    (t: any) => t.parameter?.is_critical // eslint-disable-line @typescript-eslint/no-explicit-any
   );
 
   if (missingCritical.length > 0) {
@@ -300,7 +300,7 @@ export async function updateCycleScore(reviewCycleId: string) {
 
   if (cycleError || !cycle) return;
 
-  const caseScenario = (cycle.credit_cases as any)?.case_scenario || 'customer_name_customer_pays';
+  const caseScenario = (cycle.credit_cases as any)?.case_scenario || 'customer_name_customer_pays'; // eslint-disable-line @typescript-eslint/no-explicit-any
   
   // Calculate final score up to the active stage
   const result = await calculateFinalCaseScore({

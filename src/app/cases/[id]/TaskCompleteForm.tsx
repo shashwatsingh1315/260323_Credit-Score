@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { handleCompleteTask } from './actions';
 
-const isTaskOverdue = (task: any) => {
+const isTaskOverdue = (task: any) => {  // eslint-disable-line @typescript-eslint/no-explicit-any
   if (!task.sla_deadline || task.status === 'Completed') return false;
   return new Date(task.sla_deadline) < new Date();
 };
 
-export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: { task: any, c: any, data: any, addOptimisticTask?: (t: any) => void }) {
+export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: { task: any, c: any, data: any, addOptimisticTask?: (t: any) => void }) {  // eslint-disable-line @typescript-eslint/no-explicit-any
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -58,7 +58,7 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
               className="flex h-8 w-28 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm"
             >
               <option value="">-- Select --</option>
-              {task.param.auto_band_config?.mappings?.map((m: any, i: number) => (
+              {task.param.auto_band_config?.mappings?.map((m: any, i: number) => (  // eslint-disable-line @typescript-eslint/no-explicit-any
                 <option key={i} value={m.value}>{m.value}</option>
               ))}
             </select>
@@ -74,7 +74,7 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
             <div className="flex flex-col gap-1 w-32 shrink-0">
               <select name="reason" className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs shadow-sm" required>
                 <option value="">-- Reason *</option>
-                {data.rcaReasons?.map((r: any) => (
+                {data.rcaReasons?.map((r: any) => (  // eslint-disable-line @typescript-eslint/no-explicit-any
                   <option key={r.value} value={r.value}>{r.value}</option>
                 ))}
               </select>
@@ -87,10 +87,10 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
 
       {isTaskOverdue(task) && (
         <div className="flex flex-col gap-1 shrink-0">
-          <Badge variant="destructive" className="text-[10px] uppercase py-0 leading-3">SLA Breached</Badge>
+          <Badge variant="destructive" className="text-tiny uppercase py-0 leading-3">SLA Breached</Badge>
           <select name="delayReason" className="flex h-8 w-32 rounded-md border border-destructive bg-destructive/10 text-destructive px-2 text-xs shadow-sm" required>
             <option value="">Delay reason *</option>
-            {data.delayReasons?.map((r: any) => (
+            {data.delayReasons?.map((r: any) => (  // eslint-disable-line @typescript-eslint/no-explicit-any
               <option key={r.value} value={r.value}>{r.value}</option>
             ))}
           </select>

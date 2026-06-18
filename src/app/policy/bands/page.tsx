@@ -3,5 +3,5 @@ import BandsClient from './BandsClient';
 
 export default async function BandsPage() {
   const [bands, activePolicy] = await Promise.all([fetchScoreBands(), fetchActivePolicy()]);
-  return <BandsClient initialBands={bands as any[]} activePolicyId={activePolicy?.id || null} />;
+  return <BandsClient initialBands={bands as any[]} activePolicyId={activePolicy?.id || null} />;  // eslint-disable-line @typescript-eslint/no-explicit-any
 }

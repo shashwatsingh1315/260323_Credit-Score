@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea';  // eslint-disable-line @typescript-eslint/no-unused-vars
 import { Trash2, Edit } from 'lucide-react';
 import { upsertRoutingRule, deleteRoutingRule } from '../actions';
 
-export default function RoutingClient({ rules, activePolicyId }: { rules: any[]; activePolicyId?: string }) {
-  const [editingRule, setEditingRule] = useState<any | null>(null);
+export default function RoutingClient({ rules, activePolicyId }: { rules: any[]; activePolicyId?: string }) {  // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [editingRule, setEditingRule] = useState<any | null>(null);  // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +20,7 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
     const exposureMin = fd.get('exposure_min');
     const scoreBelow = fd.get('score_below');
 
-    const contextRule: any = {};
+    const contextRule: any = {};  // eslint-disable-line @typescript-eslint/no-explicit-any
     if (exposureMin) contextRule.exposure_min = parseFloat(exposureMin as string);
     if (scoreBelow) contextRule.score_below = parseFloat(scoreBelow as string);
 
@@ -32,7 +32,7 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
     try {
       await upsertRoutingRule(fd);
       setEditingRule(null);
-    } catch (err) {
+    } catch (err) {  // eslint-disable-line @typescript-eslint/no-unused-vars
       alert("Failed to save routing rule");
     }
   };

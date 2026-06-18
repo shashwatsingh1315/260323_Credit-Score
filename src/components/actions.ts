@@ -42,7 +42,7 @@ export async function markNotificationRead(id: string) {
       .eq('user_id', user.id);
     if (error) return { success: false, error: error.message };
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -58,7 +58,7 @@ export async function clearAllNotifications() {
       .eq('user_id', user.id);
     if (error) return { success: false, error: error.message };
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }

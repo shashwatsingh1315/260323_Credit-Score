@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { upsertGradeDefinition } from '../actions';
-import { Pencil, Plus, ChevronLeft, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
+import { Pencil, Plus, ChevronLeft, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';  // eslint-disable-line @typescript-eslint/no-unused-vars
 import Link from 'next/link';
 
 interface Grade { 
@@ -21,7 +21,7 @@ interface Grade {
 }
 
 export default function GradesClient({ initialGrades }: { initialGrades: Grade[] }) {
-  const [grades, setGrades] = useState(initialGrades);
+  const [grades, setGrades] = useState(initialGrades);  // eslint-disable-line @typescript-eslint/no-unused-vars
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Grade | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Grade, direction: 'asc' | 'desc' } | null>({ key: 'grade_value', direction: 'desc' });

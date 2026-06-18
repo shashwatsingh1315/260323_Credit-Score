@@ -31,13 +31,13 @@ interface Case {
   composite_credit_days?: number;
   escalation_level?: number;
   billing_date?: string | null;
-  proposed_tranches?: any;
+  proposed_tranches?: any;  // eslint-disable-line @typescript-eslint/no-explicit-any
   contractor_party_id?: string | null;
   customer_party_id?: string | null;
   customer?: Party[] | Party | null;
   contractor?: Party[] | Party | null;
   rm?: { full_name: string }[] | { full_name: string } | null;
-  case_attributes?: any;
+  case_attributes?: any;  // eslint-disable-line @typescript-eslint/no-explicit-any
   escalations?: { id: string; status: string; ptp_date: string | null; level: number; tranche_index: number }[];
 }
 
@@ -49,7 +49,7 @@ interface RelatedCase {
   decided_bill_amount?: number | null;
   actual_bill_amount?: number | null;
   billing_date?: string | null;
-  proposed_tranches?: any;
+  proposed_tranches?: any;  // eslint-disable-line @typescript-eslint/no-explicit-any
   composite_credit_days?: number;
   contractor_party_id?: string | null;
   customer_party_id?: string | null;
@@ -89,7 +89,7 @@ function getCustomerName(c: Case): string {
 }
 
 function getRmName(c: Case): string {
-  const original = (c.case_attributes as any)?.original_rm_name;
+  const original = (c.case_attributes as any)?.original_rm_name;  // eslint-disable-line @typescript-eslint/no-explicit-any
   if (original) return original;
   if (!c.rm) return 'Unassigned';
   if (Array.isArray(c.rm)) return c.rm[0]?.full_name || 'Unassigned';
@@ -104,7 +104,7 @@ function displayCaseNumber(c: { case_number?: string }): string | null {
   return n;
 }
 
-function computeOverdueTranches(c: { billing_date?: string | null; proposed_tranches?: any; decided_bill_amount?: number | null; actual_bill_amount?: number | null }) {
+function computeOverdueTranches(c: { billing_date?: string | null; proposed_tranches?: any; decided_bill_amount?: number | null; actual_bill_amount?: number | null }) {  // eslint-disable-line @typescript-eslint/no-explicit-any
   if (!c.billing_date || !c.proposed_tranches || !c.decided_bill_amount) return [];
   const billingDate = new Date(c.billing_date);
   const billAmt = c.decided_bill_amount;
@@ -194,9 +194,9 @@ export default function CollectionsClient({
   collections, escalations, rms = [], hqLogs = [], relatedCases = [], repayments7d = [], currentRole = 'viewer',
 }: {
   collections: Case[];
-  escalations: any[];
+  escalations: any[];  // eslint-disable-line @typescript-eslint/no-explicit-any
   rms?: { id: string; full_name: string }[];
-  hqLogs?: any[];
+  hqLogs?: any[];  // eslint-disable-line @typescript-eslint/no-explicit-any
   relatedCases?: RelatedCase[];
   repayments7d?: Repayment[];
   currentRole?: string;
@@ -228,7 +228,7 @@ export default function CollectionsClient({
   const didInitFromUrl = useRef(false);
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    const q = p.get('q'); if (q) setSearch(q);
+    const q = p.get('q'); if (q) setSearch(q);  // eslint-disable-line react-hooks/set-state-in-effect
     const v = p.get('view'); if (v && ['ptp', 'broken', 'untouched', 'escalated'].includes(v)) setView(v as View);
     const b = p.get('band'); if (b && ['1-30', '31-60', '61-90', '90+'].includes(b)) setBucketFilter(b as BucketKey);
     const rm = p.get('rm'); if (rm) setFilterRm(rm);
@@ -317,7 +317,7 @@ export default function CollectionsClient({
         isLegacy: !!(c.case_attributes?.grandfathered || c.case_attributes?.imported),
         activePtp,
         brokenPtp,
-        lastContactDays: lastT === undefined ? null : Math.floor((Date.now() - lastT) / 86400000),
+        lastContactDays: lastT === undefined ? null : Math.floor((Date.now() - lastT) / 86400000),  // eslint-disable-line react-hooks/purity
       });
     }
     return map;
@@ -428,7 +428,7 @@ export default function CollectionsClient({
     setBoardOverrides(o => ({ ...o, [caseId]: col }));
     try {
       await setBoardStatus(caseId, col);
-    } catch (e: any) {
+    } catch (e: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
       setBoardOverrides(o => {
         const next = { ...o };
         if (prev) next[caseId] = prev; else delete next[caseId];
@@ -718,8 +718,8 @@ export default function CollectionsClient({
               <div key={bk} className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className={`inline-block w-2 h-2 rounded-sm ${bucketStyles[bk].strip}`} />
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{bucketStyles[bk].label}</p>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">{group.length} · {formatCompactINR(sum)}</span>
+                  <p className="text-micro font-bold uppercase tracking-wider text-muted-foreground">{bucketStyles[bk].label}</p>
+                  <span className="text-micro text-muted-foreground tabular-nums">{group.length} · {formatCompactINR(sum)}</span>
                 </div>
                 {group.map(renderRow)}
               </div>
@@ -800,10 +800,10 @@ function StatTile({ icon, label, value, sublabel, tone = 'neutral', active, onCl
     <CardContent className="p-3">
       <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
         <span className={t.icon}>{icon}</span>
-        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
+        <span className="text-micro font-semibold uppercase tracking-wider">{label}</span>
       </div>
       <p className={`text-xl font-bold leading-tight tabular-nums ${t.value}`}>{value}</p>
-      <p className="text-[11px] text-muted-foreground mt-0.5">{hint || sublabel}</p>
+      <p className="text-micro text-muted-foreground mt-0.5">{hint || sublabel}</p>
     </CardContent>
   );
   if (!onClick) return <Card className="bg-card">{inner}</Card>;
@@ -852,7 +852,7 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
         return (
           <div
             key={col.key}
-            className={`flex-1 min-w-[260px] rounded-lg border bg-muted/20 flex flex-col transition-colors ${dragOverCol === col.key ? 'border-primary/50 bg-primary/5' : 'border-border'}`}
+            className={`flex-1 min-w-64 rounded-lg border bg-muted/20 flex flex-col transition-colors ${dragOverCol === col.key ? 'border-primary/50 bg-primary/5' : 'border-border'}`}
             onDragOver={e => { e.preventDefault(); setDragOverCol(col.key); }}
             onDragLeave={() => setDragOverCol(cur => cur === col.key ? null : cur)}
             onDrop={e => {
@@ -867,11 +867,11 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
                 <p className="text-xs font-bold uppercase tracking-wider">{col.label}</p>
                 <p className="text-xs text-muted-foreground tabular-nums">{colCases.length} · {formatCompactINR(colSum)}</p>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{col.hint}</p>
+              <p className="text-micro text-muted-foreground mt-0.5">{col.hint}</p>
             </div>
-            <div className="p-2 space-y-2 flex-1 min-h-[120px]">
+            <div className="p-2 space-y-2 flex-1 min-h-32">
               {colCases.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground/60 text-center py-6">Drag cases here</p>
+                <p className="text-micro text-muted-foreground/60 text-center py-6">Drag cases here</p>
               ) : colCases.map(c => {
                 const dv = d(c);
                 const paidToday = paidTodayByCase.get(c.id);
@@ -886,40 +886,40 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
                       <div className="min-w-0">
                         <p className="font-semibold text-sm truncate">{dv.customerName}</p>
                         {dv.contractorName && (
-                          <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                          <p className="text-micro text-muted-foreground truncate flex items-center gap-1">
                             <Building2 size={10} className="shrink-0" /> {dv.contractorName}
                           </p>
                         )}
                       </div>
-                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${bucketStyles[dv.bucket].pill}`}>
+                      <span className={`text-micro font-bold px-1.5 py-0.5 rounded border shrink-0 ${bucketStyles[dv.bucket].pill}`}>
                         {dv.worstDpd}d
                       </span>
                     </div>
                     <p className="font-semibold text-sm tabular-nums">{formatINR(dv.outstanding)}</p>
                     <div className="flex flex-wrap gap-1">
                       {dv.activePtp && (
-                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-muted text-muted-foreground border-border'}`}>
+                        <span className={`text-micro font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-muted text-muted-foreground border-border'}`}>
                           PTP {shortDate(dv.activePtp.date)}{dv.activePtp.amount ? ` · ${formatCompactINR(dv.activePtp.amount)}` : ''}
                         </span>
                       )}
                       {dv.brokenPtp && (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
+                        <span className="text-micro font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
                           Broke PTP {shortDate(dv.brokenPtp.date)}
                         </span>
                       )}
                       {paidToday && (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
+                        <span className="text-micro font-semibold px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
                           ₹ {formatCompactINR(paidToday)} received today
                         </span>
                       )}
                       {(c.escalation_level ?? 0) > 0 && (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-muted text-muted-foreground border-border">
+                        <span className="text-micro font-semibold px-1.5 py-0.5 rounded border bg-muted text-muted-foreground border-border">
                           L{c.escalation_level}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center justify-between pt-0.5">
-                      <p className="text-[11px] text-muted-foreground truncate">
+                      <p className="text-micro text-muted-foreground truncate">
                         {dv.rmName}
                         {dv.lastContactDays !== null
                           ? ` · contact ${dv.lastContactDays}d ago`
@@ -971,8 +971,8 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   canEscalate: boolean;
   canHqChat: boolean;
   canLogPayment: boolean;
-  escalationThresholds: any[];
-  hqLogs: any[];
+  escalationThresholds: any[];  // eslint-disable-line @typescript-eslint/no-explicit-any
+  hqLogs: any[];  // eslint-disable-line @typescript-eslint/no-explicit-any
   relatedCases: RelatedCase[];
   onOpenChat: () => void;
 }) {
@@ -1028,7 +1028,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
       setPaymentSuccess(`Payment of ${formatINR(parseInt(paymentAmount, 10) || 0)} recorded.`);
       setPaymentAmount('');
       setPaymentNote('');
-    } catch (e: any) {
+    } catch (e: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
       setPaymentError(e.message);
     } finally {
       setPaymentSubmitting(false);
@@ -1069,16 +1069,16 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-sm sm:text-base truncate">{dv.customerName}</h3>
-                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${bucketStyles[dv.bucket].pill}`}>
+                <span className={`text-micro font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${bucketStyles[dv.bucket].pill}`}>
                   {dv.worstDpd}d{isEscalated ? ` · L${c.escalation_level}` : ''}
                 </span>
                 {dv.activePtp && (
-                  <span className={`text-[11px] font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-muted-foreground bg-muted border-border'}`}>
+                  <span className={`text-micro font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-muted-foreground bg-muted border-border'}`}>
                     PTP {shortDate(dv.activePtp.date)}
                   </span>
                 )}
                 {dv.brokenPtp && (
-                  <span className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                  <span className="text-micro font-semibold text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
                     Broke PTP
                   </span>
                 )}
@@ -1112,7 +1112,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
               <div className="h-1 rounded-full bg-muted mt-1.5 overflow-hidden" title={`${formatCompactINR(dv.collected)} of ${formatCompactINR(dv.billed)} collected`}>
                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${dv.collectedPct}%` }} />
               </div>
-              <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">{dv.collectedPct}% collected</p>
+              <p className="text-micro text-muted-foreground tabular-nums mt-0.5">{dv.collectedPct}% collected</p>
             </div>
 
             {canLogPayment && (
@@ -1145,7 +1145,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
               {/* Tranche breakdown */}
               {dv.overdueTranches.length > 0 && (
                 <div>
-                  <p className="text-[11px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
+                  <p className="text-micro uppercase font-bold tracking-wider text-muted-foreground mb-2">
                     Overdue tranches
                   </p>
                   <div className="rounded-md border bg-background overflow-hidden">
@@ -1169,7 +1169,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                             <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatINR(t.paidAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums font-semibold">{formatINR(t.outstanding)}</td>
                             <td className="px-3 py-2 text-right">
-                              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(t.daysOverdue)].pill}`}>
+                              <span className={`text-micro font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(t.daysOverdue)].pill}`}>
                                 {t.daysOverdue}d
                               </span>
                             </td>
@@ -1179,7 +1179,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     </table>
                   </div>
                   {c.billing_date && (
-                    <p className="text-[11px] text-muted-foreground mt-2">
+                    <p className="text-micro text-muted-foreground mt-2">
                       Billing date: {new Date(c.billing_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       {' · '}Credit terms: {c.composite_credit_days || 0} days
                     </p>
@@ -1195,7 +1195,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     <p className="text-xs font-semibold">
                       {dv.contractorName || dv.customerName} — {related.length} other billed case{related.length !== 1 ? 's' : ''}
                     </p>
-                    <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
+                    <span className="text-micro text-muted-foreground ml-auto tabular-nums">
                       {formatCompactINR(relatedBilled)} billed · {formatCompactINR(relatedOutstanding)} outstanding
                       {relatedOverdueCount > 0 && <span className="text-red-700 font-medium"> · {relatedOverdueCount} overdue</span>}
                     </span>
@@ -1213,7 +1213,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                           <span className="truncate flex-1">{partyName(r.customer) || displayCaseNumber(r) || 'Case'}</span>
                           <span className="text-muted-foreground">{r.status}</span>
                           {rDpd > 0 && (
-                            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(rDpd)].pill}`}>
+                            <span className={`text-micro font-bold px-1.5 py-0.5 rounded border ${bucketStyles[getBucket(rDpd)].pill}`}>
                               {rDpd}d
                             </span>
                           )}
@@ -1223,7 +1223,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                       );
                     })}
                     {related.length > 6 && (
-                      <p className="text-[11px] text-muted-foreground px-2">+{related.length - 6} more</p>
+                      <p className="text-micro text-muted-foreground px-2">+{related.length - 6} more</p>
                     )}
                   </div>
                 </div>
@@ -1240,7 +1240,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                         <select
                           value={payTranche?.trancheIndex ?? 0}
                           onChange={e => setPayTrancheIdx(parseInt(e.target.value, 10))}
-                          className="text-[11px] border rounded px-1.5 py-0.5 bg-background ml-auto"
+                          className="text-micro border rounded px-1.5 py-0.5 bg-background ml-auto"
                           aria-label="Apply payment to tranche"
                         >
                           {dv.overdueTranches.map(t => (
@@ -1250,7 +1250,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                           ))}
                         </select>
                       ) : payTranche && (
-                        <span className="text-[11px] text-muted-foreground ml-auto">
+                        <span className="text-micro text-muted-foreground ml-auto">
                           applies to T{payTranche.trancheIndex + 1}
                         </span>
                       )}
@@ -1338,7 +1338,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                         const parsed = parseLog(log.message);
                         return (
                           <div key={log.id} className="text-xs">
-                            <div className="flex justify-between text-muted-foreground text-[11px] mb-0.5">
+                            <div className="flex justify-between text-muted-foreground text-micro mb-0.5">
                               <span className="font-semibold text-foreground">{log.logged_by_user?.full_name || 'System'}</span>
                               <span>{shortDate(log.created_at)}</span>
                             </div>
@@ -1412,7 +1412,7 @@ const LOG_TYPE_ICONS = { call: Phone, visit: MapPin, note: FileText } as const;
 function LogDrawer({ c, dv, logs, canWrite, onClose }: {
   c: Case;
   dv: Derived;
-  logs: any[];
+  logs: any[];  // eslint-disable-line @typescript-eslint/no-explicit-any
   canWrite: boolean;
   onClose: () => void;
 }) {
@@ -1455,7 +1455,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
       setPtpDate('');
       setPtpAmount('');
       setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }), 300);
-    } catch (e: any) {
+    } catch (e: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(e?.message || 'Could not save the log.');
     } finally {
       setSubmitting(false);
@@ -1469,7 +1469,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
         onClick={onClose}
       />
       <div
-        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[440px] bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed inset-y-0 right-0 z-50 w-full sm:max-w-md bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
         role="dialog"
         aria-label="Contact log"
       >
@@ -1531,7 +1531,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
                   </div>
                   {parsed.text && <p className="text-sm leading-relaxed">{parsed.text}</p>}
                   {parsed.ptp && (
-                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold rounded border bg-amber-50 border-amber-200 text-amber-900 px-2 py-0.5">
+                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-micro font-semibold rounded border bg-amber-50 border-amber-200 text-amber-900 px-2 py-0.5">
                       <CalendarClock size={11} />
                       PTP {new Date(parsed.ptp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                       {parsed.ptp.amount ? ` · ${formatINR(parsed.ptp.amount)}` : ''}

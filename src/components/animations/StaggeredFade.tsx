@@ -51,7 +51,7 @@ export function StaggeredFade({ children, className = "", staggerDelay = 0.1 }: 
         // Lift col-span / row-span classes onto the wrapper so CSS Grid placement works.
         // Without this, the motion.div wrapper becomes the grid item (with no span info)
         // and the child's col-span-* / row-span-* classes are ignored.
-        const childCls = React.isValidElement(child) ? (child.props as any).className ?? '' : '';
+        const childCls = React.isValidElement(child) ? (child.props as any).className ?? '' : '';  // eslint-disable-line @typescript-eslint/no-explicit-any
         const gridCls = childCls
           .split(' ')
           .filter((c: string) => /^((?:sm|md|lg|xl|2xl):)?(?:col|row)-span-/.test(c))

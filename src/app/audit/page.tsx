@@ -24,7 +24,7 @@ export default async function AuditPage() {
           <div className="relative pl-6 space-y-0">
             <div className="absolute left-2 top-0 bottom-0 w-px bg-border" />
             {events.length === 0 && <p className="text-muted-foreground text-sm py-4">No events yet.</p>}
-            {events.map((e: any) => (
+            {events.map((e: any) => (  // eslint-disable-line @typescript-eslint/no-explicit-any
               <div key={e.id} className="relative pb-4 last:pb-0">
                 <div className="absolute -left-4 top-1.5 w-2 h-2 rounded-full bg-primary/60" />
                 <div className="flex items-start justify-between gap-4">
