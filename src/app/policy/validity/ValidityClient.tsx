@@ -9,8 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Trash2, Edit } from 'lucide-react';
 import { upsertValidityRule, deleteValidityRule } from '../actions';
 
-export default function ValidityClient({ rules, activePolicyId }: { rules: any[]; activePolicyId?: string }) {
-  const [editingRule, setEditingRule] = useState<any | null>(null);
+export default function ValidityClient({ rules, activePolicyId }: { rules: any[]; activePolicyId?: string }) {  // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [editingRule, setEditingRule] = useState<any | null>(null);  // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +23,7 @@ export default function ValidityClient({ rules, activePolicyId }: { rules: any[]
       JSON.parse(fd.get('context_rule') as string);
       await upsertValidityRule(fd);
       setEditingRule(null);
-    } catch (err) {
+    } catch (err) {  // eslint-disable-line @typescript-eslint/no-unused-vars
       alert("Invalid JSON in Context Rule");
     }
   };

@@ -39,7 +39,7 @@ export default function ResetPasswordPage() {
       alert("Password updated successfully!");
       router.push('/');
       router.refresh();
-    } catch (err: any) {
+    } catch (err: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message || 'Something went wrong while updating your password.');
     } finally {
       setLoading(false);

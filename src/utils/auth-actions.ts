@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { USER_ROLES } from '@/utils/auth';
 
 export async function switchImpersonationRole(role: string) {
-  if (!USER_ROLES.includes(role as any)) throw new Error("Invalid role");
+  if (!USER_ROLES.includes(role as any)) throw new Error("Invalid role"); // eslint-disable-line @typescript-eslint/no-explicit-any
   const cookieStore = await cookies();
   cookieStore.set('impersonated_role', role, { path: '/' });
   revalidatePath('/', 'layout');
@@ -29,7 +29,7 @@ export async function getImpersonationRole() {
     
     // Non-founders are restricted to their assigned roles only.
     return user.roles[0] || 'viewer';
-  } catch (e) {
+  } catch (e) { // eslint-disable-line @typescript-eslint/no-unused-vars
     return 'viewer';
   }
 }

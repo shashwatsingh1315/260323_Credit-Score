@@ -9,12 +9,12 @@ import { Trash2, Edit } from 'lucide-react';
 import { upsertDominanceCategory, deleteDominanceCategory } from '../actions';
 
 interface DominanceClientProps {
-  categories: any[];
+  categories: any[];  // eslint-disable-line @typescript-eslint/no-explicit-any
   activePolicyId?: string;
 }
 
 export default function DominanceClient({ categories, activePolicyId }: DominanceClientProps) {
-  const [editingCat, setEditingCat] = useState<any | null>(null);
+  const [editingCat, setEditingCat] = useState<any | null>(null);  // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

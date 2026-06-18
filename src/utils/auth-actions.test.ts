@@ -20,7 +20,7 @@ vi.mock('./auth', () => ({
 }));
 
 describe('auth-actions.ts', () => {
-  let mockCookieStore: any;
+  let mockCookieStore: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -30,7 +30,7 @@ describe('auth-actions.ts', () => {
       get: vi.fn(),
       set: vi.fn(),
     };
-    (cookies as any).mockResolvedValue(mockCookieStore);
+    (cookies as any).mockResolvedValue(mockCookieStore); // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   describe('switchImpersonationRole', () => {

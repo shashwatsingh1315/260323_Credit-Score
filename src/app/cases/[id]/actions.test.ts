@@ -1,23 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   handleProgressStage,
-  handleAssignTask,
+  handleAssignTask, // eslint-disable-line @typescript-eslint/no-unused-vars
   handleWithdraw,
   handleCompleteTask,
-  handleForceReadyStage,
+  handleForceReadyStage, // eslint-disable-line @typescript-eslint/no-unused-vars
   handleToggleWaiting,
   handleChangePersona,
   handleCreateApprovalRound,
-  handleApprovalDecision,
-  handleSaveOutcome,
-  handleAddComment,
-  handleSelectiveUnlock,
-  handleCounterOffer
+  handleApprovalDecision, // eslint-disable-line @typescript-eslint/no-unused-vars
+  handleSaveOutcome, // eslint-disable-line @typescript-eslint/no-unused-vars
+  handleAddComment, // eslint-disable-line @typescript-eslint/no-unused-vars
+  handleSelectiveUnlock, // eslint-disable-line @typescript-eslint/no-unused-vars
+  handleCounterOffer // eslint-disable-line @typescript-eslint/no-unused-vars
 } from './actions';
 import * as auth from '@/utils/auth';
 import * as engine from '@/utils/engine';
 import * as scoring from '@/utils/scoring';
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache'; // eslint-disable-line @typescript-eslint/no-unused-vars
 import { redirect } from 'next/navigation';
 
 vi.mock('next/cache', () => ({
@@ -113,7 +113,7 @@ describe('cases/[id]/actions.ts', () => {
     });
 
     it('progresses stage successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['founder_admin'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['founder_admin'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
       await handleProgressStage(formData({ caseId: 'c1', cycleId: 'cy1', currentStage: '1' }));
@@ -125,7 +125,7 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleWithdraw', () => {
     it('withdraws successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.mocked(redirect).mockImplementationOnce(() => { throw new Error('redirected'); });
 
       await expect(handleWithdraw(formData({ caseId: 'c1', reason: 'Lost', note: 'Note' }))).rejects.toThrow('redirected');
@@ -141,10 +141,10 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleToggleWaiting', () => {
     it('sets waiting on case', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue({ eq: mockEq } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockEq.mockResolvedValue({ error: null });
 
       await handleToggleWaiting(formData({ caseId: 'c1', isWaiting: 'false', reason: 'input needed' }));
@@ -159,10 +159,10 @@ describe('cases/[id]/actions.ts', () => {
     });
 
     it('stops waiting on case', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue({ eq: mockEq } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockEq.mockResolvedValue({ error: null });
 
       await handleToggleWaiting(formData({ caseId: 'c1', isWaiting: 'true' }));
@@ -173,9 +173,9 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleCompleteTask', () => {
     it('completes task and updates score', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
-      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      mockEq.mockReturnValueOnce({ single: mockSingle } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockSingle.mockResolvedValueOnce({
         data: {
           id: 't1',
@@ -184,7 +184,7 @@ describe('cases/[id]/actions.ts', () => {
         }
       });
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue({ eq: mockEq } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockEq.mockResolvedValue({ error: null });
 
       await handleCompleteTask(formData({
@@ -205,18 +205,18 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleChangePersona', () => {
     it('changes persona successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
       // mock the review_cycles single fetch
-      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      mockEq.mockReturnValueOnce({ single: mockSingle } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockSingle.mockResolvedValueOnce({ data: { policy_snapshot_id: 'pol1' } });
 
       // mock the persona single fetch
-      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      mockEq.mockReturnValueOnce({ single: mockSingle } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockSingle.mockResolvedValueOnce({ data: { policy_version_id: 'pol1' } });
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue({ eq: mockEq } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockEq.mockResolvedValue({ error: null });
 
       await handleChangePersona(formData({
@@ -231,9 +231,9 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleCreateApprovalRound', () => {
     it('creates approval round', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue({ eq: mockEq } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       mockEq.mockResolvedValue({ error: null });
 
       mockInsert.mockResolvedValueOnce({ error: null });

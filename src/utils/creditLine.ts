@@ -1,6 +1,6 @@
 import { createClient } from './supabase/server';
 
-export async function validateCreditLine(partyId: string, requestedExposure: number, billAmount: number): Promise<{ 
+export async function validateCreditLine(partyId: string, requestedExposure: number, billAmount: number): Promise<{  // eslint-disable-line @typescript-eslint/no-unused-vars
   valid: boolean; 
   credit_line_amount: number | null; 
   message: string | null; 

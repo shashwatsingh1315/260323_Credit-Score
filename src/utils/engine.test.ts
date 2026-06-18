@@ -24,7 +24,7 @@ const mockIn = vi.fn();
 
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({
-    from: vi.fn((table) => {
+    from: vi.fn((table) => { // eslint-disable-line @typescript-eslint/no-unused-vars
       const builder = {
         insert: vi.fn().mockImplementation((...args) => {
           mockInsert(...args);
@@ -101,7 +101,7 @@ describe('engine.ts', () => {
     });
 
     it('calculates correctly for amount tranches', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'amount', value: 500, days_after_billing: 0 },
         { type: 'amount', value: 500, days_after_billing: 60 }
       ];
@@ -109,7 +109,7 @@ describe('engine.ts', () => {
     });
 
     it('calculates correctly for percentage tranches', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 30, days_after_billing: 0 },
         { type: 'percentage', value: 70, days_after_billing: 100 }
       ];
@@ -117,7 +117,7 @@ describe('engine.ts', () => {
     });
 
     it('normalizes if weights do not sum to 1', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 50, days_after_billing: 30 },
       ];
       expect(calculateCompositeDays(tranches, 1000)).toBe(30);
@@ -132,7 +132,7 @@ describe('engine.ts', () => {
     });
 
     it('returns valid for correctly matched amount tranches', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'amount', value: 500, days_after_billing: 0 },
         { type: 'amount', value: 500, days_after_billing: 60 }
       ];
@@ -141,7 +141,7 @@ describe('engine.ts', () => {
     });
 
     it('returns invalid if amount tranches do not match bill amount', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'amount', value: 500, days_after_billing: 0 },
         { type: 'amount', value: 499, days_after_billing: 60 }
       ];
@@ -151,7 +151,7 @@ describe('engine.ts', () => {
     });
 
     it('returns valid for correctly matched percentage tranches', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 30, days_after_billing: 0 },
         { type: 'percentage', value: 70, days_after_billing: 60 }
       ];
@@ -160,7 +160,7 @@ describe('engine.ts', () => {
     });
 
     it('returns invalid if percentage tranches do not sum to 100', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 30, days_after_billing: 0 },
         { type: 'percentage', value: 60, days_after_billing: 60 }
       ];
@@ -182,7 +182,7 @@ describe('engine.ts', () => {
         rm_user_id: 'user-123'
       };
 
-      const newCase = await createCaseDraft(data as any);
+      const newCase = await createCaseDraft(data as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       expect(newCase.id).toBe('case-123');
       expect(mockInsert).toHaveBeenCalled();
     });
@@ -198,7 +198,7 @@ describe('engine.ts', () => {
         rm_user_id: 'user-123'
       };
 
-      await expect(createCaseDraft(data as any)).rejects.toThrow('DB Error');
+      await expect(createCaseDraft(data as any)).rejects.toThrow('DB Error'); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
   });
 

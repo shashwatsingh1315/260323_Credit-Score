@@ -70,11 +70,12 @@ module.exports = {
       },
       fontSize: {
         tiny: ['10px', '14px'],
+        micro: ['11px', '16px'],
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
     },
   },
-  plugins: [require('@tailwindcss/typography')],
+  plugins: [require('@tailwindcss/typography')], // eslint-disable-line @typescript-eslint/no-require-imports
 }

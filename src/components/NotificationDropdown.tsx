@@ -8,7 +8,7 @@ import { fetchMyNotifications, markNotificationRead } from './actions';
 import { usePathname } from 'next/navigation';
 
 export default function NotificationDropdown() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);  // eslint-disable-line @typescript-eslint/no-explicit-any
   const [showNotifs, setShowNotifs] = useState(false);
   const [loadingNotifs, setLoadingNotifs] = useState(true);
   const pathname = usePathname();

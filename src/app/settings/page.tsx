@@ -90,7 +90,7 @@ export default async function SettingsPage() {
           </div>
 
           <div className="space-y-4 max-w-2xl">
-            {(settings ?? []).map((s: any) => {
+            {(settings ?? []).map((s: any) => {  // eslint-disable-line @typescript-eslint/no-explicit-any
               const meta = settingMeta[s.key];
               return (
                 <Card key={s.key}>

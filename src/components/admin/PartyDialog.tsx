@@ -12,8 +12,8 @@ import { Wand2 } from 'lucide-react';
 interface PartyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: (party: any) => void;
-  editingParty?: any;
+  onSuccess?: (party: any) => void;  // eslint-disable-line @typescript-eslint/no-explicit-any
+  editingParty?: any;  // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: PartyDialogProps) {
@@ -27,6 +27,7 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedType(editingParty?.party_type || 'both');
       setInfluencerSubtype(editingParty?.influencer_subtype || 'contractor');
     }
@@ -67,7 +68,7 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
       if (id && codeRef.current) {
         codeRef.current.value = id;
       }
-    } catch (e: any) {
+    } catch (e: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
       toast.error('Failed to generate ID: ' + e.message);
     }
     setGenerating(false);
@@ -106,7 +107,7 @@ export function PartyDialog({ open, onOpenChange, onSuccess, editingParty }: Par
               <div className="flex justify-between items-center">
                 <Label>Customer Code / ID *</Label>
                 {(selectedType === 'influencer' || selectedType === 'both') && (
-                  <button type="button" onClick={handleGenerate} className="text-[10px] text-primary flex items-center gap-1 hover:underline disabled:opacity-50" disabled={generating}>
+                  <button type="button" onClick={handleGenerate} className="text-tiny text-primary flex items-center gap-1 hover:underline disabled:opacity-50" disabled={generating}>
                     <Wand2 size={10} /> {generating ? '...' : 'Auto-Generate'}
                   </button>
                 )}

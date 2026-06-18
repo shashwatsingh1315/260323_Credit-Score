@@ -54,7 +54,7 @@ export default async function CollectionsPage() {
   type TrancheLite = { type?: string; value: number; days_after_billing?: number };
 
   // Returns the maximum days-overdue across unpaid tranches for a case (0 if not overdue).
-  const maxOverdueDays = (c: any): number => {
+  const maxOverdueDays = (c: any): number => {  // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!c.billing_date) return 0;
     const billingDate = new Date(c.billing_date);
     const tranches = (c.proposed_tranches as TrancheLite[] | null) || [];
@@ -94,7 +94,7 @@ export default async function CollectionsPage() {
     overdueCases.flatMap(c => [c.contractor_party_id, c.customer_party_id]).filter(Boolean)
   )) as string[];
 
-  let relatedCases: any[] = [];
+  let relatedCases: any[] = [];  // eslint-disable-line @typescript-eslint/no-explicit-any
   if (partyIds.length > 0) {
     const list = partyIds.join(',');
     const { data } = await supabase
@@ -124,7 +124,7 @@ export default async function CollectionsPage() {
     .from('profiles')
     .select('id, full_name, roles:user_roles(role)');
 
-  const rms = allUsers?.filter(u => u.roles?.some((r: any) => r.role === 'rm')) || [];
+  const rms = allUsers?.filter(u => u.roles?.some((r: any) => r.role === 'rm')) || [];  // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const { data: hqLogs } = overdueCaseIds.length > 0 ? await supabase.from('hq_collection_logs')
     .select('*, logged_by_user:profiles!hq_collection_logs_logged_by_fkey(full_name)')

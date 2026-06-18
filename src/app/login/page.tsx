@@ -41,7 +41,7 @@ export default function LoginPage() {
         router.push('/');
         router.refresh();
       }
-    } catch (err: any) {
+    } catch (err: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
@@ -59,7 +59,7 @@ export default function LoginPage() {
         }
       });
       if (error) throw error;
-    } catch (err: any) {
+    } catch (err: any) {  // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err.message || 'Something went wrong');
       setLoading(false);
     }

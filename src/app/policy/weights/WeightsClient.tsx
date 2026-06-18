@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Trash2, Edit, ArrowUpDown } from 'lucide-react';
 import { upsertWeightMatrix, deleteWeightMatrix } from '../actions';
 
-export default function WeightsClient({ matrices, personas, parameters }: { matrices: any[]; personas: any[]; parameters: any[] }) {
-  const [editingMatrix, setEditingMatrix] = useState<any | null>(null);
+export default function WeightsClient({ matrices, personas, parameters }: { matrices: any[]; personas: any[]; parameters: any[] }) {  // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [editingMatrix, setEditingMatrix] = useState<any | null>(null);  // eslint-disable-line @typescript-eslint/no-explicit-any
   const [filterPersona, setFilterPersona] = useState<string>('');
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 

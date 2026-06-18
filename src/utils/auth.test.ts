@@ -13,17 +13,13 @@ const mockEq = vi.fn();
 const mockSingle = vi.fn();
 const mockInsert = vi.fn();
 
-let mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
+const mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
 
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
-<<<<<<< HEAD
-      getSession: mockGetUser,
-=======
       getUser: mockGetUser,
       getSession: mockGetSession,
->>>>>>> origin/main
     },
     from: vi.fn(() => {
       const builder = {
@@ -102,11 +98,11 @@ describe('auth.ts', () => {
     });
 
     it('returns true if user has exact role', () => {
-      expect(hasRole({ roles: ['rm', 'bdo'] } as any, 'rm')).toBe(true);
+      expect(hasRole({ roles: ['rm', 'bdo'] } as any, 'rm')).toBe(true); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
 
     it('returns false if user does not have role', () => {
-      expect(hasRole({ roles: ['rm'] } as any, 'kam')).toBe(false);
+      expect(hasRole({ roles: ['rm'] } as any, 'kam')).toBe(false); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
   });
 
@@ -116,21 +112,21 @@ describe('auth.ts', () => {
     });
 
     it('returns true if user has at least one matching role', () => {
-      expect(hasAnyRole({ roles: ['rm'] } as any, ['rm', 'kam'])).toBe(true);
+      expect(hasAnyRole({ roles: ['rm'] } as any, ['rm', 'kam'])).toBe(true); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
 
     it('returns false if user has no matching roles', () => {
-      expect(hasAnyRole({ roles: ['bdo'] } as any, ['rm', 'kam'])).toBe(false);
+      expect(hasAnyRole({ roles: ['bdo'] } as any, ['rm', 'kam'])).toBe(false); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
   });
 
   describe('isAdmin', () => {
     it('returns true for founder_admin', () => {
-      expect(isAdmin({ roles: ['founder_admin'] } as any)).toBe(true);
+      expect(isAdmin({ roles: ['founder_admin'] } as any)).toBe(true); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
 
     it('returns false for other roles', () => {
-      expect(isAdmin({ roles: ['rm'] } as any)).toBe(false);
+      expect(isAdmin({ roles: ['rm'] } as any)).toBe(false); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
   });
 
@@ -146,25 +142,6 @@ describe('auth.ts', () => {
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
         event_type: 'test_event',
         description: 'Testing audit'
-      }));
-    });
-  });
-});
-     });
-
-      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-        event_type: 'test_event',
-        description: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
       }));
     });
   });

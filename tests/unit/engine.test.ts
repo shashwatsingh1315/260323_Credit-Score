@@ -9,7 +9,7 @@ describe('engine utils', () => {
     });
 
     it('calculates correctly for percentage tranches', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 50, days_after_billing: 30 },
         { type: 'percentage', value: 50, days_after_billing: 60 },
       ];
@@ -18,7 +18,7 @@ describe('engine utils', () => {
     });
 
     it('calculates correctly for amount tranches', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'amount', value: 200, days_after_billing: 10 },
         { type: 'amount', value: 800, days_after_billing: 40 },
       ];
@@ -28,7 +28,7 @@ describe('engine utils', () => {
     });
 
     it('normalizes if weights do not sum to 1', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 30, days_after_billing: 10 },
         { type: 'percentage', value: 30, days_after_billing: 20 },
       ];
@@ -47,7 +47,7 @@ describe('engine utils', () => {
     });
 
     it('returns valid for correct amount reconciliation', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'amount', value: 300, days_after_billing: 10 },
         { type: 'amount', value: 700, days_after_billing: 30 },
       ];
@@ -56,7 +56,7 @@ describe('engine utils', () => {
     });
 
     it('returns valid for correct percentage reconciliation', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 25, days_after_billing: 10 },
         { type: 'percentage', value: 75, days_after_billing: 30 },
       ];
@@ -65,7 +65,7 @@ describe('engine utils', () => {
     });
 
     it('returns invalid if amounts do not match bill amount', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'amount', value: 300, days_after_billing: 10 },
         { type: 'amount', value: 600, days_after_billing: 30 },
       ];
@@ -75,7 +75,7 @@ describe('engine utils', () => {
     });
 
     it('returns invalid if percentages do not match 100%', () => {
-      const tranches: any[] = [
+      const tranches: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
         { type: 'percentage', value: 50, days_after_billing: 10 },
         { type: 'percentage', value: 40, days_after_billing: 30 },
       ];

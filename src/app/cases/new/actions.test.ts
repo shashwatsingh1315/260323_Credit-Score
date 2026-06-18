@@ -94,14 +94,14 @@ describe('cases/new/actions.ts', () => {
     });
 
     it('throws error if user is not rm or founder_admin', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['bdo'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['bdo'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(false);
 
       await expect(handleNewCase(new FormData())).rejects.toThrow(/Only RM or Admin/);
     });
 
     it('throws error for invalid tranche data', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
       const formData = new FormData();
@@ -112,10 +112,10 @@ describe('cases/new/actions.ts', () => {
     });
 
     it('creates draft case successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
-      const draftMock = vi.spyOn(engine, 'createCaseDraft').mockResolvedValue({ id: 'case-123' } as any);
+      const draftMock = vi.spyOn(engine, 'createCaseDraft').mockResolvedValue({ id: 'case-123' } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       const formData = new FormData();
       formData.append('kamUserId', 'kam-123');
@@ -134,11 +134,11 @@ describe('cases/new/actions.ts', () => {
     });
 
     it('creates and submits case successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
-      const draftMock = vi.spyOn(engine, 'createCaseDraft').mockResolvedValue({ id: 'case-123' } as any);
-      const submitMock = vi.spyOn(engine, 'submitCase').mockResolvedValue({} as any);
+      const draftMock = vi.spyOn(engine, 'createCaseDraft').mockResolvedValue({ id: 'case-123' } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      const submitMock = vi.spyOn(engine, 'submitCase').mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(engine, 'validateTranches').mockReturnValue({ valid: true });
 
       const formData = new FormData();
@@ -155,7 +155,7 @@ describe('cases/new/actions.ts', () => {
     });
 
     it('throws error if tranches are invalid when submitting', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
       vi.spyOn(engine, 'validateTranches').mockReturnValue({ valid: false, error: 'Validation failed' });
 

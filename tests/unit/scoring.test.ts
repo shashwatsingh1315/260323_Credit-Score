@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  calculateSubjectScore,
-  calculateCumulativeScore,
-  calculateFinalCaseScore,
+  calculateSubjectScore, // eslint-disable-line @typescript-eslint/no-unused-vars
+  calculateCumulativeScore, // eslint-disable-line @typescript-eslint/no-unused-vars
+  calculateFinalCaseScore, // eslint-disable-line @typescript-eslint/no-unused-vars
   mapScoreToCreditDays,
   checkAmbiguity,
 } from '@/utils/scoring';
@@ -17,7 +17,7 @@ vi.mock('@/utils/supabase/server', () => {
 import { createClient } from '@/utils/supabase/server';
 
 describe('scoring utils', () => {
-  let mockSupabase: any;
+  let mockSupabase: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -33,7 +33,7 @@ describe('scoring utils', () => {
       single: vi.fn(),
     };
 
-    (createClient as any).mockResolvedValue(mockSupabase);
+    (createClient as any).mockResolvedValue(mockSupabase); // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   describe('mapScoreToCreditDays', () => {

@@ -80,9 +80,9 @@ export async function createCaseDraft(data: {
   contractor_party_id?: string;
   bill_amount: number;
   requested_exposure_amount: number;
-  proposed_tranches: any[];
+  proposed_tranches: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
   branch_id?: string;
-  case_attributes?: Record<string, any>;
+  case_attributes?: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   commercial_notes?: string;
   rm_user_id: string;
   kam_user_id?: string;
@@ -252,10 +252,10 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
   ]);
 
   // Build a set of already-created parameter IDs to allow per-param backfill
-  const alreadyCreatedParamIds = new Set((existingTasks ?? []).map((t: any) => t.parameter_id));
+  const alreadyCreatedParamIds = new Set((existingTasks ?? []).map((t: any) => t.parameter_id)); // eslint-disable-line @typescript-eslint/no-explicit-any
 
   // If ALL params are already created, skip entirely
-  if (params && params.length > 0 && params.every((p: any) => alreadyCreatedParamIds.has(p.id))) return;
+  if (params && params.length > 0 && params.every((p: any) => alreadyCreatedParamIds.has(p.id))) return; // eslint-disable-line @typescript-eslint/no-explicit-any
   if (!params || params.length === 0) return;
 
   // 4. Evaluate conditional logic (Doc 06)

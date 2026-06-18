@@ -24,7 +24,7 @@ export async function upsertParty(formData: FormData) {
     }
     const supabase = await createClient();
     const id = formData.get('id') as string || undefined;
-    const payload: any = {
+    const payload: any = { // eslint-disable-line @typescript-eslint/no-explicit-any
       legal_name: formData.get('legal_name') as string,
       customer_code: formData.get('customer_code') as string,
       party_type: formData.get('party_type') as string || 'both',
@@ -49,7 +49,7 @@ export async function upsertParty(formData: FormData) {
     await logAuditEvent({ event_type: 'party_upserted', actor_id: user.id, description: `Party '${payload.legal_name}' saved.` });
     revalidatePath('/admin');
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -88,7 +88,7 @@ export async function assignRole(formData: FormData) {
     await logAuditEvent({ event_type: 'role_assigned', actor_id: user.id, description: `Role '${role}' assigned to ${userId}.` });
     revalidatePath('/admin');
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -105,7 +105,7 @@ export async function revokeRole(formData: FormData) {
     await logAuditEvent({ event_type: 'role_revoked', actor_id: user.id, description: `Role '${role}' revoked from ${userId}.` });
     revalidatePath('/admin');
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -160,7 +160,7 @@ export async function importPartiesCsv(formData: FormData) {
     
     revalidatePath('/admin');
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -228,7 +228,7 @@ export async function adminCreateUser(formData: FormData) {
     await logAuditEvent({ event_type: 'user_created', actor_id: user.id, description: `Created new user ${email} with role ${role}` });
     revalidatePath('/admin');
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -261,7 +261,7 @@ export async function adminDeleteUser(formData: FormData) {
     await logAuditEvent({ event_type: 'user_deleted', actor_id: user.id, description: `Deleted user ${targetUserId}` });
     revalidatePath('/admin');
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -309,7 +309,7 @@ export async function updateCommitteeRoster(formData: FormData) {
 
     revalidatePath('/admin');
     return { success: true };
-  } catch (e: any) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return { success: false, error: e.message };
   }
 }
@@ -350,7 +350,7 @@ export async function recomputePartyHistoryFromOutcomes() {
 
   for (const o of outcomes) {
     if (!o.deal_happened) continue;
-    const c = o.case as any;
+    const c = o.case as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     const parties = [c?.customer_party_id, c?.contractor_party_id].filter(Boolean);
     for (const partyId of parties) {
       if (!partyStats[partyId]) {

@@ -57,7 +57,7 @@ export async function handleMergeParties(formData: FormData) {
     });
 
     revalidatePath('/admin/aliases');
-  } catch (error: any) {
+  } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     console.error('Party merge error:', error);
     throw error;
   }

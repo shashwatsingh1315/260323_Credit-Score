@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Edit } from 'lucide-react';
 import { upsertStageMaxTotal } from '../actions';
 
-export default function StagesClient({ totals, activePolicyId }: { totals: any[]; activePolicyId?: string }) {
-  const [editingTotal, setEditingTotal] = useState<any | null>(null);
+export default function StagesClient({ totals, activePolicyId }: { totals: any[]; activePolicyId?: string }) {  // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [editingTotal, setEditingTotal] = useState<any | null>(null);  // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

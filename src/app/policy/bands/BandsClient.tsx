@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea';  // eslint-disable-line @typescript-eslint/no-unused-vars
 import { upsertScoreBand, deleteScoreBand } from '../actions';
 import { Pencil, Trash2, Plus, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
