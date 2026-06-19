@@ -70,6 +70,7 @@ module.exports = {
       },
       fontSize: {
         tiny: ['10px', '14px'],
+        micro: ['11px', '16px'],
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
