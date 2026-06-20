@@ -1,0 +1,3 @@
+## 2024-05-23 - Login & Create Case Tokenization
+**Learning:** Foundational pages (`/login/page.module.css` and `/cases/new/page.module.css`) heavily rely on legacy hardcoded CSS variables (`--bg-primary`, `--bg-secondary`, `--text-primary`, `--danger`, etc.). The app needs to migrate off these ad-hoc `.module.css` styling patterns and adopt Tailwind's standard token-based utility classes or replace the variables with semantic equivalents to fit the standard theme configuration.
+**Action:** Refactor `login/page.module.css`, `cases/new/page.module.css`, and related component classes to strictly use the HSL-based Tailwind tokens (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, etc.) and standard spacing primitives.
