@@ -18,12 +18,8 @@ let mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
-<<<<<<< HEAD
-      getSession: mockGetUser,
-=======
       getUser: mockGetUser,
       getSession: mockGetSession,
->>>>>>> origin/main
     },
     from: vi.fn(() => {
       const builder = {
@@ -102,10 +98,12 @@ describe('auth.ts', () => {
     });
 
     it('returns true if user has exact role', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       expect(hasRole({ roles: ['rm', 'bdo'] } as any, 'rm')).toBe(true);
     });
 
     it('returns false if user does not have role', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       expect(hasRole({ roles: ['rm'] } as any, 'kam')).toBe(false);
     });
   });
@@ -116,20 +114,24 @@ describe('auth.ts', () => {
     });
 
     it('returns true if user has at least one matching role', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       expect(hasAnyRole({ roles: ['rm'] } as any, ['rm', 'kam'])).toBe(true);
     });
 
     it('returns false if user has no matching roles', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       expect(hasAnyRole({ roles: ['bdo'] } as any, ['rm', 'kam'])).toBe(false);
     });
   });
 
   describe('isAdmin', () => {
     it('returns true for founder_admin', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       expect(isAdmin({ roles: ['founder_admin'] } as any)).toBe(true);
     });
 
     it('returns false for other roles', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       expect(isAdmin({ roles: ['rm'] } as any)).toBe(false);
     });
   });
@@ -146,25 +148,6 @@ describe('auth.ts', () => {
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
         event_type: 'test_event',
         description: 'Testing audit'
-      }));
-    });
-  });
-});
-     });
-
-      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-        event_type: 'test_event',
-        description: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
       }));
     });
   });

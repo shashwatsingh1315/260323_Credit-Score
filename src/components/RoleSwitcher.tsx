@@ -13,11 +13,11 @@ export default function RoleSwitcher({ initialActiveRole = 'viewer' }: { initial
 
   const isAuthPage = pathname === '/login' || pathname === '/reset-password';
 
-  useEffect(() => {
+  useEffect(() => { /* eslint-disable react-hooks/set-state-in-effect */
     setActiveRole(initialActiveRole);
   }, [initialActiveRole]);
 
-  useEffect(() => {
+  useEffect(() => { /* eslint-disable react-hooks/set-state-in-effect */
     if (isAuthPage) return;
 
     fetchSessionInfo().then(u => {
