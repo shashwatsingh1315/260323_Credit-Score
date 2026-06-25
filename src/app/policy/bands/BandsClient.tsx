@@ -18,13 +18,13 @@ interface ScoreBand {
   is_ambiguity_band: boolean;
 }
 
-const fallbackColors = [
-  'hsl(var(--color-success))',
-  'hsl(var(--color-info))',
-  'hsl(var(--color-warning))',
-  'hsl(var(--color-destructive))',
-  'hsl(var(--color-brand))',
-  'hsl(var(--color-attention))'
+const fallbackColorClasses = [
+  { bg: 'bg-success/60', border: 'border-success', text: 'text-success' },
+  { bg: 'bg-info/60', border: 'border-info', text: 'text-info' },
+  { bg: 'bg-warning/60', border: 'border-warning', text: 'text-warning' },
+  { bg: 'bg-destructive/60', border: 'border-destructive', text: 'text-destructive' },
+  { bg: 'bg-brand/60', border: 'border-brand', text: 'text-brand' },
+  { bg: 'bg-attention/60', border: 'border-attention', text: 'text-attention' }
 ];
 
 export default function BandsClient({ initialBands, activePolicyId }: { initialBands: ScoreBand[], activePolicyId: string | null }) {
@@ -58,10 +58,10 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
                 <div className="text-xs text-muted-foreground w-20 shrink-0 text-right">{b.min_score}–{b.max_score}</div>
                 <div className="flex-1 relative h-7 rounded overflow-hidden bg-muted">
                   <div
-                    className="h-full rounded flex items-center pl-2.5"
-                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%`, background: fallbackColors[i % fallbackColors.length] + '60', borderLeft: `3px solid ${fallbackColors[i % fallbackColors.length]}` }}
+                    className={`h-full rounded flex items-center pl-2.5 border-l-4 ${fallbackColorClasses[i % fallbackColorClasses.length].bg} ${fallbackColorClasses[i % fallbackColorClasses.length].border}`}
+                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%` }}
                   >
-                    <span className="text-xs font-semibold" style={{ color: fallbackColors[i % fallbackColors.length] }}>{b.band_name}</span>
+                    <span className={`text-xs font-semibold ${fallbackColorClasses[i % fallbackColorClasses.length].text}`}>{b.band_name}</span>
                   </div>
                 </div>
                 <div className="text-xs font-semibold w-14 text-right">{b.approved_credit_days}d</div>
@@ -95,8 +95,8 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
                 <TableCell><Badge variant="info">{b.approved_credit_days} days</Badge></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded" style={{ background: fallbackColors[i % fallbackColors.length] }} />
-                    <span className="text-xs text-muted-foreground">{fallbackColors[i % fallbackColors.length]}</span>
+                    <span className={`w-4 h-4 rounded ${fallbackColorClasses[i % fallbackColorClasses.length].bg}`} />
+                    <span className={`text-xs ${fallbackColorClasses[i % fallbackColorClasses.length].text}`}>{fallbackColorClasses[i % fallbackColorClasses.length].text.replace('text-', '')}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
