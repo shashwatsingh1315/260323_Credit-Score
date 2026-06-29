@@ -1,0 +1,3 @@
+## 2025-06-29 - Initial Assessment
+**Learning:** Found multiple instances of hardcoded magic numbers in Tailwind classes across the codebase (e.g., `text-[11px]`, `w-[200px]`, `left-[50%]`). Tailwind typography config has a custom `text-tiny` (`10px`/`14px`) but lacks an `11px` scale which is widely used in CollectionsClient. Legacy sizing like `w-[200px]` conflicts with our base-4/base-8 spacing system.
+**Action:** Update `tailwind.config.js` to add a `text-micro` (`11px`/`16px`) token. Systematically replace `text-[10px]`/`text-[11px]` with `text-tiny` and `text-micro` respectively. Replace arbitrary dimensions (`w-[200px]`, `min-h-[80px]`) with standard sizing tokens (`w-48` or `w-56`, `min-h-20`). Update `DESIGN_STYLE.md` with new token definitions.
