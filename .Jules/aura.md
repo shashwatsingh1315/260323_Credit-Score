@@ -1,0 +1,3 @@
+## 2024-07-02 - Component Shell and Policy Styling Legacy Tokens
+**Learning:** Foundational layout components (`src/components/Shell.module.css` and `src/app/policy/page.module.css`) heavily rely on legacy hex CSS variables (e.g., `var(--bg-primary)`, `var(--border-color)`, `var(--text-primary)`) and magic RGBA opacity values for backgrounds and hovers (e.g., `rgba(255, 255, 255, 0.04)`). This creates a structural conflict with the scalable Tailwind HSL token architecture.
+**Action:** Replace all legacy variables with their semantic HSL equivalents (`hsl(var(--background))`, `hsl(var(--border))`, `hsl(var(--foreground))`) and replace magic RGBA hovers with token-based colors (e.g., `hsl(var(--accent))`). Update globals.css to maintain a clean source of truth if needed.
