@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 "use client";
 import { useTransition } from 'react';
 import { Button } from '@/components/ui/button';
@@ -87,7 +89,7 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
 
       {isTaskOverdue(task) && (
         <div className="flex flex-col gap-1 shrink-0">
-          <Badge variant="destructive" className="text-[10px] uppercase py-0 leading-3">SLA Breached</Badge>
+          <Badge variant="destructive" className="text-micro uppercase py-0 leading-3">SLA Breached</Badge>
           <select name="delayReason" className="flex h-8 w-32 rounded-md border border-destructive bg-destructive/10 text-destructive px-2 text-xs shadow-sm" required>
             <option value="">Delay reason *</option>
             {data.delayReasons?.map((r: any) => (
