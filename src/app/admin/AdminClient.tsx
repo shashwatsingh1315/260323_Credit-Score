@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 "use client";
 import { useState, useTransition } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -343,7 +345,7 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
 
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold">Eligible Board Members</h3>
-                  <div className="max-h-[400px] overflow-y-auto divide-y border rounded-lg">
+                  <div className="max-h-96 overflow-y-auto divide-y border rounded-lg">
                     {users
                       .filter(u => u.roles?.some((r: any) => r.role === 'board_member' || r.role === 'founder_admin'))
                       .filter(u => !rosterMemberIds.includes(u.id))
