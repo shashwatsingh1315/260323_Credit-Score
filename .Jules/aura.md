@@ -1,0 +1,3 @@
+## 2024-07-08 - Legacy Token Removal
+**Learning:** The application heavily used hardcoded CSS variables like `--bg-primary` and `--text-primary` across CSS Modules instead of Tailwind HSL tokens. Additionally, there were numerous arbitrary magic numbers (e.g., `w-[200px]`, `text-[10px]`) circumventing the design scale.
+**Action:** Replaced legacy CSS variables with Tailwind standard variables (e.g., `var(--background)`), removed legacy definitions from `globals.css`, stripped arbitrary spacing/sizing classes in favor of strict base-4/base-8 tokens, and mapped non-standard typography to `text-tiny` and `text-micro`.
