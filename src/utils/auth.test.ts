@@ -18,12 +18,8 @@ let mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null } }));
 vi.mock('./supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
-<<<<<<< HEAD
-      getSession: mockGetUser,
-=======
       getUser: mockGetUser,
       getSession: mockGetSession,
->>>>>>> origin/main
     },
     from: vi.fn(() => {
       const builder = {
@@ -61,12 +57,13 @@ describe('auth.ts', () => {
 
   describe('getCurrentUser', () => {
     it('returns null if not authenticated', async () => {
-      mockGetUser.mockResolvedValueOnce({ data: { session: null } });
+      mockGetUser.mockResolvedValueOnce({ data: { user: null } });
       const user = await getCurrentUser();
       expect(user).toBeNull();
     });
 
     it('returns null if profile not found', async () => {
+      mockGetUser.mockResolvedValueOnce({ data: { user: { id: 'u1' } } });
       mockGetSession.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
       mockSingle.mockResolvedValueOnce({ data: null });
       const user = await getCurrentUser();
@@ -74,6 +71,7 @@ describe('auth.ts', () => {
     });
 
     it('returns user profile and roles', async () => {
+      mockGetUser.mockResolvedValueOnce({ data: { user: { id: 'u1' } } });
       mockGetSession.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
       mockSingle.mockResolvedValueOnce({
         data: {
@@ -102,11 +100,11 @@ describe('auth.ts', () => {
     });
 
     it('returns true if user has exact role', () => {
-      expect(hasRole({ roles: ['rm', 'bdo'] } as any, 'rm')).toBe(true);
+      expect(hasRole({ id: 'u1', full_name: 'John Doe', email: 'john@example.com', roles: ['rm', 'bdo'] }, 'rm')).toBe(true);
     });
 
     it('returns false if user does not have role', () => {
-      expect(hasRole({ roles: ['rm'] } as any, 'kam')).toBe(false);
+      expect(hasRole({ id: 'u1', full_name: 'John Doe', email: 'john@example.com', roles: ['rm'] }, 'kam')).toBe(false);
     });
   });
 
@@ -116,21 +114,21 @@ describe('auth.ts', () => {
     });
 
     it('returns true if user has at least one matching role', () => {
-      expect(hasAnyRole({ roles: ['rm'] } as any, ['rm', 'kam'])).toBe(true);
+      expect(hasAnyRole({ id: 'u1', full_name: 'John Doe', email: 'john@example.com', roles: ['rm'] }, ['rm', 'kam'])).toBe(true);
     });
 
     it('returns false if user has no matching roles', () => {
-      expect(hasAnyRole({ roles: ['bdo'] } as any, ['rm', 'kam'])).toBe(false);
+      expect(hasAnyRole({ id: 'u1', full_name: 'John Doe', email: 'john@example.com', roles: ['bdo'] }, ['rm', 'kam'])).toBe(false);
     });
   });
 
   describe('isAdmin', () => {
     it('returns true for founder_admin', () => {
-      expect(isAdmin({ roles: ['founder_admin'] } as any)).toBe(true);
+      expect(isAdmin({ id: 'u1', full_name: 'John Doe', email: 'john@example.com', roles: ['founder_admin'] })).toBe(true);
     });
 
     it('returns false for other roles', () => {
-      expect(isAdmin({ roles: ['rm'] } as any)).toBe(false);
+      expect(isAdmin({ id: 'u1', full_name: 'John Doe', email: 'john@example.com', roles: ['rm'] })).toBe(false);
     });
   });
 
@@ -146,25 +144,6 @@ describe('auth.ts', () => {
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
         event_type: 'test_event',
         description: 'Testing audit'
-      }));
-    });
-  });
-});
-     });
-
-      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-        event_type: 'test_event',
-        description: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
-      }));
-    });
-  });
-});
-escription: 'Testing audit'
       }));
     });
   });
