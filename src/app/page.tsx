@@ -193,7 +193,7 @@ export default async function DashboardPage() {
   if (role === 'kam' && user) queryRecent = queryRecent.eq('kam_user_id', user.id);
 
   // Fetch notifications for non-RM users
-  let queryNotifications = supabase
+  const queryNotifications = supabase
     .from('notifications')
     .select('id, title, message, is_read, created_at')
     .eq('user_id', user?.id || '')
@@ -210,8 +210,8 @@ export default async function DashboardPage() {
   ]);
 
   // Fetch upcoming & delayed tranches for RM view
-  let upcomingTranches: any[] = [];
-  let delayedTranches: any[] = [];
+  const upcomingTranches: any[] = [];
+  const delayedTranches: any[] = [];
   let rmMetrics: { 
     totalExposure: number; 
     averageMargin: number | null; 
