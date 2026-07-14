@@ -852,7 +852,7 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
         return (
           <div
             key={col.key}
-            className={`flex-1 min-w-[260px] rounded-lg border bg-muted/20 flex flex-col transition-colors ${dragOverCol === col.key ? 'border-primary/50 bg-primary/5' : 'border-border'}`}
+            className={`flex-1 min-w-64 rounded-lg border bg-muted/20 flex flex-col transition-colors ${dragOverCol === col.key ? 'border-primary/50 bg-primary/5' : 'border-border'}`}
             onDragOver={e => { e.preventDefault(); setDragOverCol(col.key); }}
             onDragLeave={() => setDragOverCol(cur => cur === col.key ? null : cur)}
             onDrop={e => {
@@ -869,7 +869,7 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
               </div>
               <p className="text-[11px] text-muted-foreground mt-0.5">{col.hint}</p>
             </div>
-            <div className="p-2 space-y-2 flex-1 min-h-[120px]">
+            <div className="p-2 space-y-2 flex-1 min-h-32">
               {colCases.length === 0 ? (
                 <p className="text-[11px] text-muted-foreground/60 text-center py-6">Drag cases here</p>
               ) : colCases.map(c => {
@@ -1469,7 +1469,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
         onClick={onClose}
       />
       <div
-        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[440px] bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed inset-y-0 right-0 z-50 w-full sm:max-w-md bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
         role="dialog"
         aria-label="Contact log"
       >
