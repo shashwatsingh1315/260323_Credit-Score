@@ -24,17 +24,6 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.75rem;
-
-    --bg-primary: #f8fafc;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #f1f5f9;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --text-muted: #94a3b8;
-    --accent-primary: #cbd5e1;
-    --accent-hover: #e2e8f0;
-    --border-primary: #e2e8f0;
-    --border-color: #e2e8f0;
     
     --color-success: 142.1 70.6% 45.3%;
     --color-success-foreground: 144.9 80.4% 10%;
@@ -97,18 +86,18 @@
 @layer base {
   /* Fix dropdown option colors for dark theme to prevent white-on-white text */
   select {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--muted));
   }
 
   select option {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
   }
 
   /* Ensure inputs and textareas have correct dark background and text color */
   input, textarea {
-    color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--muted));
   }
 }

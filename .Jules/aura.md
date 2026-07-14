@@ -1,0 +1,3 @@
+## 2024-07-14 - Replace Legacy Hex Colors with Semantic Tokens
+**Learning:** The application's `globals.css` and various CSS modules were relying on legacy hex variables (like `--bg-primary`, `--text-primary`) which broke the design system's scalability and dark mode support. Additionally, several React components hardcoded spacing using arbitrary bracket notation (`w-[200px]`, `max-h-[400px]`).
+**Action:** Replaced legacy CSS variables with Tailwind's HSL semantic tokens (`hsl(var(--background))`, `hsl(var(--foreground))`, etc.) throughout `globals.css` and all `*.module.css` files. Replaced magic number sizing with standard base-4 Tailwind tokens (e.g., `w-48`, `max-h-96`) to enforce layout rhythm. Documented these rules in the forthcoming `DESIGN_STYLE.md`.
