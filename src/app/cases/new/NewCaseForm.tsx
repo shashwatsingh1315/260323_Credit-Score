@@ -7,7 +7,7 @@ import { PartyDialog } from '@/components/admin/PartyDialog';
 import { cn } from '@/lib/utils';
 import { SCENARIO_LABELS } from '@/lib/vocabulary';
 import { evaluateRequiredStage } from '@/utils/routing';
-import { parseRubricGuidance } from '@/lib/format';
+import { formatPolicyOptionLabel, parseRubricGuidance } from '@/lib/format';
 
 interface Tranche {
   type: 'amount' | 'percentage';
@@ -761,7 +761,7 @@ export default function NewCaseForm({
                           <>
                               {task.auto_band_config?.mappings ? (
                                 task.auto_band_config.mappings.map((m: any, i: number) => (
-                                  <option key={i} value={m.grade}>{m.value} (Grade {m.grade})</option>
+                                  <option key={i} value={m.grade}>{formatPolicyOptionLabel(m.value)} (Grade {m.grade})</option>
                                 ))
                               ) : gradeScale.length > 0 ? (
                                 /* Labels come from policy grade_scale — higher grade = better */
@@ -786,7 +786,7 @@ export default function NewCaseForm({
                            {task.input_type === 'yes_no' ? (
                              <><option value="Yes">Yes</option><option value="No">No</option></>
                            ) : task.auto_band_config?.mappings?.map((m: any, i: number) => (
-                               <option key={i} value={m.value}>{m.value}</option>
+                               <option key={i} value={m.value}>{formatPolicyOptionLabel(m.value)}</option>
                              ))}
                          </select>
                       ) : (

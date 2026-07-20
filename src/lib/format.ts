@@ -77,10 +77,21 @@ export function relativeDays(d: string | Date | null | undefined): string {
 /** Parse the small, safe bold-markup subset used in policy rubrics. */
 export function parseRubricGuidance(text: string | null | undefined): Array<Array<{ text: string; strong: boolean }>> {
   if (!text) return [];
-  return text.split(/\r?\n/).map((line) =>
+  // Older policy rows stored line breaks as the two literal characters `\\n`.
+  // Normalize those rows at render time so policy authors do not need to
+  // migrate existing configuration just to make the guidance readable.
+  return text.replace(/\\r?\\n/g, '\n').split(/\r?\n/).map((line) =>
     line.split(/(\*\*.*?\*\*)/g).filter(Boolean).map((part) => ({
       text: part.startsWith('**') && part.endsWith('**') ? part.slice(2, -2) : part,
       strong: part.startsWith('**') && part.endsWith('**'),
     })),
   );
+}
+
+/** Keep native select menus scannable when policy mappings include guidance. */
+export function formatPolicyOptionLabel(value: string | null | undefined): string {
+  if (!value) return '';
+  const firstLine = value.replace(/\\r?\\n/g, '\n').split(/\r?\n/)[0].trim();
+  const concise = firstLine.split(':')[0].trim();
+  return (concise || firstLine).slice(0, 80);
 }
