@@ -428,7 +428,7 @@ export default function NewCaseForm({
               >
                 <div
                   className={cn(
-                    'flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground',
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground',
                     step === stepNum && 'border-primary bg-primary text-primary-foreground',
                     step > stepNum && 'border-success/25 bg-success/15 text-success'
                   )}

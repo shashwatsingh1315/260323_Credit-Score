@@ -69,7 +69,7 @@ function Column({ title, icon: Icon, tasks, tone, done, emptyText }: {
   emptyText: string;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-muted/30 min-w-[240px]">
+    <div className="flex flex-col rounded-xl border border-border bg-muted/30 min-w-60">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
         <Icon
           size={14}

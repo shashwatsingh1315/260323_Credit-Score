@@ -1,0 +1,3 @@
+## 2025-03-02 - Token Refactor: Remove Magic Numbers in Tailwind Classes
+**Learning:** Found scattered instances of arbitrary width (`w-[...]`), height (`h-[...]`), text size (`text-[...]`), top/left (`top-[...]`, `left-[...]`), scale (`scale-[...]`), padding (`p-[...]`) brackets used in place of standard base-4 and font-size tokens.
+**Action:** Extract all arbitrary bracket-notation values and replace them with closest standardized base-4 tailwind equivalents (e.g. `text-[10px]` -> `text-tiny`, `text-[11px]` -> `text-micro`, `h-[80px]` -> `h-20`, `min-h-[80px]` -> `min-h-20`, `left-[50%]` -> `left-1/2`, `w-[200px]` -> `w-50` or similar rem-based tokens if appropriate. Update the UI to rely strictly on structured tokens for absolute sizing consistency.

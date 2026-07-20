@@ -77,7 +77,7 @@ function DecisionCountBadge({ promise }: { promise: Promise<any> }) {
   const open = (approvalRounds || []).filter((r: any) => r.status === 'open').length;
   if (open === 0) return null;
   return (
-    <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-warning/20 text-warning text-[10px] font-bold">
+    <span className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-warning/20 text-warning text-tiny font-bold">
       {open}
     </span>
   );
