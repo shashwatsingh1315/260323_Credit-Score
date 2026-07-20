@@ -140,12 +140,12 @@ function getBucket(days: number): BucketKey {
   return '90+';
 }
 
-// Severity heat ramp: slate → amber → orange → red. Only 90+ shouts.
+// Severity heat ramp: muted → warning → attention → destructive. Only 90+ shouts.
 const bucketStyles: Record<BucketKey, { strip: string; pill: string; label: string }> = {
-  '1-30':  { strip: 'bg-slate-300',  pill: 'bg-slate-100 text-slate-600 border-slate-200', label: '1–30 days' },
-  '31-60': { strip: 'bg-amber-400',  pill: 'bg-amber-50 text-amber-700 border-amber-200', label: '31–60 days' },
-  '61-90': { strip: 'bg-orange-500', pill: 'bg-orange-50 text-orange-700 border-orange-200', label: '61–90 days' },
-  '90+':   { strip: 'bg-red-500',    pill: 'bg-red-50 text-red-700 border-red-200', label: 'Critical · 90+ days' },
+  '1-30':  { strip: 'bg-muted-foreground/30', pill: 'bg-muted text-muted-foreground border-border', label: '1–30 days' },
+  '31-60': { strip: 'bg-warning',     pill: 'bg-warning/10 text-warning-strong border-warning/25', label: '31–60 days' },
+  '61-90': { strip: 'bg-attention',   pill: 'bg-attention/10 text-attention-strong border-attention/25', label: '61–90 days' },
+  '90+':   { strip: 'bg-destructive', pill: 'bg-destructive/10 text-destructive-strong border-destructive/25', label: 'Critical · 90+ days' },
 };
 
 // Structured log parsing: "[call] text\n[PTP 2026-06-20 ₹50,000]"
@@ -190,10 +190,20 @@ interface Derived {
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
+type Horizon = 'overdue' | '7' | '14' | '30';
+
+interface UpcomingCase extends Case {
+  _dueDate: string;
+  _amountDue: number;
+  _daysUntil: number;
+  _trancheIndex: number;
+}
+
 export default function CollectionsClient({
-  collections, escalations, rms = [], hqLogs = [], relatedCases = [], repayments7d = [], currentRole = 'viewer',
+  collections, upcomingCases = [], escalations, rms = [], hqLogs = [], relatedCases = [], repayments7d = [], currentRole = 'viewer',
 }: {
   collections: Case[];
+  upcomingCases?: UpcomingCase[];
   escalations: any[];
   rms?: { id: string; full_name: string }[];
   hqLogs?: any[];
@@ -213,6 +223,8 @@ export default function CollectionsClient({
   const [sortBy, setSortBy] = useState<SortKey>('overdue_days');
   const [filterRm, setFilterRm] = useState('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  // Overdue queue vs proactive upcoming-due queue (doctrine §12.10).
+  const [horizon, setHorizon] = useState<Horizon>('overdue');
 
   const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
   const [selectedCaseIds, setSelectedCaseIds] = useState<Set<string>>(new Set());
@@ -233,6 +245,7 @@ export default function CollectionsClient({
     const b = p.get('band'); if (b && ['1-30', '31-60', '61-90', '90+'].includes(b)) setBucketFilter(b as BucketKey);
     const rm = p.get('rm'); if (rm) setFilterRm(rm);
     const s = p.get('sort'); if (s && ['overdue_days', 'outstanding', 'name'].includes(s)) setSortBy(s as SortKey);
+    const h = p.get('horizon'); if (h && ['7', '14', '30'].includes(h)) setHorizon(h as Horizon);
     const m = p.get('mode');
     if (m === 'board' || m === 'list') {
       setViewMode(m);
@@ -252,9 +265,10 @@ export default function CollectionsClient({
     if (filterRm !== 'all') p.set('rm', filterRm);
     if (sortBy !== 'overdue_days') p.set('sort', sortBy);
     if (viewMode !== 'list') p.set('mode', viewMode);
+    if (horizon !== 'overdue') p.set('horizon', horizon);
     const qs = p.toString();
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
-  }, [search, view, bucketFilter, filterRm, sortBy, viewMode]);
+  }, [search, view, bucketFilter, filterRm, sortBy, viewMode, horizon]);
 
   const switchViewMode = (m: ViewMode) => {
     setViewMode(m);
@@ -456,6 +470,80 @@ export default function CollectionsClient({
 
   const chatCase = chatOpenForCase ? collections.find(c => c.id === chatOpenForCase) : null;
 
+  // Horizon switcher — move between the reactive overdue queue and the
+  // proactive upcoming-due queue (doctrine §12.10). Shareable via ?horizon=.
+  const horizonSwitcher = (
+    <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Collections horizon">
+      {([['overdue', 'Overdue'], ['7', 'Due in 7 days'], ['14', 'Due in 14 days'], ['30', 'Due in 30 days']] as [Horizon, string][]).map(([key, label]) => {
+        const count = key === 'overdue' ? collections.length : upcomingCases.filter(c => c._daysUntil <= parseInt(key, 10)).length;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setHorizon(key)}
+            aria-pressed={horizon === key}
+            className={`px-3 h-8 rounded-md text-xs font-medium border transition-colors ${horizon === key ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground hover:text-foreground'}`}
+          >
+            {label} ({count})
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // ── Upcoming mode: proactive queue for payments due soon ────────────────
+  if (horizon !== 'overdue') {
+    const horizonDays = parseInt(horizon, 10);
+    const items = upcomingCases.filter(c => c._daysUntil <= horizonDays);
+    return (
+      <div className="space-y-5 pb-24">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Collections — upcoming</h1>
+          <p className="text-sm text-muted-foreground">
+            Payments expected in the next {horizonDays} days. Confirm with the customer before the due date so these never become overdue.
+          </p>
+        </div>
+        {horizonSwitcher}
+        {items.length === 0 ? (
+          <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
+            No payments due in the next {horizonDays} days across your billing-active cases.
+          </CardContent></Card>
+        ) : (
+          <div className="space-y-2">
+            {items.map(c => {
+              const customer = getCustomerName(c);
+              const due = new Date(c._dueDate);
+              return (
+                <Link key={c.id} href={`/cases/${c.id}`} className="block group">
+                  <Card className="hover:border-primary/50 transition-colors">
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">{displayCaseNumber(c) || c.case_number}</span>
+                          <span className="text-xs text-muted-foreground truncate">{customer}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Tranche {c._trancheIndex + 1} of {(c.proposed_tranches || []).length} · RM {getRmName(c)}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold tabular-nums">{formatINR(c._amountDue)}</p>
+                        <p className={`text-xs font-medium ${c._daysUntil <= 1 ? 'text-warning' : 'text-muted-foreground'}`}>
+                          {c._daysUntil === 0 ? 'Due today' : c._daysUntil === 1 ? 'Due tomorrow' : `Due in ${c._daysUntil}d`} · {due.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}
+                        </p>
+                      </div>
+                      <ChevronRight size={15} className="text-muted-foreground shrink-0 group-hover:text-foreground" />
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const renderRow = (c: Case) => (
     <CaseRow
       key={c.id}
@@ -492,6 +580,9 @@ export default function CollectionsClient({
                 ? 'Review outstanding dues and record incoming payments.'
                 : 'Triage overdue cases, log contact, and drive recovery.'}
           </p>
+          <p className="text-tiny text-muted-foreground/80 mt-1">
+            PTP = Promise to Pay (a dated customer commitment) · DPD = Days Past Due (days unpaid after the due date)
+          </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex rounded-md border overflow-hidden" role="group" aria-label="View mode">
@@ -521,6 +612,8 @@ export default function CollectionsClient({
           )}
         </div>
       </div>
+
+      {horizonSwitcher}
 
       {/* Stat tiles — live numbers for the current filter; most are tappable filters */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -786,9 +879,9 @@ export default function CollectionsClient({
 // Quiet white tiles; the numeral carries the color, never the whole card.
 const toneClasses: Record<string, { icon: string; value: string }> = {
   neutral: { icon: 'text-muted-foreground', value: 'text-foreground' },
-  severe:  { icon: 'text-red-500',     value: 'text-red-600' },
-  warn:    { icon: 'text-amber-500',   value: 'text-amber-600' },
-  success: { icon: 'text-emerald-500', value: 'text-emerald-600' },
+  severe:  { icon: 'text-destructive', value: 'text-destructive-strong' },
+  warn:    { icon: 'text-warning',     value: 'text-warning-strong' },
+  success: { icon: 'text-success',     value: 'text-success-strong' },
 };
 
 function StatTile({ icon, label, value, sublabel, tone = 'neutral', active, onClick, hint }: {
@@ -898,17 +991,17 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
                     <p className="font-semibold text-sm tabular-nums">{formatINR(dv.outstanding)}</p>
                     <div className="flex flex-wrap gap-1">
                       {dv.activePtp && (
-                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-muted text-muted-foreground border-border'}`}>
+                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${dv.activePtp.date === istToday() ? 'bg-warning/10 text-warning-strong border-warning/25' : 'bg-muted text-muted-foreground border-border'}`}>
                           PTP {shortDate(dv.activePtp.date)}{dv.activePtp.amount ? ` · ${formatCompactINR(dv.activePtp.amount)}` : ''}
                         </span>
                       )}
                       {dv.brokenPtp && (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-destructive/10 text-destructive-strong border-destructive/25">
                           Broke PTP {shortDate(dv.brokenPtp.date)}
                         </span>
                       )}
                       {paidToday && (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-success/10 text-success-strong border-success/25">
                           ₹ {formatCompactINR(paidToday)} received today
                         </span>
                       )}
@@ -1073,12 +1166,12 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                   {dv.worstDpd}d{isEscalated ? ` · L${c.escalation_level}` : ''}
                 </span>
                 {dv.activePtp && (
-                  <span className={`text-[11px] font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-muted-foreground bg-muted border-border'}`}>
+                  <span className={`text-[11px] font-semibold rounded border px-1.5 py-0.5 uppercase tracking-wider ${dv.activePtp.date === istToday() ? 'text-warning-strong bg-warning/10 border-warning/25' : 'text-muted-foreground bg-muted border-border'}`}>
                     PTP {shortDate(dv.activePtp.date)}
                   </span>
                 )}
                 {dv.brokenPtp && (
-                  <span className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-destructive-strong bg-destructive/10 border border-destructive/25 rounded px-1.5 py-0.5 uppercase tracking-wider">
                     Broke PTP
                   </span>
                 )}
@@ -1096,7 +1189,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                 {(dv.lastContactDays === null || dv.lastContactDays >= 14) && (
                   <>
                     <span>·</span>
-                    <span className="text-amber-700 font-medium">
+                    <span className="text-warning-strong font-medium">
                       {dv.lastContactDays === null ? 'No contact logged' : `No contact ${dv.lastContactDays}d`}
                     </span>
                   </>
@@ -1110,7 +1203,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                 {formatCompactINR(dv.outstanding)}
               </p>
               <div className="h-1 rounded-full bg-muted mt-1.5 overflow-hidden" title={`${formatCompactINR(dv.collected)} of ${formatCompactINR(dv.billed)} collected`}>
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${dv.collectedPct}%` }} />
+                <div className="h-full bg-success rounded-full" style={{ width: `${dv.collectedPct}%` }} />
               </div>
               <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">{dv.collectedPct}% collected</p>
             </div>
@@ -1197,7 +1290,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     </p>
                     <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
                       {formatCompactINR(relatedBilled)} billed · {formatCompactINR(relatedOutstanding)} outstanding
-                      {relatedOverdueCount > 0 && <span className="text-red-700 font-medium"> · {relatedOverdueCount} overdue</span>}
+                      {relatedOverdueCount > 0 && <span className="text-destructive-strong font-medium"> · {relatedOverdueCount} overdue</span>}
                     </span>
                   </div>
                   <div className="space-y-1">
@@ -1234,7 +1327,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                 {canLogPayment ? (
                   <div className="rounded-md border bg-background p-3 space-y-2">
                     <div className="flex items-center gap-2">
-                      <IndianRupee size={14} className="text-emerald-700" />
+                      <IndianRupee size={14} className="text-success-strong" />
                       <p className="text-xs font-semibold">Record payment</p>
                       {dv.overdueTranches.length > 1 ? (
                         <select
@@ -1279,11 +1372,11 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                       className="w-full border rounded px-2 py-1.5 text-sm bg-background"
                     />
                     {paymentError && <p className="text-xs text-destructive">{paymentError}</p>}
-                    {paymentSuccess && <p className="text-xs text-emerald-700 font-medium">✓ {paymentSuccess}</p>}
+                    {paymentSuccess && <p className="text-xs text-success-strong font-medium">✓ {paymentSuccess}</p>}
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
-                        className="bg-emerald-700 hover:bg-emerald-800"
+                        className="bg-success-strong hover:bg-success-strong/90"
                         onClick={submitPayment}
                         disabled={!paymentAmount || paymentSubmitting}
                       >
@@ -1319,13 +1412,13 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     </Button>
                   </div>
                   {dv.activePtp && (
-                    <p className="text-xs rounded bg-amber-50 border border-amber-200 text-amber-900 px-2 py-1.5 mb-2 flex items-center gap-1.5">
+                    <p className="text-xs rounded bg-warning/10 border border-warning/25 text-warning-strong px-2 py-1.5 mb-2 flex items-center gap-1.5">
                       <CalendarClock size={12} className="shrink-0" />
                       Promised{dv.activePtp.amount ? ` ${formatINR(dv.activePtp.amount)}` : ''} by {shortDate(dv.activePtp.date)}
                     </p>
                   )}
                   {dv.brokenPtp && (
-                    <p className="text-xs rounded bg-red-50 border border-red-200 text-red-900 px-2 py-1.5 mb-2 flex items-center gap-1.5">
+                    <p className="text-xs rounded bg-destructive/10 border border-destructive/25 text-destructive-strong px-2 py-1.5 mb-2 flex items-center gap-1.5">
                       <AlertTriangle size={12} className="shrink-0" />
                       Missed promise{dv.brokenPtp.amount ? ` of ${formatINR(dv.brokenPtp.amount)}` : ''} — was due {shortDate(dv.brokenPtp.date)}
                     </p>
@@ -1487,7 +1580,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
 
         {/* PTP status banner */}
         {dv.activePtp && (
-          <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+          <div className="px-4 py-2.5 bg-warning/10 border-b border-warning/25 text-warning-strong text-xs flex items-center gap-2">
             <CalendarClock size={14} className="shrink-0" />
             <span>
               Promised{dv.activePtp.amount ? ` ${formatINR(dv.activePtp.amount)}` : ''} by{' '}
@@ -1497,7 +1590,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
           </div>
         )}
         {dv.brokenPtp && (
-          <div className="px-4 py-2.5 bg-red-50 border-b border-red-200 text-red-900 text-xs flex items-center gap-2">
+          <div className="px-4 py-2.5 bg-destructive/10 border-b border-destructive/25 text-destructive-strong text-xs flex items-center gap-2">
             <AlertTriangle size={14} className="shrink-0" />
             <span>
               Missed promise{dv.brokenPtp.amount ? ` of ${formatINR(dv.brokenPtp.amount)}` : ''} — was due{' '}
@@ -1531,7 +1624,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
                   </div>
                   {parsed.text && <p className="text-sm leading-relaxed">{parsed.text}</p>}
                   {parsed.ptp && (
-                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold rounded border bg-amber-50 border-amber-200 text-amber-900 px-2 py-0.5">
+                    <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold rounded border bg-warning/10 border-warning/25 text-warning-strong px-2 py-0.5">
                       <CalendarClock size={11} />
                       PTP {new Date(parsed.ptp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                       {parsed.ptp.amount ? ` · ${formatINR(parsed.ptp.amount)}` : ''}

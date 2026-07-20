@@ -1,6 +1,7 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser, logAuditEvent } from '@/utils/auth';
+import { getCurrentUser, logAuditEvent, hasAnyRole, isAdmin } from '@/utils/auth';
+import { assertCanCastBoardVote, BOARD_VOTE_DECISIONS } from '@/utils/boardGuards';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
@@ -80,12 +81,22 @@ export async function fetchBoardDetails(caseId: string) {
 export async function submitBoardVote(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['board_member', 'founder_admin'])) {
+    throw new Error('Only Board Members or Admin can cast board votes.');
+  }
+
   const supabase = await createClient();
 
   const caseId = formData.get('caseId') as string;
   const boardRoundId = formData.get('boardRoundId') as string;
   const decision = formData.get('decision') as string; // 'approve', 'reject', 'abstain'
   const comment = formData.get('comment') as string;
+
+  if (!BOARD_VOTE_DECISIONS.includes(decision as any)) {
+    throw new Error('Invalid vote decision.');
+  }
+  await assertCanCastBoardVote(user, boardRoundId);
 
   // Upsert vote (users can change vote until window closes)
   await supabase.from('board_votes').upsert({
@@ -110,6 +121,12 @@ export async function submitBoardVote(formData: FormData) {
 export async function finalizeBoardDecision(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // Finalizing closes the round and decides the case — admin only.
+  if (!isAdmin(user)) {
+    throw new Error('Only Admin can finalize a board decision.');
+  }
+
   const supabase = await createClient();
 
   const caseId = formData.get('caseId') as string;

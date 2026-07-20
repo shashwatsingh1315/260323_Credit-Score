@@ -1,13 +1,22 @@
-import { fetchParameters, fetchGradeScales, fetchPersonas, fetchDominanceCategories, fetchScoreBands, fetchActivePolicy } from '../actions';
+import { fetchParameters, fetchGradeScales, fetchPersonas, fetchDominanceCategories, fetchScoreBands, resolvePolicyVersion } from '../actions';
+import PolicyContextBar from '../PolicyContextBar';
 import SimulationClient from './SimulationClient';
 
-export default async function SimulationPage() {
-  const parameters = await fetchParameters();
-  const grades = await fetchGradeScales();
-  const personas = await fetchPersonas();
-  const dominance = await fetchDominanceCategories();
-  const bands = await fetchScoreBands();
-  const activePolicy = await fetchActivePolicy();
+export default async function SimulationPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
+  const { v } = await searchParams;
+  const version = await resolvePolicyVersion(v);
+  const [parameters, grades, personas, dominance, bands] = await Promise.all([
+    fetchParameters(version?.id),
+    fetchGradeScales(version?.id),
+    fetchPersonas(version?.id),
+    fetchDominanceCategories(version?.id),
+    fetchScoreBands(version?.id),
+  ]);
 
-  return <SimulationClient parameters={parameters} grades={grades} personas={personas} dominance={dominance} bands={bands} activePolicyId={activePolicy?.id} />;
+  return (
+    <div className="space-y-4">
+      <PolicyContextBar version={version} />
+      <SimulationClient parameters={parameters} grades={grades} personas={personas} dominance={dominance} bands={bands} activePolicyId={version?.id} />
+    </div>
+  );
 }

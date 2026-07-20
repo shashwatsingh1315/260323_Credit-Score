@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
 import { Trash2, Edit } from 'lucide-react';
 import { upsertValidityRule, deleteValidityRule } from '../actions';
+import { SCENARIO_LABELS } from '@/lib/vocabulary';
 
-export default function ValidityClient({ rules, activePolicyId }: { rules: any[]; activePolicyId?: string }) {
+export default function ValidityClient({ rules, scoreBands, activePolicyId }: { rules: any[]; scoreBands: any[]; activePolicyId?: string }) {
   const [editingRule, setEditingRule] = useState<any | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,13 +18,17 @@ export default function ValidityClient({ rules, activePolicyId }: { rules: any[]
     if (editingRule?.id) fd.set('id', editingRule.id);
     if (activePolicyId) fd.set('policy_version_id', activePolicyId);
 
-    // Ensure valid JSON
     try {
-      JSON.parse(fd.get('context_rule') as string);
+      const contextRule: Record<string, string> = {};
+      const scoreBand = String(fd.get('score_band') || '');
+      const scenario = String(fd.get('scenario') || '');
+      if (scoreBand) contextRule.score_band = scoreBand;
+      if (scenario) contextRule.scenario = scenario;
+      fd.set('context_rule', JSON.stringify(contextRule));
       await upsertValidityRule(fd);
       setEditingRule(null);
     } catch (err) {
-      alert("Invalid JSON in Context Rule");
+      alert("Failed to save validity rule");
     }
   };
 
@@ -33,8 +37,14 @@ export default function ValidityClient({ rules, activePolicyId }: { rules: any[]
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Validity Rules</h1>
-          <p className="text-sm text-muted-foreground">Define approval-validity windows (e.g. 90 days, 30 days) by context rule (Doc 09).</p>
+          <p className="text-sm text-muted-foreground">Stamp approval-validity windows using recognizable policy conditions.</p>
         </div>
+      </div>
+
+      {/* Truth-telling (doctrine §17): never present configuration as governing
+          behavior it does not yet govern. */}
+      <div className="rounded-lg border border-warning/25 bg-warning/10 px-4 py-3 text-sm text-warning-strong">
+        <strong>Warn mode.</strong> Matching rules stamp an expiry when approval completes and drive countdown or overdue warnings. Expiry never blocks negotiation or acceptance.
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -47,9 +57,18 @@ export default function ValidityClient({ rules, activePolicyId }: { rules: any[]
               <form onSubmit={handleSubmit} className="space-y-4">
 
                 <div className="space-y-2">
-                  <Label>Context Rule (JSON)</Label>
-                  <Textarea name="context_rule" defaultValue={editingRule ? JSON.stringify(editingRule.context_rule, null, 2) : '{\n  "score_band": "Elite",\n  "scenario": "..."\n}'} rows={5} className="font-mono text-xs" required />
-                  <p className="text-xs text-muted-foreground">JSON representing condition to trigger validity window.</p>
+                  <Label>Score band (optional)</Label>
+                  <select name="score_band" defaultValue={editingRule?.context_rule?.score_band || ''} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    <option value="">Any score band</option>
+                    {scoreBands.map((band) => <option key={band.id} value={band.band_name}>{band.band_name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Scenario (optional)</Label>
+                  <select name="scenario" defaultValue={editingRule?.context_rule?.scenario || ''} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    <option value="">Any scenario</option>
+                    {Object.entries(SCENARIO_LABELS).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+                  </select>
                 </div>
 
                 <div className="space-y-2">
@@ -82,7 +101,10 @@ export default function ValidityClient({ rules, activePolicyId }: { rules: any[]
                     <TableRow key={r.id}>
                       <TableCell className="font-medium text-success font-bold">{r.validity_days} days</TableCell>
                       <TableCell>
-                        <pre className="text-xs bg-muted p-2 rounded">{JSON.stringify(r.context_rule)}</pre>
+                        <span className="text-sm">{[
+                          r.context_rule?.score_band ? `Band ${r.context_rule.score_band}` : null,
+                          r.context_rule?.scenario ? SCENARIO_LABELS[r.context_rule.scenario]?.label : null,
+                        ].filter(Boolean).join(' · ') || 'All approvals'}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

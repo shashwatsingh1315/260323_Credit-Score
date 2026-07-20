@@ -85,7 +85,9 @@ Role enforcement happens in server actions via `hasAnyRole()` / `checkIsAdmin()`
 
 Single canonical migration: `supabase/migrations/20260514000000_remote_schema.sql` — this represents the exact live schema. **Never edit existing migration files.** Schema changes require a new migration file.
 
-Key tables: `credit_cases`, `review_cycles`, `cycle_policy_snapshots`, `parameter_definitions`, `stage_tasks`, `repayments`, `credit_notes`, `tranches`, `parties`, `party_exposure`, `party_history`, `audit_events`, `notifications`, `system_settings`.
+Key tables: `credit_cases`, `review_cycles`, `parameter_definitions`, `stage_tasks`, `repayments`, `credit_notes`, `tranches`, `parties`, `party_exposure`, `party_history`, `audit_events`, `notifications`, `system_settings`.
+
+Note: `review_cycles.policy_snapshot_id` is an FK to `policy_versions` — there is no separate snapshot table. Editing a policy version therefore affects every cycle that references it; stage changes via a cloned draft (`createNewDraft`) and publish.
 
 Business constants (thresholds, max extension days, write-off slippage %) live in `system_settings` — never hardcode them.
 

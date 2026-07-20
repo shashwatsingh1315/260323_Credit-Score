@@ -88,6 +88,33 @@ export default async function CollectionsPage() {
 
   const overdueCaseIds = overdueCases.map(c => c.id);
 
+  // Upcoming collections (doctrine §12.10): billing-active cases whose next
+  // unpaid tranche falls due within 30 days — proactive, not only reactive.
+  const upcomingCases = (cases || [])
+    .filter(c => !overdueCaseIds.includes(c.id) && c.billing_date && c.decided_bill_amount && Array.isArray(c.proposed_tranches))
+    .map(c => {
+      const billingDate = new Date(c.billing_date);
+      const billAmt = c.decided_bill_amount;
+      let remaining = c.actual_bill_amount ?? 0;
+      for (let i = 0; i < (c.proposed_tranches as TrancheLite[]).length; i++) {
+        const t = (c.proposed_tranches as TrancheLite[])[i];
+        const amt = t.type === 'percentage' ? Math.round((t.value / 100) * billAmt) : Math.round(t.value);
+        const fill = Math.min(remaining, amt);
+        remaining -= fill;
+        const unpaid = amt - fill;
+        if (unpaid > 0) {
+          const due = new Date(billingDate);
+          due.setDate(due.getDate() + (t.days_after_billing ?? 0));
+          const daysUntil = Math.ceil((due.getTime() - now.getTime()) / 86400000);
+          if (daysUntil < 0 || daysUntil > 30) return null;
+          return { ...c, _dueDate: due.toISOString(), _amountDue: unpaid, _daysUntil: daysUntil, _trancheIndex: i };
+        }
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => a._daysUntil - b._daysUntil);
+
   // All other billed cases tied to the same contractor (or customer when no
   // contractor) — powers the per-contractor exposure roll-up in the client.
   const partyIds = Array.from(new Set(
@@ -133,6 +160,7 @@ export default async function CollectionsPage() {
 
   return <CollectionsClient
     collections={overdueCases}
+    upcomingCases={upcomingCases as any[]}
     escalations={escalations || []}
     rms={rms || []}
     hqLogs={hqLogs || []}

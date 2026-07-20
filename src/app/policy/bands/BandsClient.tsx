@@ -18,16 +18,21 @@ interface ScoreBand {
   is_ambiguity_band: boolean;
 }
 
-const fallbackColors = [
-  'hsl(var(--color-success))',
-  'hsl(var(--color-info))',
-  'hsl(var(--color-warning))',
-  'hsl(var(--color-destructive))',
-  'hsl(var(--color-brand))',
-  'hsl(var(--color-attention))'
+/* Bands are colored by position, cycling through the severity tokens.
+   Alpha must go inside hsl() — string-concatenating hex alpha onto an
+   hsl(var()) expression produces invalid CSS. */
+const bandHues = [
+  '--color-success',
+  '--color-info',
+  '--color-warning',
+  '--color-destructive',
+  '--color-brand',
+  '--color-attention',
 ];
+const bandColor = (i: number) => `hsl(var(${bandHues[i % bandHues.length]}))`;
+const bandTint = (i: number) => `hsl(var(${bandHues[i % bandHues.length]}) / 0.35)`;
 
-export default function BandsClient({ initialBands, activePolicyId }: { initialBands: ScoreBand[], activePolicyId: string | null }) {
+export default function BandsClient({ initialBands, activePolicyId, backHref = '/policy' }: { initialBands: ScoreBand[], activePolicyId: string | null, backHref?: string }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ScoreBand | null>(null);
 
@@ -40,7 +45,7 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/policy"><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
+        <Link href={backHref}><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
         <div className="flex-1">
           <h1 className="text-xl font-bold">Score Bands</h1>
           <p className="text-sm text-muted-foreground">Map score ranges to approved credit day buckets</p>
@@ -59,9 +64,9 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
                 <div className="flex-1 relative h-7 rounded overflow-hidden bg-muted">
                   <div
                     className="h-full rounded flex items-center pl-2.5"
-                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%`, background: fallbackColors[i % fallbackColors.length] + '60', borderLeft: `3px solid ${fallbackColors[i % fallbackColors.length]}` }}
+                    style={{ width: `${(b.approved_credit_days / maxDays) * 100}%`, background: bandTint(i), borderLeft: `3px solid ${bandColor(i)}` }}
                   >
-                    <span className="text-xs font-semibold" style={{ color: fallbackColors[i % fallbackColors.length] }}>{b.band_name}</span>
+                    <span className="text-xs font-semibold text-foreground">{b.band_name}</span>
                   </div>
                 </div>
                 <div className="text-xs font-semibold w-14 text-right">{b.approved_credit_days}d</div>
@@ -94,10 +99,7 @@ export default function BandsClient({ initialBands, activePolicyId }: { initialB
                 <TableCell>{b.min_score} — {b.max_score}</TableCell>
                 <TableCell><Badge variant="info">{b.approved_credit_days} days</Badge></TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded" style={{ background: fallbackColors[i % fallbackColors.length] }} />
-                    <span className="text-xs text-muted-foreground">{fallbackColors[i % fallbackColors.length]}</span>
-                  </div>
+                  <span className="block w-4 h-4 rounded" style={{ background: bandColor(i) }} aria-hidden="true" />
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">

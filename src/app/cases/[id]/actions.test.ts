@@ -57,6 +57,9 @@ vi.mock('@/utils/supabase/server', () => ({
         single: vi.fn().mockImplementation((...args) => {
           return mockSingle(...args);
         }),
+        maybeSingle: vi.fn().mockImplementation((...args) => {
+          return mockSingle(...args);
+        }),
         insert: vi.fn().mockImplementation((...args) => {
           mockInsert(...args);
           return builder;
@@ -145,7 +148,7 @@ describe('cases/[id]/actions.ts', () => {
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
       mockUpdate.mockReturnValue({ eq: mockEq } as any);
-      mockEq.mockResolvedValue({ error: null });
+      mockEq.mockReturnValue(undefined);
 
       await handleToggleWaiting(formData({ caseId: 'c1', isWaiting: 'false', reason: 'input needed' }));
 
@@ -210,14 +213,15 @@ describe('cases/[id]/actions.ts', () => {
 
       // mock the review_cycles single fetch
       mockEq.mockReturnValueOnce({ single: mockSingle } as any);
-      mockSingle.mockResolvedValueOnce({ data: { policy_snapshot_id: 'pol1' } });
+      mockSingle.mockResolvedValueOnce({ data: { policy_snapshot_id: 'pol1', current_case_score: 62, score_band_name: 'B' } });
 
       // mock the persona single fetch
       mockEq.mockReturnValueOnce({ single: mockSingle } as any);
       mockSingle.mockResolvedValueOnce({ data: { policy_version_id: 'pol1' } });
+      mockSingle.mockResolvedValueOnce({ data: { current_case_score: 71, score_band_name: 'A' } });
 
       mockUpdate.mockReturnValue({ eq: mockEq } as any);
-      mockEq.mockResolvedValue({ error: null });
+      mockEq.mockReturnValue(undefined);
 
       await handleChangePersona(formData({
         caseId: 'c1', cycleId: 'cy1',
@@ -226,6 +230,24 @@ describe('cases/[id]/actions.ts', () => {
 
       expect(mockUpdate).toHaveBeenCalledWith({ customer_persona_id: 'p1', contractor_persona_id: null, dominance_category_id: null });
       expect(scoring.updateCycleScore).toHaveBeenCalledWith('cy1');
+      expect(auth.logAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining('62 → 71') }));
+    });
+  });
+
+  describe('handleCompleteTask yes/no mapping', () => {
+    it('maps the raw Yes value through the configured parameter mapping', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      mockSingle.mockResolvedValueOnce({ data: {
+        id: 't1', review_cycle_id: 'cy1',
+        param: { default_owning_role: 'rm', input_type: 'yes_no', auto_band_config: { mappings: [{ value: 'Yes', grade: 5 }, { value: 'No', grade: 1 }] } },
+      } });
+      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockEq.mockResolvedValue({ error: null });
+
+      await handleCompleteTask(formData({ caseId: 'c1', taskId: 't1', rawInput: 'Yes' }));
+
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ grade_value: 5, raw_input_value: 'Yes' }));
     });
   });
 

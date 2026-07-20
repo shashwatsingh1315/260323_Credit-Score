@@ -33,7 +33,7 @@ export async function fetchLedgerData(caseId: string) {
   ] = await Promise.all([
     supabase
       .from('credit_cases')
-      .select('id, status, billing_date, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, bill_file_url')
+      .select('id, status, billing_date, bill_amount, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, bill_file_url')
       .eq('id', caseId)
       .single(),
     supabase
@@ -112,6 +112,7 @@ export async function fetchLedgerData(caseId: string) {
   return {
     billing: {
       billingDate: caseData.billing_date,
+      billAmount: caseData.bill_amount,
       decidedAmount: caseData.decided_bill_amount,
       promisedAmount: caseData.promised_bill_amount,
       actualAmount: caseData.actual_bill_amount,

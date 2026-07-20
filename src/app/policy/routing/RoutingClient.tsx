@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Trash2, Edit } from 'lucide-react';
 import { upsertRoutingRule, deleteRoutingRule } from '../actions';
+import { SCENARIO_LABELS } from '@/lib/vocabulary';
 
 export default function RoutingClient({ rules, activePolicyId }: { rules: any[]; activePolicyId?: string }) {
   const [editingRule, setEditingRule] = useState<any | null>(null);
@@ -19,10 +20,12 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
     // Construct the context_rule JSON from individual fields
     const exposureMin = fd.get('exposure_min');
     const scoreBelow = fd.get('score_below');
+    const scenario = fd.get('scenario');
 
     const contextRule: any = {};
     if (exposureMin) contextRule.exposure_min = parseFloat(exposureMin as string);
     if (scoreBelow) contextRule.score_below = parseFloat(scoreBelow as string);
+    if (scenario) contextRule.scenario = String(scenario);
 
     fd.set('context_rule', JSON.stringify(contextRule));
 
@@ -46,6 +49,10 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
         </div>
       </div>
 
+      <div className="rounded-lg border border-success/25 bg-success/10 px-4 py-3 text-sm text-success-strong">
+        Routing is enforced at submission. Matching rules deepen the required review stage; score rules can deepen it again after scoring, but never make it shallower mid-cycle.
+      </div>
+
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-1">
           <Card>
@@ -65,6 +72,14 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
                       placeholder="e.g. 1000000"
                     />
                     <p className="text-xs text-muted-foreground">Route if Requested Exposure is at least this amount.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Scenario</Label>
+                    <select name="scenario" defaultValue={editingRule?.context_rule?.scenario || ''} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">Any scenario</option>
+                      {Object.entries(SCENARIO_LABELS).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+                    </select>
                   </div>
 
                   <div className="space-y-2">
@@ -114,9 +129,13 @@ export default function RoutingClient({ rules, activePolicyId }: { rules: any[];
                       <TableCell className="font-medium">Stage {r.target_stage}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1 text-sm">
-                          {r.context_rule?.exposure_min && <div>Exposure &ge; ₹{r.context_rule.exposure_min.toLocaleString('en-IN')}</div>}
-                          {r.context_rule?.score_below && <div>Score &lt; {r.context_rule.score_below}</div>}
-                          {!r.context_rule?.exposure_min && !r.context_rule?.score_below && <div className="text-muted-foreground italic">No specific condition</div>}
+                          <div>
+                            If {[
+                              r.context_rule?.exposure_min ? `exposure ≥ ₹${r.context_rule.exposure_min.toLocaleString('en-IN')}` : null,
+                              r.context_rule?.scenario ? `scenario is ${SCENARIO_LABELS[r.context_rule.scenario]?.label}` : null,
+                              r.context_rule?.score_below ? `score < ${r.context_rule.score_below}` : null,
+                            ].filter(Boolean).join(' and ') || 'the case is submitted'} → must reach Stage {r.target_stage}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

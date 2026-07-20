@@ -5,7 +5,9 @@ import { progressStage, setWaiting, withdrawCase, sendNotification } from '@/uti
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { updateCycleScore } from '@/utils/scoring';
+import { assertCanCastBoardVote, BOARD_VOTE_DECISIONS } from '@/utils/boardGuards';
 import { fetchLedgerData } from './billing-actions';
+import { calculateValidityExpiry, selectValidityRule } from '@/utils/validity';
 
 export async function fetchCaseCore(caseId: string) {
   const supabase = await createClient({ next: { tags: [`case-${caseId}`] } });
@@ -51,11 +53,22 @@ export async function fetchCaseCore(caseId: string) {
 
   const cycle = cycleData.data;
 
-  return { case: caseData, cycle };
+  // Personas / dominance categories for this cycle's policy version — the
+  // change-persona UI must offer named choices, never raw UUID entry.
+  let policyOptions: { personas: any[]; dominanceCategories: any[] } = { personas: [], dominanceCategories: [] };
+  if (cycle?.policy_snapshot_id) {
+    const [personasRes, domRes] = await Promise.all([
+      supabase.from('personas').select('id, name').eq('policy_version_id', cycle.policy_snapshot_id).order('name'),
+      supabase.from('dominance_categories').select('id, name, combination_method').eq('policy_version_id', cycle.policy_snapshot_id).order('name'),
+    ]);
+    policyOptions = { personas: personasRes.data || [], dominanceCategories: domRes.data || [] };
+  }
+
+  return { case: caseData, cycle, policyOptions, renderedAt: new Date().toISOString() };
 }
 
 export async function fetchCaseTasks(cycleId: string, caseScenario: string, policySnapshotId: string, activeStage: number, caseId: string) {
-  if (!cycleId) return { tasks: [], stageSummaries: [], rcaReasons: [], delayReasons: [], users: [] };
+  if (!cycleId) return { tasks: [], stageSummaries: [], rcaReasons: [], delayReasons: [], users: [], gradeScale: [] };
   const supabase = await createClient({ next: { tags: [`case-${caseId}-tasks`] } });
 
   const [
@@ -63,13 +76,16 @@ export async function fetchCaseTasks(cycleId: string, caseScenario: string, poli
     rcaReasonsData,
     delayReasonsData,
     usersData,
-    roundsRes
+    roundsRes,
+    gradeScaleRes
   ] = await Promise.all([
-    supabase.from('stage_tasks').select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name, require_reasoning, sla_days, weight)').eq('review_cycle_id', cycleId).order('stage').order('created_at'),
+    supabase.from('stage_tasks').select('*, assigned:profiles!stage_tasks_assigned_to_fkey(full_name), param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, name, require_reasoning, sla_days, weight, rubric_guidance)').eq('review_cycle_id', cycleId).order('stage').order('created_at'),
     supabase.from('admin_enumerations').select('value').eq('category', 'reason_for_credit').eq('is_active', true).order('sort_order'),
     supabase.from('admin_enumerations').select('value').eq('category', 'delay_reason').eq('is_active', true).order('sort_order'),
     supabase.from('profiles').select('id, full_name, roles:user_roles(role)').order('full_name'),
-    supabase.from('approval_rounds').select('id, stage, status').eq('review_cycle_id', cycleId) // minimal fetch for summaries
+    supabase.from('approval_rounds').select('id, stage, status').eq('review_cycle_id', cycleId), // minimal fetch for summaries
+    // Grade labels for THIS cycle's policy version, not the currently-active policy
+    supabase.from('grade_scale').select('grade_value, grade_label').eq('policy_version_id', policySnapshotId).order('grade_value', { ascending: false })
   ]);
 
   const tasks = tasksRes.data || [];
@@ -77,6 +93,7 @@ export async function fetchCaseTasks(cycleId: string, caseScenario: string, poli
   const delayReasons = delayReasonsData.data || [];
   const users = usersData.data || [];
   const approvalRounds = roundsRes.data || [];
+  const gradeScale = gradeScaleRes.data || [];
 
   const summariesRes = await Promise.all([1, 2, 3].map(async (s) => {
     const isCurrent = activeStage === s;
@@ -111,7 +128,7 @@ export async function fetchCaseTasks(cycleId: string, caseScenario: string, poli
     return { ...s, status };
   });
 
-  return { tasks, stageSummaries, rcaReasons, delayReasons, users };
+  return { tasks, stageSummaries, rcaReasons, delayReasons, users, gradeScale };
 }
 
 export async function fetchCaseApprovals(cycleId: string, caseId: string) {
@@ -168,6 +185,38 @@ export async function handleProgressStage(formData: FormData) {
   const currentStage = parseInt(formData.get('currentStage') as string);
   const caseId = formData.get('caseId') as string;
   await progressStage(cycleId, currentStage, user.id);
+  revalidatePath(`/cases/${caseId}`);
+}
+
+/**
+ * One authoritative next action (doctrine Principle 3): the system decides the
+ * valid transition. Stages 1–2 progress forward; Stage 3 opens an approval
+ * round. Users should never have to choose between "Progress" and
+ * "Request Approval" based on internal workflow knowledge.
+ */
+export async function handleSubmitStage(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can submit stages');
+  }
+
+  const cycleId = formData.get('cycleId') as string;
+  const currentStage = parseInt(formData.get('currentStage') as string);
+  const caseId = formData.get('caseId') as string;
+  const supabase = await createClient();
+  const { data: cycle } = await supabase.from('review_cycles').select('required_stage').eq('id', cycleId).maybeSingle();
+  const requiredStage = cycle?.required_stage ?? 3;
+
+  if (currentStage < requiredStage) {
+    await progressStage(cycleId, currentStage, user.id);
+    await logAuditEvent({ case_id: caseId, review_cycle_id: cycleId, event_type: 'stage_submitted', actor_id: user.id, description: `Stage ${currentStage} submitted. Case progressed to Stage ${currentStage + 1}.` });
+  } else {
+    await supabase.from('approval_rounds').insert({ review_cycle_id: cycleId, stage: currentStage, round_type: 'ordinary', status: 'open' });
+    await supabase.from('credit_cases').update({ status: 'Awaiting Approval' }).eq('id', caseId);
+    await logAuditEvent({ case_id: caseId, review_cycle_id: cycleId, event_type: 'approval_round_started', actor_id: user.id, description: `Stage ${currentStage} submitted for approval. Ordinary approval round opened.` });
+  }
   revalidatePath(`/cases/${caseId}`);
 }
 
@@ -246,7 +295,9 @@ export async function handleCompleteTask(formData: FormData) {
   const rawGrade = formData.get('gradeValue') as string | null;
   let gradeValue = (rawGrade && rawGrade.trim() !== '') ? parseInt(rawGrade) : null;
   if (gradeValue !== null && isNaN(gradeValue)) gradeValue = null;
-  const reason = formData.get('reason') as string || null;
+  const reasonChoice = formData.get('reason') as string || '';
+  const reasonNote = formData.get('reasonNote') as string || '';
+  const reason = [reasonChoice, reasonNote.trim()].filter(Boolean).join(' — ') || null;
   const rawInput = formData.get('rawInput') as string || null;
   const delayReason = formData.get('delayReason') as string || null;
 
@@ -394,7 +445,7 @@ export async function handleChangePersona(formData: FormData) {
     customerPersonaRes,
     contractorPersonaRes
   ] = await Promise.all([
-    supabase.from('review_cycles').select('policy_snapshot_id').eq('id', cycleId).single(),
+    supabase.from('review_cycles').select('policy_snapshot_id, current_case_score, score_band_name').eq('id', cycleId).single(),
     customerPersonaId ? supabase.from('personas').select('policy_version_id').eq('id', customerPersonaId).single() : Promise.resolve({ data: null }),
     contractorPersonaId ? supabase.from('personas').select('policy_version_id').eq('id', contractorPersonaId).single() : Promise.resolve({ data: null })
   ]);
@@ -412,15 +463,17 @@ export async function handleChangePersona(formData: FormData) {
     dominance_category_id: domCategoryId
   }).eq('id', cycleId);
 
+  await updateCycleScore(cycleId);
+  const { data: rescoredCycle } = await supabase.from('review_cycles').select('current_case_score, score_band_name').eq('id', cycleId).maybeSingle();
+
   await logAuditEvent({
     case_id: caseId,
     review_cycle_id: cycleId,
     event_type: 'persona_changed',
     actor_id: user.id,
-    description: `Personas/Dominance updated for active cycle.`
+    description: `Personas changed — score ${cycle?.current_case_score ?? '—'} → ${rescoredCycle?.current_case_score ?? '—'} (band ${cycle?.score_band_name ?? '—'} → ${rescoredCycle?.score_band_name ?? '—'}).`
   });
 
-  await updateCycleScore(cycleId);
   revalidatePath(`/cases/${caseId}`);
 }
 
@@ -462,6 +515,11 @@ export async function handleApprovalDecision(formData: FormData) {
   const decision = formData.get('decision') as string;
   const comment = formData.get('comment') as string || '';
 
+  // Doctrine Principle 10: high-impact decisions require structured rationale.
+  if ((decision === 'reject' || decision === 'return_for_revision') && !comment.trim()) {
+    throw new Error('A reason is required when rejecting or returning a case for revision.');
+  }
+
   // Further check: board member role required for board/appeal rounds if we want to be strict
   // For now, union of roles is allowed per doc
 
@@ -482,10 +540,43 @@ export async function handleApprovalDecision(formData: FormData) {
     const { data: allDecisions } = await supabase.from('approval_decisions').select('decision').eq('approval_round_id', roundId);
     isFullyApproved = allDecisions?.every((d: any) => d.decision === 'approve') || false;
     if (isFullyApproved) {
+      const approvedAt = new Date();
+      const { data: round } = await supabase.from('approval_rounds').select('review_cycle_id').eq('id', roundId).maybeSingle();
+      const { data: approvalCycle } = round?.review_cycle_id
+        ? await supabase.from('review_cycles').select('policy_snapshot_id, score_band_name').eq('id', round.review_cycle_id).maybeSingle()
+        : { data: null };
+      const { data: approvalCase } = await supabase.from('credit_cases').select('case_scenario').eq('id', caseId).maybeSingle();
+      const { data: validityRules } = approvalCycle?.policy_snapshot_id
+        ? await supabase.from('validity_rules').select('context_rule, validity_days').eq('policy_version_id', approvalCycle.policy_snapshot_id)
+        : { data: [] };
+      const validityRule = selectValidityRule(validityRules || [], {
+        score_band: approvalCycle?.score_band_name,
+        scenario: approvalCase?.case_scenario,
+      });
+      const validityExpiresAt = validityRule
+        ? calculateValidityExpiry(approvedAt, validityRule.validity_days).toISOString()
+        : null;
+
       await Promise.all([
-        supabase.from('approval_rounds').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', roundId),
-        supabase.from('credit_cases').update({ status: 'Approved' }).eq('id', caseId)
+        supabase.from('approval_rounds').update({ status: 'approved', resolved_at: approvedAt.toISOString() }).eq('id', roundId),
+        supabase.from('credit_cases').update({ status: 'Approved' }).eq('id', caseId),
+        round?.review_cycle_id
+          ? supabase.from('review_cycles').update({
+              decision: 'approved',
+              finalized_at: approvedAt.toISOString(),
+              validity_expires_at: validityExpiresAt,
+            }).eq('id', round.review_cycle_id)
+          : Promise.resolve(),
       ]);
+      if (validityRule && round?.review_cycle_id) {
+        await logAuditEvent({
+          case_id: caseId,
+          review_cycle_id: round.review_cycle_id,
+          event_type: 'approval_validity_stamped',
+          actor_id: user.id,
+          description: `Approval valid for ${validityRule.validity_days} days, until ${validityExpiresAt}. Warnings do not block negotiation or acceptance.`,
+        });
+      }
     }
   }
 
@@ -621,24 +712,49 @@ export async function handleSelectiveUnlock(formData: FormData) {
 export async function handleCounterOffer(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // Recording the customer's answer to approved terms is the KAM's call.
+  if (!hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can record a negotiation outcome.');
+  }
+
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const cycleId = formData.get('cycleId') as string;
   const compositeDays = parseFloat(formData.get('compositeDays') as string);
   const outcome = formData.get('outcome') as string;
 
+  // Negotiation outcomes only make sense for a case sitting at Approved.
+  const [{ data: currentCase }, { data: currentCycle }] = await Promise.all([
+    supabase.from('credit_cases').select('status, proposed_tranches').eq('id', caseId).maybeSingle(),
+    supabase.from('review_cycles').select('validity_expires_at').eq('id', cycleId).maybeSingle(),
+  ]);
+  if (!currentCase) throw new Error('Case not found.');
+  if (currentCase.status !== 'Approved') {
+    throw new Error(`Cannot record a negotiation outcome while the case is '${currentCase.status}' — it must be Approved.`);
+  }
+
   if (outcome === 'accepted') {
+    if (Number.isNaN(compositeDays) || compositeDays < 0) {
+      throw new Error('Accepted composite credit days must be a non-negative number.');
+    }
     await supabase.from('credit_cases').update({
       final_composite_credit_days: compositeDays,
+      // Freeze the schedule the customer actually accepted — the terms
+      // ladder and billing read this, not the mutable proposal.
+      final_accepted_tranches: currentCase.proposed_tranches,
       final_review_cycle_id: cycleId,
       status: 'Accepted'
     }).eq('id', caseId);
 
+    const daysPastExpiry = currentCycle?.validity_expires_at
+      ? Math.max(0, Math.floor((Date.now() - new Date(currentCycle.validity_expires_at).getTime()) / 86_400_000))
+      : 0;
     await logAuditEvent({
       case_id: caseId,
       event_type: 'counter_offer_accepted',
       actor_id: user.id,
-      description: `Counter-offer accepted. Composite days: ${compositeDays}.`
+      description: `Counter-offer accepted. Composite days: ${compositeDays}.${daysPastExpiry > 0 ? ` Acceptance recorded ${daysPastExpiry} day(s) after approval expiry.` : ''}`
     });
   } else if (outcome === 'dropped') {
     await supabase.from('credit_cases').update({
@@ -670,6 +786,11 @@ export async function handleBoardVote(formData: FormData) {
   const caseId = formData.get('caseId') as string;
   const decision = formData.get('decision') as string;
   const comment = formData.get('comment') as string || '';
+
+  if (!BOARD_VOTE_DECISIONS.includes(decision as any)) {
+    throw new Error('Invalid vote decision.');
+  }
+  await assertCanCastBoardVote(user, boardRoundId);
 
   // Upsert: board members can update their vote within the window
   const { error } = await supabase.from('board_votes').upsert({

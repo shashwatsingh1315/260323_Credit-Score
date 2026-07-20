@@ -130,7 +130,7 @@ describe('cases/new/actions.ts', () => {
         bill_amount: 1000,
         rm_user_id: 'u1'
       }));
-      expect(redirect).toHaveBeenCalledWith('/cases/case-123');
+      expect(redirect).toHaveBeenCalledWith('/cases/case-123?receipt=draft');
     });
 
     it('creates and submits case successfully', async () => {
@@ -151,7 +151,7 @@ describe('cases/new/actions.ts', () => {
 
       expect(draftMock).toHaveBeenCalled();
       expect(submitMock).toHaveBeenCalledWith('case-123', 'u1');
-      expect(redirect).toHaveBeenCalledWith('/cases/case-123');
+      expect(redirect).toHaveBeenCalledWith('/cases/case-123?receipt=submitted');
     });
 
     it('throws error if tranches are invalid when submitting', async () => {

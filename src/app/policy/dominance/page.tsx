@@ -1,9 +1,16 @@
-import { fetchDominanceCategories, fetchActivePolicy } from '../actions';
+import { fetchDominanceCategories, resolvePolicyVersion } from '../actions';
+import PolicyContextBar from '../PolicyContextBar';
 import DominanceClient from './DominanceClient';
 
-export default async function DominancePage() {
-  const categories = await fetchDominanceCategories();
-  const activePolicy = await fetchActivePolicy();
+export default async function DominancePage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
+  const { v } = await searchParams;
+  const version = await resolvePolicyVersion(v);
+  const categories = await fetchDominanceCategories(version?.id);
 
-  return <DominanceClient categories={categories} activePolicyId={activePolicy?.id} />;
+  return (
+    <div className="space-y-4">
+      <PolicyContextBar version={version} />
+      <DominanceClient categories={categories} activePolicyId={version?.id} />
+    </div>
+  );
 }

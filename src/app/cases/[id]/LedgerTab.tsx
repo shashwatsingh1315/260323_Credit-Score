@@ -26,6 +26,8 @@ import {
   remindAccounts,
 } from './billing-actions';
 import { cn } from '@/lib/utils';
+import { ValueProgression } from '@/components/creditflow/TermsLadder';
+import { GLOSSARY } from '@/lib/vocabulary';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -61,6 +63,7 @@ interface CreditNote {
 interface LedgerData {
   billing: {
     billingDate: string | null;
+    billAmount?: number | null;
     decidedAmount: number | null;
     promisedAmount: number | null;
     actualAmount: number;
@@ -181,10 +184,25 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
   return (
     <div className="space-y-5">
       {error && (
-        <div className="bg-destructive/10 text-destructive border border-destructive/30 rounded-lg px-4 py-3 text-sm">
+        <div className="bg-destructive/10 text-destructive border border-destructive/30 rounded-lg px-4 py-3 text-sm" role="alert">
           {error}
         </div>
       )}
+
+      {/* Value progression — doctrine §12.9: one coherent Bill → Decided →
+          Promised → Collected → Outstanding story, terms explained inline. */}
+      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+        <ValueProgression
+          bill={billing.billAmount}
+          decided={billing.decidedAmount}
+          promised={billing.promisedAmount}
+          collected={billing.actualAmount}
+          outstanding={billing.promisedAmount != null ? Math.max(0, billing.promisedAmount - (billing.actualAmount ?? 0)) : null}
+        />
+        <p className="text-tiny text-muted-foreground">
+          Handoff sequence: RM confirms handover date and promised amount → KAM confirms decided amount → Accounts attaches the invoice → collections record payments → the system evaluates closure.
+        </p>
+      </div>
 
       {/* ── BILLING FRAME ─────────────────────────────────────── */}
       <Card className={cn(billingActive && 'border-primary/40', pendingWriteOff && 'border-warning/60')}>
@@ -213,12 +231,12 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
           {/* Summary row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: 'Billing Date',    value: fmtDate(billing.billingDate) },
-              { label: 'Decided Amount',  value: fmt(billing.decidedAmount) },
-              { label: 'Promised Amount', value: fmt(billing.promisedAmount) },
-              { label: 'Collected',       value: fmt(billing.actualAmount) },
+              { label: 'Billing Date',    value: fmtDate(billing.billingDate), def: 'Date the RM handed the case into billing' },
+              { label: 'Decided Amount',  value: fmt(billing.decidedAmount), def: GLOSSARY['Decided amount'] },
+              { label: 'Promised Amount', value: fmt(billing.promisedAmount), def: GLOSSARY['Promised amount'] },
+              { label: 'Collected',       value: fmt(billing.actualAmount), def: GLOSSARY['Collected amount'] },
             ].map(d => (
-              <div key={d.label}>
+              <div key={d.label} title={d.def}>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{d.label}</p>
                 <p className="font-semibold">{d.value}</p>
               </div>

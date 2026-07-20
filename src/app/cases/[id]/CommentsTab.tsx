@@ -2,6 +2,7 @@
 import { use } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import MentionInput from '@/components/MentionInput';
+import { formatDateTimeIST } from '@/lib/format';
 
 export default function CommentsTab({ coreData, promises }: any) {
   const c = coreData.case;
@@ -26,11 +27,11 @@ export default function CommentsTab({ coreData, promises }: any) {
                 {data.comments.map((cm: any) => (
                   <Card key={cm.id}>
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                         <span className="text-sm font-medium">{cm.author?.full_name || 'Unknown'}</span>
-                        <span className="text-xs text-muted-foreground">{new Date(cm.created_at).toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground">{formatDateTimeIST(cm.created_at)}</span>
                       </div>
-                      <p className="text-sm">
+                      <p className="text-sm whitespace-pre-wrap">
                         {cm.body.split(/(@\w[\w\s]*?)(?=\s|$|@)/g).map((part: string, i: number) => (
                           part.startsWith('@')
                             ? <span key={i} className="text-primary font-medium">{part}</span>

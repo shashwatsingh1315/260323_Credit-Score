@@ -1,5 +1,6 @@
 import { createClient } from './supabase/server';
 import { logAuditEvent } from './auth';
+import { describeRoutingOutcome, evaluateRequiredStage } from './routing';
 
 /**
  * Send a notification to a specific user.
@@ -141,6 +142,20 @@ export async function submitCase(caseId: string, rmUserId: string) {
     throw new Error('No active policy version found. Cannot submit case.');
   }
 
+  const [{ data: routingRules, error: routingError }, { data: caseContext, error: caseContextError }] = await Promise.all([
+    supabase.from('routing_thresholds').select('context_rule, target_stage').eq('policy_version_id', activePolicy.id),
+    supabase.from('credit_cases').select('case_scenario, requested_exposure_amount, case_number, kam_user_id').eq('id', caseId).maybeSingle(),
+  ]);
+  if (routingError) throw routingError;
+  if (caseContextError || !caseContext) throw caseContextError || new Error('Case not found.');
+
+  const routingContext = {
+    exposure: Number(caseContext.requested_exposure_amount) || 0,
+    scenario: caseContext.case_scenario,
+  };
+  const requiredStage = evaluateRequiredStage(routingRules || [], routingContext);
+  const routingDescription = describeRoutingOutcome(routingRules || [], routingContext, requiredStage);
+
   let createdCycleId: string | null = null;
 
   try {
@@ -171,6 +186,7 @@ export async function submitCase(caseId: string, rmUserId: string) {
         cycle_number: cycleNumber,
         policy_snapshot_id: activePolicy.id,
         active_stage: 1,
+        required_stage: requiredStage,
         is_active: true,
       })
       .select()
@@ -190,9 +206,17 @@ export async function submitCase(caseId: string, rmUserId: string) {
       description: `Case submitted for review. Review Cycle ${cycleNumber} opened and all tasks generated.`,
     });
 
-    const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, kam_user_id').eq('id', caseId).maybeSingle();
-    if (!caseErr && creditCase?.kam_user_id) {
-      await sendNotification(creditCase.kam_user_id, 'New Case Assigned', `Case ${creditCase.case_number} has been submitted for review.`);
+    await logAuditEvent({
+      case_id: caseId,
+      review_cycle_id: cycle.id,
+      event_type: 'case_routed',
+      actor_id: rmUserId,
+      description: routingDescription,
+      metadata: { required_stage: requiredStage },
+    });
+
+    if (caseContext.kam_user_id) {
+      await sendNotification(caseContext.kam_user_id, 'New Case Assigned', `Case ${caseContext.case_number} has been submitted for review.`);
     }
 
     return cycle;
@@ -214,7 +238,7 @@ export async function submitCase(caseId: string, rmUserId: string) {
 /**
  * Generate tasks for a specific stage based on policy definitions.
  */
-export async function generateStageTasks(cycleId: string, stage: number, policyVersionId: string, caseId: string) {
+export async function generateStageTasks(cycleId: string, stage: number, policyVersionId: string, caseId: string, activeStage: number = 1) {
   const supabase = await createClient();
 
   // 1. Get case scenario to filter subject types
@@ -297,7 +321,9 @@ export async function generateStageTasks(cycleId: string, stage: number, policyV
         raw_input_value: answer?.raw_input_value || null,
         grade_value: answer?.grade_value != null ? answer.grade_value : null,
         reason: answer?.reason || null,
-        sla_deadline: p.sla_days ? new Date(Date.now() + p.sla_days * 86400000).toISOString() : null,
+        // SLA clocks start when the stage is entered, not when the case is
+        // submitted — future stages get their deadline in progressStage.
+        sla_deadline: p.sla_days && stage <= activeStage ? new Date(Date.now() + p.sla_days * 86400000).toISOString() : null,
       });
     }
   }
@@ -358,6 +384,24 @@ export async function progressStage(cycleId: string, currentStage: number, actor
     .update({ active_stage: nextStage })
     .eq('id', cycleId);
 
+  // Start SLA clocks for the newly-entered stage's tasks
+  const { data: nextStageTasks } = await supabase
+    .from('stage_tasks')
+    .select('id, param:parameter_definitions!stage_tasks_parameter_id_fkey(sla_days)')
+    .eq('review_cycle_id', cycleId)
+    .eq('stage', nextStage)
+    .is('sla_deadline', null);
+
+  const slaUpdates = (nextStageTasks || [])
+    .filter((t: any) => t.param?.sla_days)
+    .map((t: any) =>
+      supabase
+        .from('stage_tasks')
+        .update({ sla_deadline: new Date(Date.now() + t.param.sla_days * 86400000).toISOString() })
+        .eq('id', t.id)
+    );
+  if (slaUpdates.length > 0) await Promise.all(slaUpdates);
+
   await logAuditEvent({
     case_id: cycle.case_id,
     review_cycle_id: cycleId,
@@ -403,36 +447,6 @@ export async function setWaiting(params: {
     actor_id: params.actorId,
     description: `${params.type === 'task' ? 'Task' : 'Case'} set to waiting: ${params.reason}`,
   });
-}
-
-/**
- * Return a case for revision.
- */
-export async function returnForRevision(params: {
-  caseId: string;
-  cycleId: string;
-  comment: string;
-  actorId: string;
-}) {
-  const supabase = await createClient();
-
-  await supabase.from('credit_cases').update({
-    status: 'In Review',
-    substatus: 'Returned for revision',
-  }).eq('id', params.caseId);
-
-  await logAuditEvent({
-    case_id: params.caseId,
-    review_cycle_id: params.cycleId,
-    event_type: 'return_revision',
-    actor_id: params.actorId,
-    description: `Returned for revision: ${params.comment}`,
-  });
-
-  const { data: creditCase, error: caseErr } = await supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', params.caseId).maybeSingle();
-  if (!caseErr && creditCase?.rm_user_id) {
-    await sendNotification(creditCase.rm_user_id, 'Case Returned', `Case ${creditCase.case_number} was returned for revision.`);
-  }
 }
 
 /**

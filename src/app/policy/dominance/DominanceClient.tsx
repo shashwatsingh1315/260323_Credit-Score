@@ -15,6 +15,7 @@ interface DominanceClientProps {
 
 export default function DominanceClient({ categories, activePolicyId }: DominanceClientProps) {
   const [editingCat, setEditingCat] = useState<any | null>(null);
+  const [method, setMethod] = useState('weighted');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +51,7 @@ export default function DominanceClient({ categories, activePolicyId }: Dominanc
 
                 <div className="space-y-2">
                   <Label>Combination Method</Label>
-                  <select name="combination_method" defaultValue={editingCat?.combination_method || 'weighted'} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                  <select name="combination_method" value={method} onChange={(event) => setMethod(event.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                     <option value="weighted">Weighted Blend</option>
                     <option value="power_law">Power Law</option>
                     <option value="customer_only">Customer Only</option>
@@ -58,7 +59,7 @@ export default function DominanceClient({ categories, activePolicyId }: Dominanc
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {(method === 'weighted' || method === 'power_law') ? <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Customer Wgt</Label>
                     <Input name="customer_weight" type="number" step="0.01" defaultValue={editingCat?.customer_weight ?? 0.5} required />
@@ -67,12 +68,12 @@ export default function DominanceClient({ categories, activePolicyId }: Dominanc
                     <Label>Contractor Wgt</Label>
                     <Input name="contractor_weight" type="number" step="0.01" defaultValue={editingCat?.contractor_weight ?? 0.5} required />
                   </div>
-                </div>
+                </div> : <p className="rounded-md border border-info/25 bg-info/10 p-3 text-xs text-info-strong">{method === 'customer_only' ? 'The final case score equals the customer score.' : 'The final case score equals the contractor score.'}</p>}
 
-                <div className="space-y-2">
+                {method === 'power_law' && <div className="space-y-2">
                   <Label>Exponent (Power Law)</Label>
                   <Input name="exponent" type="number" step="0.01" defaultValue={editingCat?.exponent ?? 1.0} />
-                </div>
+                </div>}
 
                 <div className="flex gap-2 pt-2">
                   <Button type="submit" className="w-full">{editingCat ? 'Save Changes' : 'Create'}</Button>
@@ -105,7 +106,7 @@ export default function DominanceClient({ categories, activePolicyId }: Dominanc
                       <TableCell>{c.contractor_weight}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingCat(c)}>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingCat(c); setMethod(c.combination_method); }}>
                             <Edit size={14} />
                           </Button>
                           <form action={deleteDominanceCategory}>

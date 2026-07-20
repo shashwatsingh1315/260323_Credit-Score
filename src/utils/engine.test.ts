@@ -8,7 +8,6 @@ import {
   generateAllCycleTasks,
   progressStage,
   setWaiting,
-  returnForRevision,
   withdrawCase
 } from './engine';
 
@@ -206,6 +205,7 @@ describe('engine.ts', () => {
     it('submits case successfully when active policy is found', async () => {
       mockSingle
         .mockResolvedValueOnce({ data: { id: 'policy-123' }, error: null }) // active policy
+        .mockResolvedValueOnce({ data: { case_scenario: 'customer_name_customer_pays', requested_exposure_amount: 1000, case_number: 'CF-1', kam_user_id: null }, error: null }) // routing context
         .mockResolvedValueOnce({ data: { id: 'cycle-123' }, error: null }) // create cycle
         .mockResolvedValue({ data: { case_scenario: 'scen', history_classification: 'first_time', rm_user_id: 'u1' } }); // stages internal calls
 
@@ -301,15 +301,6 @@ describe('engine.ts', () => {
       mockEq.mockResolvedValueOnce({ error: null });
       await setWaiting({ type: 'case', id: 'c1', reason: 'waiting input', actorId: 'a1', caseId: 'c1' });
       expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'Awaiting Input', substatus: 'waiting input' }));
-    });
-  });
-
-  describe('returnForRevision', () => {
-    it('updates case status', async () => {
-      mockEq.mockResolvedValueOnce({ error: null });
-      mockSingle.mockResolvedValueOnce({ data: { case_number: "CASE-123", rm_user_id: "rm1" } });
-      await returnForRevision({ caseId: 'c1', cycleId: 'cycle1', comment: 'fix this', actorId: 'a1' });
-      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'In Review', substatus: 'Returned for revision' }));
     });
   });
 

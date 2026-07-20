@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { upsertParameter, deleteParameter } from '../actions';
 import { Pencil, Trash2, Plus, ChevronLeft, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
+import { policyVersionQuery } from '../PolicyContextBar';
 
 interface Parameter {
   id: string;
@@ -26,6 +27,7 @@ interface Parameter {
   weight: number;
   sla_days?: number;
   require_reasoning?: boolean;
+  is_critical?: boolean;
   is_stable?: boolean;
   rubric_guidance: string;
   auto_band_config?: any;
@@ -73,7 +75,10 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
     // Handle legacy 'dropdown' value that was previously allowed in UI but rejected by DB
     const mappedType = p.input_type === 'dropdown' ? 'link_list' : (p.input_type || 'grade_select');
     setInputType(mappedType);
-    setAutoBandRules(p.auto_band_config?.bands || p.auto_band_config?.mappings || []);
+    const existingRules = p.auto_band_config?.bands || p.auto_band_config?.mappings || [];
+    setAutoBandRules(mappedType === 'yes_no'
+      ? ['Yes', 'No'].map((value) => existingRules.find((rule: any) => String(rule.value).toLowerCase() === value.toLowerCase()) || { value, grade: value === 'Yes' ? 5 : 1 })
+      : existingRules);
     setOpen(true);
   };
 
@@ -107,6 +112,7 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
   };
 
   const addRule = () => {
+    if (inputType === 'yes_no') return;
     if (inputType === 'numeric') {
       setAutoBandRules([...autoBandRules, { min: 0, max: 0, grade: 1 }]);
     } else {
@@ -115,6 +121,7 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
   };
 
   const removeRule = (idx: number) => {
+    if (inputType === 'yes_no') return;
     setAutoBandRules(autoBandRules.filter((_, i) => i !== idx));
   };
 
@@ -127,7 +134,7 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/policy"><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
+        <Link href={`/policy${policyVersionQuery(activePolicy)}`}><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold">Scoring Parameters</h1>
@@ -196,11 +203,13 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                 <TableCell>
                   <div className="flex gap-1">
                     <Badge variant="secondary">{p.default_owning_role.toUpperCase()}</Badge>
-                    <Badge variant="outline">{p.signal_lag}</Badge>
+                    {p.is_critical && (
+                      <Badge variant="warning" title="Missing evidence makes a case ambiguous">Critical</Badge>
+                    )}
                     {p.is_stable && (
                       <Badge
                         variant="outline"
-                        className="border-blue-500 text-blue-700 bg-blue-50"
+                        className="border-info text-info-strong bg-info/10"
                         title="Stable parameter — feeds the preapproved credit-days band"
                       >
                         S
@@ -263,8 +272,11 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                   name="data_type"
                   value={inputType}
                   onChange={(e) => {
-                    setInputType(e.target.value);
-                    setAutoBandRules([]); // Reset rules when type changes
+                    const nextType = e.target.value;
+                    setInputType(nextType);
+                    setAutoBandRules(nextType === 'yes_no'
+                      ? [{ value: 'Yes', grade: 5 }, { value: 'No', grade: 1 }]
+                      : []);
                   }}
                   className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
@@ -281,37 +293,42 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                 <Label>Weight</Label>
                 <Input name="weight" type="number" step="0.01" min="0" max="100" defaultValue={editing?.weight || 1} required />
               </div>
-              <div className="space-y-1">
-                <Label>Lag Type</Label>
-                <select name="signal_lag" defaultValue={editing?.signal_lag || 'Leading'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                  <option value="Leading">Leading</option>
-                  <option value="Lagging">Lagging</option>
-                </select>
+              <div className="col-span-2 flex items-start gap-2 rounded-md border border-warning/25 bg-warning/10 p-3">
+                <input type="checkbox" name="is_critical" id="is_critical" value="true" defaultChecked={editing?.is_critical || false} className="mt-0.5 h-4 w-4 rounded border-input" />
+                <div>
+                  <Label htmlFor="is_critical">Critical evidence</Label>
+                  <p className="text-tiny text-muted-foreground">If unanswered when scoring runs, the case is flagged ambiguous and routed to board review.</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label>Strength (1-5)</Label>
-                <Input name="signal_strength" type="number" min="1" max="5" defaultValue={editing?.signal_strength || 3} />
-              </div>
-              <div className="space-y-1">
-                <Label>Cost (1-5)</Label>
-                <Input name="signal_cost" type="number" min="1" max="5" defaultValue={editing?.signal_cost || 3} />
-              </div>
+              <details className="col-span-2 rounded-md border border-border p-3">
+                <summary className="cursor-pointer text-xs font-semibold">Signal metadata — reserved for Phase 2 (not yet used in scoring)</summary>
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label>Lag Type</Label>
+                    <select name="signal_lag" defaultValue={editing?.signal_lag || 'Leading'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm">
+                      <option value="Leading">Leading</option><option value="Lagging">Lagging</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1"><Label>Strength (1-5)</Label><Input name="signal_strength" type="number" min="1" max="5" defaultValue={editing?.signal_strength || 3} /></div>
+                  <div className="space-y-1"><Label>Cost (1-5)</Label><Input name="signal_cost" type="number" min="1" max="5" defaultValue={editing?.signal_cost || 3} /></div>
+                </div>
+              </details>
               <div className="space-y-1">
                 <Label>SLA Days</Label>
                 <Input name="sla_days" type="number" min="0" max="30" defaultValue={editing?.sla_days || ''} placeholder="Leave empty for no SLA" />
               </div>
               <div className="flex items-center gap-2 pt-6">
-                <input type="checkbox" name="require_reasoning" id="require_reasoning" value="true" defaultChecked={editing?.require_reasoning || false} className="w-4 h-4 rounded border-gray-300" />
+                <input type="checkbox" name="require_reasoning" id="require_reasoning" value="true" defaultChecked={editing?.require_reasoning || false} className="w-4 h-4 rounded border-input" />
                 <Label htmlFor="require_reasoning">Require Mandatory Reasoning</Label>
               </div>
-              <div className="col-span-2 flex items-start gap-2 p-3 border rounded-md bg-blue-50/40">
+              <div className="col-span-2 flex items-start gap-2 p-3 border rounded-md bg-info/5">
                 <input
                   type="checkbox"
                   name="is_stable"
                   id="is_stable"
                   value="true"
                   defaultChecked={editing?.is_stable || false}
-                  className="w-4 h-4 rounded border-gray-300 mt-0.5"
+                  className="w-4 h-4 rounded border-input mt-0.5"
                 />
                 <div>
                   <Label htmlFor="is_stable" className="font-medium">Stable parameter</Label>
@@ -335,13 +352,13 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                       <p className="text-tiny text-muted-foreground">Map raw values to a 1-5 grade.</p>
                     </div>
                     <div className="flex gap-2">
-                      <Label className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 h-7 px-3 flex items-center justify-center rounded-md text-xs">
+                      {inputType !== 'yes_no' && <Label className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 h-7 px-3 flex items-center justify-center rounded-md text-xs">
                         Upload CSV
                         <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-                      </Label>
-                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={addRule}>
+                      </Label>}
+                      {inputType !== 'yes_no' && <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={addRule}>
                         <Plus size={12} className="mr-1" /> Add Rule
-                      </Button>
+                      </Button>}
                     </div>
                   </div>
 
@@ -377,7 +394,8 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                             <Input
                               type="text"
                               value={rule.value}
-                              onChange={(e) => updateRule(idx, 'value', e.target.value)}
+                              onChange={(e) => inputType !== 'yes_no' && updateRule(idx, 'value', e.target.value)}
+                              readOnly={inputType === 'yes_no'}
                               className="h-8"
                               placeholder={inputType === 'yes_no' ? 'Yes or No' : 'Exact Value'}
                             />
@@ -390,9 +408,9 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                           >
                             {[1, 2, 3, 4, 5].map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeRule(idx)}>
+                          {inputType !== 'yes_no' && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeRule(idx)}>
                             <Trash2 size={14} />
-                          </Button>
+                          </Button>}
                         </div>
                       ))}
                     </div>
