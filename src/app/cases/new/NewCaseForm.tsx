@@ -7,7 +7,7 @@ import { PartyDialog } from '@/components/admin/PartyDialog';
 import { cn } from '@/lib/utils';
 import { SCENARIO_LABELS } from '@/lib/vocabulary';
 import { evaluateRequiredStage } from '@/utils/routing';
-import { parseRubricGuidance } from '@/lib/format';
+import { formatPolicyOptionLabel, parseRubricGuidance } from '@/lib/format';
 
 interface Tranche {
   type: 'amount' | 'percentage';
@@ -199,11 +199,11 @@ export default function NewCaseForm({
 
   // Composite credit day calculation
   const compositeDays = useCallback(() => {
-    if (billAmount <= 0 || tranches.length === 0) return 0;
+    if (requestedExposure <= 0 || tranches.length === 0) return 0;
     let weightedDays = 0;
     let totalWeight = 0;
     for (const t of tranches) {
-      const w = t.type === 'percentage' ? t.value / 100 : t.value / billAmount;
+      const w = t.type === 'percentage' ? t.value / 100 : t.value / requestedExposure;
       totalWeight += w;
       weightedDays += w * t.days_after_billing;
     }
@@ -211,13 +211,13 @@ export default function NewCaseForm({
       weightedDays = weightedDays / totalWeight;
     }
     return Math.round(weightedDays * 100) / 100;
-  }, [tranches, billAmount]);
+  }, [tranches, requestedExposure]);
 
-  // Tranche total
+  // The repayment schedule covers only the portion requested on credit.
   const trancheTotal = tranches.reduce((sum, t) => {
-    return sum + (t.type === 'percentage' ? (t.value / 100) * billAmount : t.value);
+    return sum + (t.type === 'percentage' ? (t.value / 100) * requestedExposure : t.value);
   }, 0);
-  const tranchesReconcile = billAmount > 0 ? Math.abs(trancheTotal - billAmount) < 0.01 : true;
+  const tranchesReconcile = requestedExposure > 0 ? Math.abs(trancheTotal - requestedExposure) < 0.01 : true;
 
   const addTranche = () => setTranches([...tranches, { type: 'amount', value: 0, days_after_billing: 0 }]);
   const removeTranche = (idx: number) => setTranches(tranches.filter((_, i) => i !== idx));
@@ -288,8 +288,8 @@ export default function NewCaseForm({
       return;
     }
 
-    if (action === 'submit' && billAmount > 0 && !tranchesReconcile) {
-      setError('Tranches must reconcile exactly to the total site value before submission.');
+    if (action === 'submit' && requestedExposure > 0 && !tranchesReconcile) {
+      setError('Tranches must reconcile exactly to the expected credit exposure before submission.');
       setSubmitting(false);
       return;
     }
@@ -604,7 +604,10 @@ export default function NewCaseForm({
                 </div>
               </div>
 
-              <h3 className="mb-3 mt-2 text-sm font-semibold">Repayment schedule</h3>
+              <div className="mb-3 mt-2">
+                <h3 className="text-sm font-semibold">Credit repayment schedule</h3>
+                <p className="mt-0.5 text-tiny text-muted-foreground">Allocate only the expected credit exposure of ₹{requestedExposure.toLocaleString('en-IN', { maximumFractionDigits: 2 })}; the remaining site value is not financed.</p>
+              </div>
 
               <div className="mb-2 hidden grid-cols-[1fr_1fr_1fr_40px] gap-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:grid">
                 <span>Type</span><span>Value</span><span>Days After Billing</span><span></span>
@@ -633,17 +636,21 @@ export default function NewCaseForm({
                   <span className={cn('font-semibold tabular-nums', tranchesReconcile ? 'text-success' : 'text-destructive')}>₹{trancheTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Total Site Value:</span>
-                  <span className="tabular-nums">₹{billAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                  <span>Expected Credit Exposure:</span>
+                  <span className="font-medium tabular-nums text-foreground">₹{requestedExposure.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Non-credit Site Value:</span>
+                  <span className="tabular-nums">₹{Math.max(0, billAmount - requestedExposure).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Remaining to allocate:</span>
                   <span className={cn(
                     'font-semibold tabular-nums',
-                    Math.abs(billAmount - trancheTotal) < 0.01 ? 'text-success' : 'text-destructive'
+                    Math.abs(requestedExposure - trancheTotal) < 0.01 ? 'text-success' : 'text-destructive'
                   )}>
-                    ₹{Math.max(0, billAmount - trancheTotal).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    {trancheTotal > billAmount && ' (over-allocated)'}
+                    ₹{Math.max(0, requestedExposure - trancheTotal).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    {trancheTotal > requestedExposure && ' (over-allocated)'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
@@ -652,8 +659,8 @@ export default function NewCaseForm({
                 </div>
               </div>
 
-              {!tranchesReconcile && billAmount > 0 && (
-                <p className={errorCls}>Tranches must sum exactly to ₹{billAmount.toLocaleString('en-IN')} before continuing.</p>
+              {!tranchesReconcile && requestedExposure > 0 && (
+                <p className={errorCls}>Tranches must sum exactly to the expected credit exposure of ₹{requestedExposure.toLocaleString('en-IN')} before continuing.</p>
               )}
 
               {errorAlert}
@@ -761,7 +768,7 @@ export default function NewCaseForm({
                           <>
                               {task.auto_band_config?.mappings ? (
                                 task.auto_band_config.mappings.map((m: any, i: number) => (
-                                  <option key={i} value={m.grade}>{m.value} (Grade {m.grade})</option>
+                                  <option key={i} value={m.grade}>{formatPolicyOptionLabel(m.value)} (Grade {m.grade})</option>
                                 ))
                               ) : gradeScale.length > 0 ? (
                                 /* Labels come from policy grade_scale — higher grade = better */
@@ -786,7 +793,7 @@ export default function NewCaseForm({
                            {task.input_type === 'yes_no' ? (
                              <><option value="Yes">Yes</option><option value="No">No</option></>
                            ) : task.auto_band_config?.mappings?.map((m: any, i: number) => (
-                               <option key={i} value={m.value}>{m.value}</option>
+                               <option key={i} value={m.value}>{formatPolicyOptionLabel(m.value)}</option>
                              ))}
                          </select>
                       ) : (

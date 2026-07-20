@@ -145,11 +145,13 @@ describe('cases/new/actions.ts', () => {
       formData.append('kamUserId', 'kam-123');
       formData.append('caseScenario', 'scen1');
       formData.append('billAmount', '1000');
+      formData.append('requestedExposure', '500');
       formData.append('action', 'submit');
 
       await handleNewCase(formData);
 
       expect(draftMock).toHaveBeenCalled();
+      expect(engine.validateTranches).toHaveBeenCalledWith([], 500);
       expect(submitMock).toHaveBeenCalledWith('case-123', 'u1');
       expect(redirect).toHaveBeenCalledWith('/cases/case-123?receipt=submitted');
     });
@@ -163,6 +165,7 @@ describe('cases/new/actions.ts', () => {
       formData.append('kamUserId', 'kam-123');
       formData.append('action', 'submit');
       formData.append('billAmount', '1000');
+      formData.append('requestedExposure', '500');
 
       await expect(handleNewCase(formData)).resolves.toEqual({ error: 'Validation failed' });
     });

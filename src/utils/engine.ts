@@ -17,13 +17,13 @@ export async function sendNotification(userId: string, title: string, message: s
 
 /**
  * Composite Credit Day calculation per Doc 04.
- * composite_credit_days = sum(weight_of_tranche * days_after_billing)
+ * composite_credit_days = sum(weight_of_credit_tranche * days_after_billing)
  */
 export function calculateCompositeDays(
   tranches: Array<{ type: 'amount' | 'percentage'; value: number; days_after_billing: number }>,
-  billAmount: number
+  creditExposureAmount: number
 ): number {
-  if (!tranches || tranches.length === 0 || billAmount <= 0) return 0;
+  if (!tranches || tranches.length === 0 || creditExposureAmount <= 0) return 0;
 
   let totalWeight = 0;
   let weightedDays = 0;
@@ -31,7 +31,7 @@ export function calculateCompositeDays(
   for (const tranche of tranches) {
     const weight = tranche.type === 'percentage'
       ? tranche.value / 100
-      : tranche.value / billAmount;
+      : tranche.value / creditExposureAmount;
     totalWeight += weight;
     weightedDays += weight * tranche.days_after_billing;
   }
@@ -45,11 +45,11 @@ export function calculateCompositeDays(
 }
 
 /**
- * Validate that tranches reconcile exactly to bill amount.
+ * Validate that repayment tranches reconcile exactly to the credit exposure.
  */
 export function validateTranches(
   tranches: Array<{ type: 'amount' | 'percentage'; value: number; days_after_billing: number }>,
-  billAmount: number
+  creditExposureAmount: number
 ): { valid: boolean; error?: string } {
   if (!tranches || tranches.length === 0) {
     return { valid: false, error: 'At least one tranche is required.' };
@@ -60,13 +60,13 @@ export function validateTranches(
     if (t.type === 'amount') {
       totalValue += t.value;
     } else {
-      totalValue += (t.value / 100) * billAmount;
+      totalValue += (t.value / 100) * creditExposureAmount;
     }
   }
 
-  const diff = Math.abs(totalValue - billAmount);
+  const diff = Math.abs(totalValue - creditExposureAmount);
   if (diff > 0.01) {
-    return { valid: false, error: `Tranches total ${totalValue.toFixed(2)} but bill amount is ${billAmount.toFixed(2)}. They must reconcile exactly.` };
+    return { valid: false, error: `Tranches total ${totalValue.toFixed(2)} but expected credit exposure is ${creditExposureAmount.toFixed(2)}. They must reconcile exactly.` };
   }
 
   return { valid: true };
@@ -90,7 +90,7 @@ export async function createCaseDraft(data: {
 }) {
   const supabase = await createClient();
 
-  const compositeDays = calculateCompositeDays(data.proposed_tranches, data.bill_amount);
+  const compositeDays = calculateCompositeDays(data.proposed_tranches, data.requested_exposure_amount);
 
   const { data: newCase, error } = await supabase
     .from('credit_cases')

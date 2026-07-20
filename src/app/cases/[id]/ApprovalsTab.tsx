@@ -3,6 +3,7 @@ import { use, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, CheckCircle2, ShieldQuestion, Clock } from 'lucide-react';
 import { handleCreateApprovalRound, handleApprovalDecision, handleBoardVote } from './actions';
@@ -22,7 +23,7 @@ const DECISION_CONSEQUENCES: Record<string, string[]> = {
   approve: [
     'Your approval will be recorded with your name and timestamp.',
     'If all required approvers approve, the case moves to Approved and the RM is notified to negotiate with the customer.',
-    'The policy recommendation becomes approved terms only when the round fully approves.',
+    'The credit days shown in this confirmation become governing terms only when the round fully approves.',
   ],
   reject: [
     'The case will immediately move to Rejected and the round will close.',
@@ -52,6 +53,9 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
   const [pendingDecision, setPendingDecision] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const [revisionItems, setRevisionItems] = useState<Record<string, boolean>>({});
+  const [useFounderOverride, setUseFounderOverride] = useState(false);
+  const [founderOverrideDays, setFounderOverrideDays] = useState('');
+  const [founderOverrideReason, setFounderOverrideReason] = useState('');
 
   const openRound = approvalRounds.find((r: any) => r.status === 'open');
   const currentStageTasks = (tasksBundle?.tasks || []).filter((t: any) => t.stage === (openRound?.stage ?? cycle?.active_stage));
@@ -62,6 +66,14 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
   const history = c.customer_history;
 
   const selectedRevisionTasks = currentStageTasks.filter((t: any) => revisionItems[t.id]);
+  const policyRecommendedDays = Number(coreData.founderOverride?.metadata?.policy_recommended_credit_days ?? cycle?.approved_credit_days);
+  const founderOverrideDaysNumber = Number(founderOverrideDays);
+  const founderOverrideIsValid = !useFounderOverride || (
+    activeRole === 'founder_admin'
+    && Number.isInteger(founderOverrideDaysNumber)
+    && founderOverrideDaysNumber > policyRecommendedDays
+    && founderOverrideReason.trim().length > 0
+  );
 
   const composedComment = (() => {
     if (pendingDecision !== 'return_for_revision') return comment;
@@ -73,7 +85,8 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
   })();
 
   const canSubmitDecision = pendingDecision === 'approve'
-    || (pendingDecision && comment.trim().length > 0 && (pendingDecision !== 'return_for_revision' || selectedRevisionTasks.length > 0));
+    ? founderOverrideIsValid
+    : !!(pendingDecision && comment.trim().length > 0 && (pendingDecision !== 'return_for_revision' || selectedRevisionTasks.length > 0));
 
   return (
     <div className="space-y-4 mt-4">
@@ -129,7 +142,7 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                 ...(cycle?.current_case_score != null || cycle?.approved_credit_days != null
                   ? [{
                       layer: 'recommended' as const,
-                      value: `${cycle.approved_credit_days ?? '—'} days${cycle.current_case_score != null ? ` · score ${cycle.current_case_score}/100` : ''}${cycle.score_band_name ? ` · ${cycle.score_band_name}` : ''}`,
+                      value: `${Number.isFinite(policyRecommendedDays) ? policyRecommendedDays : '—'} days${cycle.current_case_score != null ? ` · score ${cycle.current_case_score}/100` : ''}${cycle.score_band_name ? ` · ${cycle.score_band_name}` : ''}`,
                       provenance: 'Policy engine output — not a human decision',
                       governing: false,
                     }]
@@ -138,8 +151,11 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                   ? [{
                       layer: 'approved' as const,
                       value: `${cycle.approved_credit_days} days`,
-                      provenance: cycle.finalized_at ? `Finalized ${formatDateIST(cycle.finalized_at)}` : undefined,
+                      provenance: coreData.founderOverride
+                        ? `Founder override by ${coreData.founderOverride.actor?.full_name || 'Founder Admin'} · ${formatDateIST(coreData.founderOverride.created_at)} · ${coreData.founderOverride.metadata?.override_reason || 'Reason recorded in audit'}`
+                        : cycle.finalized_at ? `Finalized ${formatDateIST(cycle.finalized_at)}` : undefined,
                       governing: true,
+                      attention: !!coreData.founderOverride,
                     }]
                   : []),
               ]}
@@ -328,11 +344,64 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                           </p>
                           <ul className="text-sm space-y-1 list-disc pl-4 text-foreground/90">
                             {DECISION_CONSEQUENCES[pendingDecision].map((x, i) => <li key={i}>{x}</li>)}
+                            {useFounderOverride && (
+                              <li className="text-attention-strong">Founder override: {founderOverrideDays || '—'} days will replace the {policyRecommendedDays}-day policy recommendation.</li>
+                            )}
                           </ul>
+
+                          {pendingDecision === 'approve' && activeRole === 'founder_admin' && Number.isFinite(policyRecommendedDays) && (
+                            <fieldset className="rounded-lg border border-attention/40 bg-attention/5 p-3 space-y-3">
+                              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="mt-1"
+                                  checked={useFounderOverride}
+                                  onChange={(e) => setUseFounderOverride(e.target.checked)}
+                                />
+                                <span>
+                                  <span className="font-medium">Approve higher credit days</span>
+                                  <span className="block text-xs text-muted-foreground">Founder Admin exception above the system recommendation of {policyRecommendedDays} days.</span>
+                                </span>
+                              </label>
+                              {useFounderOverride && (
+                                <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
+                                  <div className="space-y-1.5">
+                                    <label htmlFor={`override-days-${round.id}`} className="text-xs font-medium">Approved credit days *</label>
+                                    <Input
+                                      id={`override-days-${round.id}`}
+                                      type="number"
+                                      min={policyRecommendedDays + 1}
+                                      step="1"
+                                      value={founderOverrideDays}
+                                      onChange={(e) => setFounderOverrideDays(e.target.value)}
+                                      placeholder={`>${policyRecommendedDays}`}
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label htmlFor={`override-reason-${round.id}`} className="text-xs font-medium">Override rationale *</label>
+                                    <Textarea
+                                      id={`override-reason-${round.id}`}
+                                      value={founderOverrideReason}
+                                      onChange={(e) => setFounderOverrideReason(e.target.value)}
+                                      placeholder="Why should this case receive more credit days than policy recommends?"
+                                      rows={2}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </fieldset>
+                          )}
+
                           <form action={handleApprovalDecision} className="flex gap-2 flex-wrap">
                             <input type="hidden" name="roundId" value={round.id} />
                             <input type="hidden" name="caseId" value={c.id} />
                             <input type="hidden" name="comment" value={composedComment} />
+                            {useFounderOverride && pendingDecision === 'approve' && activeRole === 'founder_admin' && (
+                              <>
+                                <input type="hidden" name="overrideCreditDays" value={founderOverrideDays} />
+                                <input type="hidden" name="overrideReason" value={founderOverrideReason} />
+                              </>
+                            )}
                             <SubmitButton
                               type="submit"
                               name="decision"
@@ -343,7 +412,7 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                             >
                               Confirm {pendingDecision.replace(/_/g, ' ')}
                             </SubmitButton>
-                            <Button type="button" variant="ghost" onClick={() => setPendingDecision(null)}>
+                            <Button type="button" variant="ghost" onClick={() => { setPendingDecision(null); setUseFounderOverride(false); setFounderOverrideDays(''); setFounderOverrideReason(''); }}>
                               Back
                             </Button>
                           </form>
@@ -353,6 +422,9 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                                 ? 'Select at least one correction item or pick a different decision.'
                                 : 'A written rationale is required for this decision.'}
                             </p>
+                          )}
+                          {!canSubmitDecision && pendingDecision === 'approve' && useFounderOverride && (
+                            <p className="text-xs text-destructive">Enter whole credit days above {policyRecommendedDays} and provide the override rationale.</p>
                           )}
                         </div>
                       )}
