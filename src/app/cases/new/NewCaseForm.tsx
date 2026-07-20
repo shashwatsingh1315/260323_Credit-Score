@@ -91,9 +91,14 @@ export default function NewCaseForm({
   };
 
   const [billAmount, setBillAmount] = useState(0);
-  const [requestedExposure, setRequestedExposure] = useState(0);
+  const [creditPercentage, setCreditPercentage] = useState(0);
+  const requestedExposure = Math.round((billAmount * creditPercentage / 100) * 100) / 100;
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
   const [isLoadingContractor, setIsLoadingContractor] = useState(false);
+
+  const updateCreditPercentage = (value: number) => {
+    setCreditPercentage(Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0);
+  };
 
   // Auto-fetch party details on selection (M1)
   const handleCustomerSelect = async (id: string) => {
@@ -544,7 +549,7 @@ export default function NewCaseForm({
           {step === 2 && (
             <div className="flex flex-col">
               <h2 className="mb-1 text-lg font-semibold tracking-tight">Commercial ask</h2>
-              <p className="mb-6 text-xs text-muted-foreground">Keep the bill, requested exposure, and repayment schedule together as one decision.</p>
+              <p className="mb-6 text-xs text-muted-foreground">Set the total site value, choose how much is expected on credit, and define the repayment schedule.</p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className={groupCls}>
@@ -553,11 +558,43 @@ export default function NewCaseForm({
                 </div>
                 <div className={groupCls}>
                   <div className="flex justify-between items-center">
-                    <label className={labelCls}>Requested Exposure (₹) *</label>
-                    {billAmount > 0 && <span className={cn('text-xs font-medium', requestedExposure > billAmount ? 'text-destructive' : 'text-primary')}>{((requestedExposure / billAmount) * 100).toFixed(1)}% of site value</span>}
+                    <label htmlFor="credit-percentage" className={labelCls}>Expected Credit Exposure (%) *</label>
+                    <span className="text-xs font-semibold tabular-nums text-primary">
+                      ₹{requestedExposure.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </span>
                   </div>
-                  <input type="number" value={requestedExposure || ''} onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} className={cn(inputCls, requestedExposure > billAmount && 'border-destructive')} placeholder="0" required />
-                  {requestedExposure > billAmount && <p className="text-tiny font-medium text-destructive">Exposure cannot exceed the total site value.</p>}
+                  <p className="text-tiny text-muted-foreground">Percentage of the Total Site Value requested on credit.</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="credit-percentage"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={creditPercentage}
+                      onChange={e => updateCreditPercentage(Number(e.target.value))}
+                      className="h-2 min-w-0 flex-1 cursor-pointer accent-primary"
+                      aria-valuetext={`${creditPercentage}% credit, ₹${requestedExposure.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+                    />
+                    <div className="relative w-24 shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={creditPercentage || ''}
+                        onChange={e => updateCreditPercentage(Number(e.target.value))}
+                        className={cn(inputCls, 'pr-8 text-right tabular-nums')}
+                        placeholder="0"
+                        aria-label="Expected credit exposure percentage"
+                        required
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-tiny text-muted-foreground" aria-hidden="true">
+                    <span>0%</span><span>50%</span><span>100%</span>
+                  </div>
                   {(() => {
                     const creditLine = (scenario.startsWith('customer') ? customerDetails : contractorDetails)?.credit_line_amount;
                     return creditLine != null && requestedExposure > creditLine
@@ -806,8 +843,8 @@ export default function NewCaseForm({
                     <dd className="font-medium text-right">{kams.find((k: any) => k.id === kamUserId)?.full_name || <span className="text-warning">Required to submit</span>}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Site value / exposure</dt>
-                    <dd className="font-medium text-right tabular-nums">₹{billAmount.toLocaleString('en-IN')} / ₹{requestedExposure.toLocaleString('en-IN')}</dd>
+                    <dt className="text-muted-foreground">Site value / expected exposure</dt>
+                    <dd className="font-medium text-right tabular-nums">₹{billAmount.toLocaleString('en-IN')} / ₹{requestedExposure.toLocaleString('en-IN')} ({creditPercentage}% credit)</dd>
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-muted-foreground">Repayment schedule</dt>
