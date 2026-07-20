@@ -49,10 +49,10 @@ export async function handleNewCase(formData: FormData) {
   }
 
   // Validate tranches if submitting
-  if (action === 'submit' && billAmount > 0) {
-    const validation = validateTranches(tranches, billAmount);
+  if (action === 'submit' && requestedExposure > 0) {
+    const validation = validateTranches(tranches, requestedExposure);
     if (!validation.valid) {
-      return { error: validation.error || 'The repayment schedule does not match the total site value.' };
+      return { error: validation.error || 'The repayment schedule does not match the expected credit exposure.' };
     }
   }
 

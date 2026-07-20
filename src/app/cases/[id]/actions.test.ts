@@ -54,6 +54,8 @@ vi.mock('@/utils/supabase/server', () => ({
           if (res) return res;
           return builder;
         }),
+        order: vi.fn().mockImplementation(() => builder),
+        limit: vi.fn().mockImplementation(() => builder),
         single: vi.fn().mockImplementation((...args) => {
           return mockSingle(...args);
         }),
@@ -203,6 +205,80 @@ describe('cases/[id]/actions.ts', () => {
         reason: 'ok'
       }));
       expect(scoring.updateCycleScore).toHaveBeenCalledWith('cy1');
+    });
+  });
+
+  describe('handleApprovalDecision founder credit-days override', () => {
+    it('rejects override fields from a non-founder approver', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['ordinary_approver'] } as any);
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      vi.spyOn(auth, 'isAdmin').mockReturnValue(false);
+
+      await expect(handleApprovalDecision(formData({
+        caseId: 'c1',
+        roundId: 'r1',
+        decision: 'approve',
+        overrideCreditDays: '60',
+        overrideReason: 'Strategic exception',
+      }))).rejects.toThrow(/Only Founder Admin/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('requires the founder override to exceed the policy recommendation', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'founder-1', roles: ['founder_admin'] } as any);
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      vi.spyOn(auth, 'isAdmin').mockReturnValue(true);
+      mockSingle
+        .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open' }, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: { id: 'cy1', case_id: 'c1', approved_credit_days: 30 }, error: null });
+
+      await expect(handleApprovalDecision(formData({
+        caseId: 'c1',
+        roundId: 'r1',
+        decision: 'approve',
+        overrideCreditDays: '30',
+        overrideReason: 'Strategic exception',
+      }))).rejects.toThrow(/higher than the policy recommendation of 30 days/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('records and audits a valid founder override', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'founder-1', roles: ['founder_admin'] } as any);
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      vi.spyOn(auth, 'isAdmin').mockReturnValue(true);
+      mockEq.mockImplementation((column) => column === 'approval_round_id' ? { data: [{ decision: 'approve' }] } : undefined);
+      mockSingle
+        .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open' }, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: { id: 'cy1', case_id: 'c1', approved_credit_days: 30 }, error: null })
+        .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1' }, error: null })
+        .mockResolvedValueOnce({ data: { policy_snapshot_id: 'policy-1', score_band_name: 'A' }, error: null })
+        .mockResolvedValueOnce({ data: { case_scenario: 'customer_name_customer_pays' }, error: null })
+        .mockResolvedValueOnce({ data: { case_number: 'CASE-1', rm_user_id: null }, error: null });
+
+      await handleApprovalDecision(formData({
+        caseId: 'c1',
+        roundId: 'r1',
+        decision: 'approve',
+        overrideCreditDays: '60',
+        overrideReason: 'Strategic account with secured receivables',
+      }));
+
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        decision: 'approved',
+        approved_credit_days: 60,
+      }));
+      expect(auth.logAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'founder_credit_days_override',
+        actor_id: 'founder-1',
+        metadata: expect.objectContaining({
+          policy_recommended_credit_days: 30,
+          founder_override_credit_days: 60,
+        }),
+      }));
     });
   });
 

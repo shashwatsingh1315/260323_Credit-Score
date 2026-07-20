@@ -94,7 +94,7 @@ describe('engine.ts', () => {
   });
 
   describe('calculateCompositeDays', () => {
-    it('returns 0 if no tranches or bill amount is 0', () => {
+    it('returns 0 if no tranches or credit exposure is 0', () => {
       expect(calculateCompositeDays([], 1000)).toBe(0);
       expect(calculateCompositeDays([{ type: 'amount', value: 1000, days_after_billing: 30 }], 0)).toBe(0);
     });
@@ -139,7 +139,7 @@ describe('engine.ts', () => {
       expect(res.valid).toBe(true);
     });
 
-    it('returns invalid if amount tranches do not match bill amount', () => {
+    it('returns invalid if amount tranches do not match credit exposure', () => {
       const tranches: any[] = [
         { type: 'amount', value: 500, days_after_billing: 0 },
         { type: 'amount', value: 499, days_after_billing: 60 }
@@ -170,20 +170,27 @@ describe('engine.ts', () => {
   });
 
   describe('createCaseDraft', () => {
-    it('creates a case successfully', async () => {
+    it('creates a case and calculates credit days against expected exposure', async () => {
       mockSingle.mockResolvedValue({ data: { id: 'case-123' }, error: null });
 
       const data = {
         case_scenario: 'customer_name_customer_pays',
         bill_amount: 1000,
-        requested_exposure_amount: 1000,
-        proposed_tranches: [{ type: 'percentage', value: 100, days_after_billing: 30 }],
+        requested_exposure_amount: 500,
+        proposed_tranches: [
+          { type: 'percentage', value: 50, days_after_billing: 0 },
+          { type: 'amount', value: 250, days_after_billing: 60 },
+        ],
         rm_user_id: 'user-123'
       };
 
       const newCase = await createCaseDraft(data as any);
       expect(newCase.id).toBe('case-123');
-      expect(mockInsert).toHaveBeenCalled();
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        bill_amount: 1000,
+        requested_exposure_amount: 500,
+        composite_credit_days: 30,
+      }));
     });
 
     it('throws error if insert fails', async () => {

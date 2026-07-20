@@ -32,6 +32,7 @@ export async function fetchCaseCore(caseId: string) {
     contractorData,
     outcomeData,
     cycleData,
+    founderOverrideData,
   ] = await Promise.all([
     caseData.customer_party_id ? Promise.all([
       supabase.from('party_exposure').select('*').eq('party_id', caseData.customer_party_id).order('data_as_of', { ascending: false }).limit(1).single(),
@@ -43,6 +44,14 @@ export async function fetchCaseCore(caseId: string) {
     ]) : Promise.resolve([null, null]),
     caseData.status === 'Closed' ? supabase.from('realized_outcomes').select('*').eq('case_id', caseId).single() : Promise.resolve({ data: null }),
     supabase.from('review_cycles').select('*').eq('case_id', caseId).eq('is_active', true).single(),
+    supabase
+      .from('audit_events')
+      .select('id, created_at, description, metadata, field_diffs, actor:profiles!audit_events_actor_id_fkey(full_name)')
+      .eq('case_id', caseId)
+      .eq('event_type', 'founder_credit_days_override')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (customerData[0] && customerData[0].data) caseData.customer_exposure = customerData[0].data;
@@ -64,7 +73,7 @@ export async function fetchCaseCore(caseId: string) {
     policyOptions = { personas: personasRes.data || [], dominanceCategories: domRes.data || [] };
   }
 
-  return { case: caseData, cycle, policyOptions, renderedAt: new Date().toISOString() };
+  return { case: caseData, cycle, founderOverride: founderOverrideData.data, policyOptions, renderedAt: new Date().toISOString() };
 }
 
 export async function fetchCaseTasks(cycleId: string, caseScenario: string, policySnapshotId: string, activeStage: number, caseId: string) {
@@ -514,6 +523,71 @@ export async function handleApprovalDecision(formData: FormData) {
   const roundId = formData.get('roundId') as string;
   const decision = formData.get('decision') as string;
   const comment = formData.get('comment') as string || '';
+  const overrideDaysRaw = (formData.get('overrideCreditDays') as string || '').trim();
+  const overrideReason = (formData.get('overrideReason') as string || '').trim();
+  const wantsFounderOverride = overrideDaysRaw.length > 0;
+
+  let founderOverride: {
+    cycleId: string;
+    policyRecommendedDays: number;
+    previousApprovedDays: number;
+    overrideDays: number;
+    reason: string;
+  } | null = null;
+
+  if (wantsFounderOverride) {
+    if (decision !== 'approve' || !checkIsAdmin(user)) {
+      throw new Error('Only Founder Admin can approve credit days above the policy recommendation.');
+    }
+
+    const overrideDays = Number(overrideDaysRaw);
+    if (!Number.isInteger(overrideDays) || overrideDays <= 0) {
+      throw new Error('Override credit days must be a positive whole number.');
+    }
+    if (!overrideReason) {
+      throw new Error('A reason is required for a Founder Admin credit-days override.');
+    }
+
+    const [{ data: overrideRound, error: roundError }, { data: priorOverride }] = await Promise.all([
+      supabase.from('approval_rounds').select('review_cycle_id, status').eq('id', roundId).maybeSingle(),
+      supabase
+        .from('audit_events')
+        .select('metadata')
+        .eq('case_id', caseId)
+        .eq('event_type', 'founder_credit_days_override')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    if (roundError || !overrideRound || overrideRound.status !== 'open') {
+      throw new Error('The approval round is no longer open.');
+    }
+
+    const { data: overrideCycle, error: cycleError } = await supabase
+      .from('review_cycles')
+      .select('id, case_id, approved_credit_days')
+      .eq('id', overrideRound.review_cycle_id)
+      .maybeSingle();
+    if (cycleError || !overrideCycle || overrideCycle.case_id !== caseId) {
+      throw new Error('The approval round does not belong to this case.');
+    }
+
+    const policyRecommendedDays = Number(priorOverride?.metadata?.policy_recommended_credit_days ?? overrideCycle.approved_credit_days);
+    if (!Number.isFinite(policyRecommendedDays)) {
+      throw new Error('The policy recommendation must be calculated before it can be overridden.');
+    }
+    if (overrideDays <= policyRecommendedDays) {
+      throw new Error(`Founder override must be higher than the policy recommendation of ${policyRecommendedDays} days.`);
+    }
+
+    founderOverride = {
+      cycleId: overrideCycle.id,
+      policyRecommendedDays,
+      previousApprovedDays: Number(overrideCycle.approved_credit_days ?? policyRecommendedDays),
+      overrideDays,
+      reason: overrideReason,
+    };
+  }
 
   // Doctrine Principle 10: high-impact decisions require structured rationale.
   if ((decision === 'reject' || decision === 'return_for_revision') && !comment.trim()) {
@@ -523,7 +597,11 @@ export async function handleApprovalDecision(formData: FormData) {
   // Further check: board member role required for board/appeal rounds if we want to be strict
   // For now, union of roles is allowed per doc
 
-  await supabase.from('approval_decisions').insert({ approval_round_id: roundId, approver_id: user.id, decision, comment });
+  const recordedComment = founderOverride
+    ? [comment.trim(), `Founder override: ${founderOverride.overrideDays} credit days. Reason: ${founderOverride.reason}`].filter(Boolean).join('\n')
+    : comment;
+
+  await supabase.from('approval_decisions').insert({ approval_round_id: roundId, approver_id: user.id, decision, comment: recordedComment });
 
   let isFullyApproved = false;
   if (decision === 'reject') {
@@ -557,17 +635,44 @@ export async function handleApprovalDecision(formData: FormData) {
         ? calculateValidityExpiry(approvedAt, validityRule.validity_days).toISOString()
         : null;
 
-      await Promise.all([
+      const cycleUpdate = {
+        decision: 'approved',
+        finalized_at: approvedAt.toISOString(),
+        validity_expires_at: validityExpiresAt,
+        ...(founderOverride ? { approved_credit_days: founderOverride.overrideDays } : {}),
+      };
+
+      const [roundUpdate, caseUpdate, cycleUpdateResult] = await Promise.all([
         supabase.from('approval_rounds').update({ status: 'approved', resolved_at: approvedAt.toISOString() }).eq('id', roundId),
         supabase.from('credit_cases').update({ status: 'Approved' }).eq('id', caseId),
         round?.review_cycle_id
-          ? supabase.from('review_cycles').update({
-              decision: 'approved',
-              finalized_at: approvedAt.toISOString(),
-              validity_expires_at: validityExpiresAt,
-            }).eq('id', round.review_cycle_id)
-          : Promise.resolve(),
+          ? supabase.from('review_cycles').update(cycleUpdate).eq('id', round.review_cycle_id)
+          : Promise.resolve({ error: null }),
       ]);
+      if (roundUpdate.error || caseUpdate.error || cycleUpdateResult.error) {
+        throw roundUpdate.error || caseUpdate.error || cycleUpdateResult.error;
+      }
+
+      if (founderOverride) {
+        await logAuditEvent({
+          case_id: caseId,
+          review_cycle_id: founderOverride.cycleId,
+          event_type: 'founder_credit_days_override',
+          actor_id: user.id,
+          description: `Founder Admin approved ${founderOverride.overrideDays} credit days against the policy recommendation of ${founderOverride.policyRecommendedDays} days. Reason: ${founderOverride.reason}`,
+          field_diffs: {
+            approved_credit_days: {
+              from: founderOverride.previousApprovedDays,
+              to: founderOverride.overrideDays,
+            },
+          },
+          metadata: {
+            policy_recommended_credit_days: founderOverride.policyRecommendedDays,
+            founder_override_credit_days: founderOverride.overrideDays,
+            override_reason: founderOverride.reason,
+          },
+        });
+      }
       if (validityRule && round?.review_cycle_id) {
         await logAuditEvent({
           case_id: caseId,
@@ -581,7 +686,7 @@ export async function handleApprovalDecision(formData: FormData) {
   }
 
   const [_, { data: creditCase }] = await Promise.all([
-    logAuditEvent({ case_id: caseId, event_type: 'approval_decision', actor_id: user.id, description: `Approval: ${decision}.${comment ? ' ' + comment : ''}` }),
+    logAuditEvent({ case_id: caseId, event_type: 'approval_decision', actor_id: user.id, description: `Approval: ${decision}.${recordedComment ? ' ' + recordedComment : ''}` }),
     supabase.from('credit_cases').select('case_number, rm_user_id').eq('id', caseId).single()
   ]);
   if (creditCase?.rm_user_id) {

@@ -105,7 +105,8 @@ export default function CaseWorkspace({ coreData, promises, initialActiveRole = 
     && ['Approved'].includes(c.status);
 
   // Terms layers — never collapse recommendation into "approved" (Principle 4).
-  const recommendedDays = cycle?.approved_credit_days; // score-band output
+  const recommendedDays = coreData.founderOverride?.metadata?.policy_recommended_credit_days ?? cycle?.approved_credit_days;
+  const governingApprovedDays = cycle?.approved_credit_days;
   const hasHumanApproval = isBillingOrLater || c.status === 'Approved';
 
   // Default tab adapts to role and lifecycle (Principle 7).
@@ -291,8 +292,14 @@ export default function CaseWorkspace({ coreData, promises, initialActiveRole = 
                 <div>
                   <p className="text-2xl font-bold tabular-nums">{recommendedDays}d</p>
                   <p className="text-tiny text-muted-foreground">
-                    {hasHumanApproval ? 'Approved terms' : 'Policy recommendation — not yet approved'}
+                    Policy recommendation{hasHumanApproval ? '' : ' — not yet approved'}
                   </p>
+                </div>
+              )}
+              {coreData.founderOverride && governingApprovedDays != null && (
+                <div>
+                  <p className="text-2xl font-bold tabular-nums text-attention">{governingApprovedDays}d</p>
+                  <p className="text-tiny text-muted-foreground">Founder-approved override</p>
                 </div>
               )}
               {cycle?.score_band_name && (
@@ -377,7 +384,7 @@ export default function CaseWorkspace({ coreData, promises, initialActiveRole = 
       {/* Accepted-terms banner kept for print context */}
       {['Approved', 'Accepted', 'Billing Active', 'Pending Write-Off Approval'].includes(c.status) && (
         <p className="hidden print:block text-sm">
-          Approved terms: {recommendedDays || c.composite_credit_days} days of credit.
+          Approved terms: {governingApprovedDays || c.composite_credit_days} days of credit.
         </p>
       )}
     </div>

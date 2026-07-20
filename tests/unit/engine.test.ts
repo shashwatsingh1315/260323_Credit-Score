@@ -3,7 +3,7 @@ import { calculateCompositeDays, validateTranches } from '@/utils/engine';
 
 describe('engine utils', () => {
   describe('calculateCompositeDays', () => {
-    it('returns 0 for empty tranches or 0 bill amount', () => {
+    it('returns 0 for empty tranches or 0 credit exposure', () => {
       expect(calculateCompositeDays([], 1000)).toBe(0);
       expect(calculateCompositeDays([{ type: 'percentage', value: 100, days_after_billing: 30 }], 0)).toBe(0);
     });
@@ -64,7 +64,7 @@ describe('engine utils', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('returns invalid if amounts do not match bill amount', () => {
+    it('returns invalid if amounts do not match credit exposure', () => {
       const tranches: any[] = [
         { type: 'amount', value: 300, days_after_billing: 10 },
         { type: 'amount', value: 600, days_after_billing: 30 },

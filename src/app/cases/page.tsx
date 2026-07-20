@@ -95,7 +95,7 @@ export default async function CasesPage({
     }
   }
 
-  const { data: cases, count } = await query;
+  const { data: cases, count, error: queryError } = await query;
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -224,8 +224,21 @@ export default async function CasesPage({
         </div>
       </div>
 
+      {/* A failed query must never masquerade as an empty list (doctrine: tell the truth) */}
+      {queryError && (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm">
+          <p className="font-semibold text-destructive-strong">The case list could not be loaded</p>
+          <p className="text-foreground/80 mt-0.5">
+            Database error: {queryError.message}
+            {queryError.message.includes('archived_at') && (
+              <> — the case-archival migration (<span className="font-mono">20260721000000_case_archival.sql</span>) has not been applied to this database yet.</>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Rows */}
-      {!cases || cases.length === 0 ? (
+      {queryError ? null : !cases || cases.length === 0 ? (
         <EmptyState
           icon={Briefcase}
           title="No cases found"
