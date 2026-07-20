@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { handleCompleteTask } from './actions';
-import { parseRubricGuidance } from '@/lib/format';
+import { formatPolicyOptionLabel, parseRubricGuidance } from '@/lib/format';
 
 const isTaskOverdue = (task: any) => {
   if (!task.sla_deadline || task.status === 'Completed') return false;
@@ -72,7 +72,7 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
               <select name="gradeValue" defaultValue={task.grade_value ?? ''} aria-label={`Grade for: ${task.description}`} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">-- Select --</option>
                 {task.param.auto_band_config?.mappings
-                  ? task.param.auto_band_config.mappings.map((mapping: any, i: number) => <option key={i} value={mapping.grade}>{mapping.value} (Grade {mapping.grade})</option>)
+                  ? task.param.auto_band_config.mappings.map((mapping: any, i: number) => <option key={i} value={mapping.grade}>{formatPolicyOptionLabel(mapping.value)} (Grade {mapping.grade})</option>)
                   : data.gradeScale?.length > 0
                     ? data.gradeScale.map((grade: any) => <option key={grade.grade_value} value={grade.grade_value}>{grade.grade_value} — {grade.grade_label}</option>)
                     : [5, 4, 3, 2, 1].map((grade) => <option key={grade} value={grade}>Grade {grade}</option>)}
@@ -82,7 +82,7 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
                 <option value="">-- Select --</option>
                 {task.param.input_type === 'yes_no'
                   ? <><option value="Yes">Yes</option><option value="No">No</option></>
-                  : task.param.auto_band_config?.mappings?.map((mapping: any, i: number) => <option key={i} value={mapping.value}>{mapping.value}</option>)}
+                  : task.param.auto_band_config?.mappings?.map((mapping: any, i: number) => <option key={i} value={mapping.value}>{formatPolicyOptionLabel(mapping.value)}</option>)}
               </select>
             ) : (
               <Input type={task.param?.input_type === 'numeric' ? 'number' : task.param?.input_type === 'date' ? 'date' : 'text'} name="rawInput" defaultValue={task.raw_input_value ?? ''} aria-label={`Answer for: ${task.description}`} />
