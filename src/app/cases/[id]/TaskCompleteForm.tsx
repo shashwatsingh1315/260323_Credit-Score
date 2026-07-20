@@ -15,7 +15,6 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(task.status !== 'Completed');
   const isUpdate = task.status === 'Completed';
-  const knownReason = data.rcaReasons?.some((item: any) => item.value === task.reason) ? task.reason : '';
   const configuredTopGrade = Math.max(
     0,
     ...(data.gradeScale || []).map((grade: any) => Number(grade.grade_value) || 0),
@@ -93,19 +92,15 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
             Weight {weight.toLocaleString('en-IN')} — contributes up to {(weight * topGrade).toLocaleString('en-IN')} pts of this stage&apos;s score.
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5 text-xs font-medium">
-              Reason {task.param?.require_reasoning ? '(required)' : '(optional)'}
-              <select name="reason" defaultValue={knownReason} required={!!task.param?.require_reasoning} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="">-- Select reason --</option>
-                {data.rcaReasons?.map((reason: any) => <option key={reason.value} value={reason.value}>{reason.value}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1.5 text-xs font-medium">
-              Note (optional)
-              <Input name="reasonNote" defaultValue={knownReason ? '' : task.reason ?? ''} placeholder="Add context for reviewers" />
-            </label>
-          </div>
+          <label className="block space-y-1.5 text-xs font-medium">
+            Parameter reasoning {task.param?.require_reasoning ? '(required)' : '(optional)'}
+            <Input
+              name="reasonNote"
+              defaultValue={task.reason ?? ''}
+              placeholder="Explain the evidence behind this grade"
+              required={!!task.param?.require_reasoning}
+            />
+          </label>
         </div>
       )}
 

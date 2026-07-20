@@ -288,7 +288,7 @@ export async function handleCompleteTask(formData: FormData) {
   // RBAC Audit for task completion
   const { data: task } = await supabase
     .from('stage_tasks')
-    .select('*, param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config)')
+    .select('*, param:parameter_definitions!stage_tasks_parameter_id_fkey(default_owning_role, input_type, auto_band_config, require_reasoning)')
     .eq('id', taskId)
     .single();
 
@@ -304,9 +304,8 @@ export async function handleCompleteTask(formData: FormData) {
   const rawGrade = formData.get('gradeValue') as string | null;
   let gradeValue = (rawGrade && rawGrade.trim() !== '') ? parseInt(rawGrade) : null;
   if (gradeValue !== null && isNaN(gradeValue)) gradeValue = null;
-  const reasonChoice = formData.get('reason') as string || '';
   const reasonNote = formData.get('reasonNote') as string || '';
-  const reason = [reasonChoice, reasonNote.trim()].filter(Boolean).join(' — ') || null;
+  const reason = reasonNote.trim() || null;
   const rawInput = formData.get('rawInput') as string || null;
   const delayReason = formData.get('delayReason') as string || null;
 
@@ -314,6 +313,9 @@ export async function handleCompleteTask(formData: FormData) {
   const isOverdue = task.sla_deadline && new Date(task.sla_deadline) < now;
   if (isOverdue && !delayReason) {
     throw new Error('A delay reason is required because this task is past its SLA deadline.');
+  }
+  if (task.param?.require_reasoning && !reason) {
+    throw new Error('Reasoning is required for this parameter.');
   }
 
   if (gradeValue === null && rawInput !== null && task.param) {
