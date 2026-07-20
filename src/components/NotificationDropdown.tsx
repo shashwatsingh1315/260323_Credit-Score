@@ -76,14 +76,14 @@ export default function NotificationDropdown() {
       >
         <Bell size={18} aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center" aria-hidden="true">
+          <span className="absolute top-1 right-1 min-w-4 h-4 px-0.5 rounded-full bg-primary text-primary-foreground text-tiny font-bold flex items-center justify-center" aria-hidden="true">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </Button>
 
       {showNotifs && (
-        <div className="absolute top-full mt-2 right-0 w-[min(92vw,22rem)] bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden flex flex-col max-h-96">
+        <div className="absolute top-full mt-2 right-0 w-full max-w-sm bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden flex flex-col max-h-96">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/30">
             <h3 className="font-semibold text-sm">Notifications</h3>
             {unreadCount > 0 && (
