@@ -1,11 +1,13 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, UserPlus } from 'lucide-react';
 import { handleNewCase, fetchParties, fetchEnumerations, fetchRmIntakeTasks, fetchActiveRoutingThresholds, fetchKams, fetchPartyDetails, fetchCityCodes, generateSiteIdPreview } from './actions';
 import { PartyDialog } from '@/components/admin/PartyDialog';
-import styles from './page.module.css';
 import { cn } from '@/lib/utils';
+import { SCENARIO_LABELS } from '@/lib/vocabulary';
+import { evaluateRequiredStage } from '@/utils/routing';
+import { parseRubricGuidance } from '@/lib/format';
 
 interface Tranche {
   type: 'amount' | 'percentage';
@@ -19,16 +21,24 @@ const SCENARIOS = [
   { value: 'contractor_name_contractor_pays', label: 'Contractor Name, Contractor Pays' },
 ];
 
-export default function NewCaseForm({ 
-  initialParties, 
-  kams, 
-  dealBuckets, 
-  routingThresholds, 
-  creditReasons, 
+/* Shared token classes (page.module.css retired — semantic tokens only) */
+const inputCls = 'w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none';
+const groupCls = 'mb-5 flex flex-col gap-2';
+const labelCls = 'text-xs font-medium text-muted-foreground';
+const actionsCls = 'mt-6 flex flex-wrap items-center justify-end gap-3';
+const errorCls = 'rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-xs font-medium text-destructive';
+
+export default function NewCaseForm({
+  initialParties,
+  kams,
+  routingThresholds,
+  creditReasons,
   cityCodes,
-  initialSiteDate
-}: { 
-  initialParties: any[], kams: any[], dealBuckets: any[], routingThresholds: any[], creditReasons: any[], cityCodes: any[], initialSiteDate: string 
+  initialSiteDate,
+  gradeScale = []
+}: {
+  initialParties: any[], kams: any[], routingThresholds: any[], creditReasons: any[], cityCodes: any[], initialSiteDate: string,
+  gradeScale?: { grade_value: number; grade_label: string; description?: string }[]
 }) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -36,10 +46,26 @@ export default function NewCaseForm({
   const [kamUserId, setKamUserId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [missingTaskIds, setMissingTaskIds] = useState<string[]>([]);
+
+  // Unsaved-work protection (doctrine Principle 11): warn before abandoning a
+  // partially-filled intake; submission clears the flag.
+  const submittedRef = useRef(false);
+  const hasContentRef = useRef(false);
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasContentRef.current && !submittedRef.current) e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
   const [partyTypeForDialog, setPartyTypeForDialog] = useState<'customer' | 'contractor'>('customer');
   const [customerDetails, setCustomerDetails] = useState<any>(null);
   const [contractorDetails, setContractorDetails] = useState<any>(null);
+  /** Provenance for answers reused from party records (doctrine Principle 12):
+   *  reused values must be visibly marked, never silently presented as new. */
+  const [reusedParams, setReusedParams] = useState<Record<string, { partyName: string; capturedAt?: string }>>({});
 
   // Site Generation State
   const [siteAddress, setSiteAddress] = useState('');
@@ -87,6 +113,13 @@ export default function NewCaseForm({
           });
           return next;
         });
+        setReusedParams(prev => {
+          const next = { ...prev };
+          details.savedParams.forEach((sp: any) => {
+            if (!next[sp.parameter_id]) next[sp.parameter_id] = { partyName: details.legal_name, capturedAt: sp.captured_at };
+          });
+          return next;
+        });
       }
       setIsLoadingCustomer(false);
     } else {
@@ -111,6 +144,13 @@ export default function NewCaseForm({
           });
           return next;
         });
+        setReusedParams(prev => {
+          const next = { ...prev };
+          details.savedParams.forEach((sp: any) => {
+            if (!next[sp.parameter_id]) next[sp.parameter_id] = { partyName: details.legal_name, capturedAt: sp.captured_at };
+          });
+          return next;
+        });
       }
       setIsLoadingContractor(false);
     } else {
@@ -120,13 +160,16 @@ export default function NewCaseForm({
   const [tranches, setTranches] = useState<Tranche[]>([
     { type: 'percentage', value: 100, days_after_billing: 30 },
   ]);
-  const [dealSizeBucket, setDealSizeBucket] = useState('');
   const [justification, setJustification] = useState('');
   const [rmTasks, setRmTasks] = useState<any[]>([]);
   const [rmTaskAnswers, setRmTaskAnswers] = useState<Record<string, any>>({});
 
   const needsContractor = scenario !== 'customer_name_customer_pays';
   const needsCustomer = scenario !== 'contractor_name_contractor_pays';
+
+  useEffect(() => {
+    hasContentRef.current = !!(customerPartyId || contractorPartyId || billAmount > 0 || requestedExposure > 0 || siteAddress || justification);
+  }, [customerPartyId, contractorPartyId, billAmount, requestedExposure, siteAddress, justification]);
 
   // Fetch RM tasks whenever scenario changes
   useEffect(() => {
@@ -148,24 +191,6 @@ export default function NewCaseForm({
     }, 300);
     return () => clearTimeout(handler);
   }, [cityCode, siteDate]);
-
-  const formatRubricGuidance = (text: string) => {
-    if (!text) return null;
-    return text.split(/\\n|\n/).map((line, i) => {
-      const parts = line.split(/(\*\*.*?\*\*)/g);
-      return (
-        <span key={i}>
-          {parts.map((part, j) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={j}>{part.slice(2, -2)}</strong>;
-            }
-            return <span key={j}>{part}</span>;
-          })}
-          <br />
-        </span>
-      );
-    });
-  };
 
   // Composite credit day calculation
   const compositeDays = useCallback(() => {
@@ -198,6 +223,14 @@ export default function NewCaseForm({
   };
 
   const handleTaskAnswerChange = (taskId: string, field: 'grade_value' | 'raw_input_value' | 'reason', value: any) => {
+    // Editing a reused answer confirms it as the RM's own — drop the provenance marker.
+    if (field !== 'reason' && reusedParams[taskId]) {
+      setReusedParams(prev => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
+    }
     setRmTaskAnswers(prev => {
       const updated = { ...prev };
       const taskAnswer = { ...(updated[taskId] || {}) };
@@ -241,7 +274,14 @@ export default function NewCaseForm({
 
   const handleSubmit = async (action: 'draft' | 'submit') => {
     setError('');
+    setMissingTaskIds([]);
     setSubmitting(true);
+
+    if (action === 'submit' && !kamUserId) {
+      setError('Select a KAM owner before submitting for review. You can save a draft without one.');
+      setSubmitting(false);
+      return;
+    }
 
     if (action === 'submit' && billAmount > 0 && !tranchesReconcile) {
       setError('Tranches must reconcile exactly to bill amount before submission.');
@@ -262,7 +302,9 @@ export default function NewCaseForm({
         return !hasGrade && !hasRaw;
       });
       if (missingTasks.length > 0) {
-        setError(`Please answer all required RM intake questions before submitting: ${missingTasks.map(t => t.name).join(', ')}`);
+        setError('Answer the required intake questions before submitting.');
+        setMissingTaskIds(missingTasks.map((task) => task.id));
+        setStep(4);
         setSubmitting(false);
         return;
       }
@@ -276,7 +318,6 @@ export default function NewCaseForm({
     fd.set('requestedExposure', requestedExposure.toString());
     fd.set('tranches', JSON.stringify(tranches));
     if (kamUserId) fd.set('kamUserId', kamUserId);
-    fd.set('dealSizeBucket', dealSizeBucket);
     fd.set('justification', justification);
     fd.set('rmTaskAnswers', JSON.stringify(rmTaskAnswers));
     fd.set('action', action);
@@ -285,138 +326,129 @@ export default function NewCaseForm({
     fd.set('generatedSiteId', generatedSiteId);
 
     try {
+      submittedRef.current = true;
       await handleNewCase(fd);
     } catch (err: any) {
+      submittedRef.current = false;
       setError(err.message || 'Failed to create case.');
       setSubmitting(false);
     }
   };
 
+  /** Save progress from any step — submission, not saving, enforces readiness. */
+  const saveDraftButton = (
+    <button type="button" className="btn-secondary" onClick={() => handleSubmit('draft')} disabled={submitting}>
+      {submitting ? 'Saving…' : 'Save draft & exit'}
+    </button>
+  );
+
+  const focusTask = (taskId: string) => {
+    const field = document.getElementById(`intake-task-${taskId}`);
+    field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    field?.focus({ preventScroll: true });
+  };
+  const errorAlert = error ? (
+    <div className={errorCls} role="alert">
+      <p>{error}</p>
+      {missingTaskIds.length > 0 && (
+        <ul className="mt-2 list-disc space-y-1 pl-4">
+          {missingTaskIds.map((taskId) => <li key={taskId}><button type="button" className="underline" onClick={() => focusTask(taskId)}>{rmTasks.find((task) => task.id === taskId)?.name || 'Required question'}</button></li>)}
+        </ul>
+      )}
+    </div>
+  ) : null;
+
   const canGoNext = (currentStep: number) => {
     if (currentStep === 1) {
        return (needsCustomer ? !!customerPartyId : true) && 
               (needsContractor ? !!contractorPartyId : true) && 
-              !!scenario && 
-              !!siteAddress && 
-              !!cityCode &&
-              !!kamUserId &&
-              billAmount > 0 && 
-              requestedExposure > 0 && 
-              requestedExposure <= billAmount &&
+              !!scenario;
+    }
+    if (currentStep === 2) {
+       return billAmount > 0 && requestedExposure > 0 && requestedExposure <= billAmount && tranchesReconcile &&
               (() => {
                 const activeDetails = scenario.startsWith('customer') ? customerDetails : contractorDetails;
                 const creditLine = activeDetails?.credit_line_amount;
                 return !(creditLine !== null && creditLine !== undefined && requestedExposure > creditLine);
               })();
     }
-    if (currentStep === 2) return tranchesReconcile;
-    if (currentStep === 3) return justification.trim().length > 0;
+    if (currentStep === 3) return !!cityCode && !!siteAddress.trim() && justification.trim().length > 0;
     return true;
   };
 
-  const expectedStage = () => {
-    for (const rule of routingThresholds) {
-      let matches = true;
-      if (rule.context_rule?.exposure_min && requestedExposure < rule.context_rule.exposure_min) matches = false;
-      if (rule.context_rule?.case_scenario && rule.context_rule.case_scenario !== scenario) matches = false;
-      if (rule.context_rule?.deal_size_bucket && dealSizeBucket && rule.context_rule.deal_size_bucket !== dealSizeBucket) matches = false;
-      // Removed product_category match as it is removed from UI
-      if (matches) return rule.target_stage;
-    }
-    return 1; // Default
-  };
+  const requiredStage = evaluateRequiredStage(routingThresholds, {
+    exposure: requestedExposure,
+    scenario,
+  });
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.breadcrumbs}>
+    <div className="flex flex-col gap-6">
+      <div className="mb-4 flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Cases</span>
           <ChevronRight size={16} />
-          <span className={styles.currentBreadcrumb}>New Intake</span>
+          <span className="font-medium text-foreground">New Intake</span>
         </div>
-        <h1 className={styles.title}>New Credit Case</h1>
-        <p className={styles.subtitle}>Create a draft or submit a case for review.</p>
+        <h1 className="text-2xl font-bold tracking-tight">New Credit Case</h1>
+        <p className="text-sm text-muted-foreground">Create a draft or submit a case for review.</p>
       </div>
 
-      <div className={styles.wizard}>
-        <div className={styles.sidebar}>
-          {['Parties & Terms', 'Tranche Builder', 'Context', 'Intake Questions'].map((label, i) => {
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
+        {/* Semantic stepper: keyboard operable, current step announced (Principle 15) */}
+        <div className="flex flex-row gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0" role="group" aria-label="Intake steps">
+          {['Scenario & parties', 'Commercial ask', 'Site & handoff', 'Questions & review'].map((label, i) => {
             const stepNum = i + 1;
             const isAccessible = stepNum <= step || (stepNum === step + 1 && canGoNext(step));
             return (
-              <div 
-                key={i} 
+              <button
+                key={i}
+                type="button"
                 className={cn(
-                  styles.step, 
-                  step === stepNum && styles.active, 
-                  step > stepNum && styles.done,
-                  !isAccessible && styles.disabled
-                )} 
+                  'flex w-auto shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3.5 py-2.5 text-left transition-colors hover:bg-muted lg:w-full',
+                  step === stepNum && 'bg-muted',
+                  !isAccessible && 'pointer-events-none opacity-40'
+                )}
                 onClick={() => isAccessible && setStep(stepNum)}
+                aria-current={step === stepNum ? 'step' : undefined}
+                disabled={!isAccessible}
               >
-                <div className={styles.stepNum}>{step > stepNum ? '✓' : stepNum}</div>
-                <div className={styles.stepText}>{label}</div>
-              </div>
+                <div
+                  className={cn(
+                    'flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground',
+                    step === stepNum && 'border-primary bg-primary text-primary-foreground',
+                    step > stepNum && 'border-success/25 bg-success/15 text-success'
+                  )}
+                  aria-hidden="true"
+                >
+                  {step > stepNum ? '✓' : stepNum}
+                </div>
+                <div className="text-sm font-medium text-foreground">{label}</div>
+              </button>
             );
           })}
         </div>
 
-        <div className={`card ${styles.formContent}`}>
+        <div className="card lg:p-8">
           {/* Step 1: Scenario & Parties */}
           {step === 1 && (
-            <div className={styles.formSection}>
-              <h2>Case Scenario & Parties</h2>
-              <p className={styles.helperText}>Select the billing/payment scenario and link relevant parties.</p>
+            <div className="flex flex-col">
+              <h2 className="mb-1 text-lg font-semibold tracking-tight">Case Scenario & Parties</h2>
+              <p className="mb-6 text-xs text-muted-foreground">Select the billing/payment scenario and link relevant parties.</p>
 
-              <div className={styles.inputGroup}>
-                <label>Case Scenario *</label>
-                <select value={scenario} onChange={e => setScenario(e.target.value)} className={styles.input}>
+              <div className={groupCls}>
+                <label htmlFor="case-scenario" className={labelCls}>Case Scenario *</label>
+                <select id="case-scenario" value={scenario} onChange={e => setScenario(e.target.value)} className={inputCls}>
                   {SCENARIOS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className={styles.inputGroup}>
-                  <label>City Code *</label>
-                  <select value={cityCode} onChange={e => setCityCode(e.target.value)} className={styles.input}>
-                    <option value="">-- Select City --</option>
-                    {cityCodes.map(c => <option key={c.id} value={c.code}>{c.name} ({c.code})</option>)}
-                  </select>
-                </div>
-                <div className={styles.inputGroup}>
-                  <label>Generated Site ID</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={generatedSiteId}
-                      onChange={e => setGeneratedSiteId(e.target.value.toUpperCase())}
-                      className={`${styles.input} font-mono font-semibold`}
-                      placeholder="Select city to auto-generate..."
-                      maxLength={30}
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                      editable
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.inputGroup}>
-                <label>Site Address *</label>
-                <textarea 
-                  value={siteAddress} 
-                  onChange={e => setSiteAddress(e.target.value)} 
-                  className={styles.input} 
-                  rows={2} 
-                  placeholder="Street address of the site..." 
-                  required 
-                />
+                <p className="text-xs text-muted-foreground">
+                  Billed to <strong>{SCENARIO_LABELS[scenario]?.billedTo}</strong> · payment expected from <strong>{SCENARIO_LABELS[scenario]?.pays}</strong>
+                </p>
               </div>
 
               {needsCustomer && (
-                <div className={styles.inputGroup}>
+                <div className={groupCls}>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="mb-0">Customer Party *</label>
+                    <label className={labelCls}>Customer Party *</label>
                     <button
                       type="button"
                       onClick={() => { setPartyTypeForDialog('customer'); setPartyDialogOpen(true); }}
@@ -425,7 +457,7 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={styles.input} disabled={isLoadingCustomer}>
+                  <select value={customerPartyId} onChange={e => handleCustomerSelect(e.target.value)} className={inputCls} disabled={isLoadingCustomer}>
                     <option value="">{isLoadingCustomer ? 'Loading details...' : '-- Select Customer --'}</option>
                     {parties
                       .filter(p => !p.party_type || p.party_type === 'customer' || p.party_type === 'both')
@@ -435,7 +467,7 @@ export default function NewCaseForm({
                     <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Industry:</span> {customerDetails.industry_category || '—'}</p>
                       {customerDetails.credit_line_amount !== null && customerDetails.credit_line_amount !== undefined && (
-                        <p><span className="font-semibold text-foreground text-warning">Credit Limit:</span> ₹{customerDetails.credit_line_amount.toLocaleString('en-IN')}</p>
+                        <p><span className="font-semibold text-warning">Credit Limit:</span> ₹{customerDetails.credit_line_amount.toLocaleString('en-IN')}</p>
                       )}
                       {customerDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {customerDetails.address}</p>}
                       {customerDetails.lastCase && (
@@ -447,9 +479,9 @@ export default function NewCaseForm({
               )}
 
               {needsContractor && (
-                <div className={styles.inputGroup}>
+                <div className={groupCls}>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="mb-0">Contractor / Influencer Party *</label>
+                    <label className={labelCls}>Contractor / Influencer Party *</label>
                     <button
                       type="button"
                       onClick={() => { setPartyTypeForDialog('contractor'); setPartyDialogOpen(true); }}
@@ -458,7 +490,7 @@ export default function NewCaseForm({
                       <UserPlus size={12} /> Add New
                     </button>
                   </div>
-                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={styles.input} disabled={isLoadingContractor}>
+                  <select value={contractorPartyId} onChange={e => handleContractorSelect(e.target.value)} className={inputCls} disabled={isLoadingContractor}>
                     <option value="">{isLoadingContractor ? 'Loading details...' : '-- Select Influencer --'}</option>
                     {parties
                       .filter(p => p.party_type === 'influencer' || p.party_type === 'both' || p.party_type === 'contractor')
@@ -468,7 +500,7 @@ export default function NewCaseForm({
                     <div className="mt-2 p-3 rounded-md bg-muted/60 border border-border text-xs space-y-1 text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Sub-type:</span> {contractorDetails.influencer_subtype || '—'}</p>
                       {contractorDetails.credit_line_amount !== null && contractorDetails.credit_line_amount !== undefined && (
-                        <p><span className="font-semibold text-foreground text-warning">Credit Limit:</span> ₹{contractorDetails.credit_line_amount.toLocaleString('en-IN')}</p>
+                        <p><span className="font-semibold text-warning">Credit Limit:</span> ₹{contractorDetails.credit_line_amount.toLocaleString('en-IN')}</p>
                       )}
                       {contractorDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {contractorDetails.address}</p>}
                       {contractorDetails.lastCase && (
@@ -479,121 +511,136 @@ export default function NewCaseForm({
                 </div>
               )}
 
-              <div className={styles.inputGroup}>
-                <label>KAM Assignee *</label>
-                <select value={kamUserId} onChange={e => setKamUserId(e.target.value)} className={styles.input}>
-                  <option value="">-- Select KAM --</option>
-                  {kams.map((k: any) => <option key={k.id} value={k.id}>{k.full_name}</option>)}
-                </select>
-              </div>
-
-              <div className="border-t pt-4 mt-6">
-                <h3 className="text-lg font-semibold mb-3">Commercial Terms</h3>
-                <div className={styles.row}>
-                  <div className={styles.inputGroup}>
-                    <label>Bill Amount (₹) *</label>
-                    <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" required />
-                  </div>
-                  <div className={styles.inputGroup}>
-                    <div className="flex justify-between items-center">
-                      <label className="mb-0">Requested Exposure (₹) *</label>
-                      {billAmount > 0 && (
-                        <span className={cn("text-xs font-medium", requestedExposure > billAmount ? "text-destructive" : "text-primary")}>
-                          {((requestedExposure / billAmount) * 100).toFixed(1)}% of bill
-                        </span>
-                      )}
-                    </div>
-                    <input 
-                      type="number" 
-                      value={requestedExposure || ''} 
-                      onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} 
-                      className={cn(styles.input, requestedExposure > billAmount && "border-destructive focus:border-destructive")} 
-                      placeholder="0" 
-                      required
-                    />
-                    {requestedExposure > billAmount && (
-                      <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure cannot exceed total bill amount.</p>
-                    )}
-                    {(() => {
-                      const activeDetails = scenario.startsWith('customer') ? customerDetails : contractorDetails;
-                      const creditLine = activeDetails?.credit_line_amount;
-                      if (creditLine !== null && creditLine !== undefined && requestedExposure > creditLine) {
-                        return <p className="text-[10px] text-destructive mt-1 font-medium">⚠ Exposure exceeds configured credit limit (₹{creditLine.toLocaleString('en-IN')}). Cannot submit.</p>;
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.actions}>
-                <button type="button" className="btn-primary" onClick={() => setStep(2)} disabled={!canGoNext(1)} style={{ opacity: canGoNext(1) ? 1 : 0.5 }}>Continue</button>
+              {errorAlert}
+              <div className={actionsCls}>
+                {saveDraftButton}
+                <button type="button" className="btn-primary" onClick={() => setStep(2)} disabled={!canGoNext(1)}>Continue</button>
               </div>
             </div>
           )}
 
           {/* Step 2: Tranche Builder */}
           {step === 2 && (
-            <div className={styles.formSection}>
-              <h2>Tranche Builder</h2>
-              <p className={styles.helperText}>Model proposed payment terms. Total must reconcile to bill amount.</p>
+            <div className="flex flex-col">
+              <h2 className="mb-1 text-lg font-semibold tracking-tight">Commercial ask</h2>
+              <p className="mb-6 text-xs text-muted-foreground">Keep the bill, requested exposure, and repayment schedule together as one decision.</p>
 
-              <div className={styles.trancheHeader}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className={groupCls}>
+                  <label className={labelCls}>Bill Amount (₹) *</label>
+                  <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={inputCls} placeholder="0" required />
+                </div>
+                <div className={groupCls}>
+                  <div className="flex justify-between items-center">
+                    <label className={labelCls}>Requested Exposure (₹) *</label>
+                    {billAmount > 0 && <span className={cn('text-xs font-medium', requestedExposure > billAmount ? 'text-destructive' : 'text-primary')}>{((requestedExposure / billAmount) * 100).toFixed(1)}% of bill</span>}
+                  </div>
+                  <input type="number" value={requestedExposure || ''} onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} className={cn(inputCls, requestedExposure > billAmount && 'border-destructive')} placeholder="0" required />
+                  {requestedExposure > billAmount && <p className="text-tiny font-medium text-destructive">Exposure cannot exceed the bill amount.</p>}
+                  {(() => {
+                    const creditLine = (scenario.startsWith('customer') ? customerDetails : contractorDetails)?.credit_line_amount;
+                    return creditLine != null && requestedExposure > creditLine
+                      ? <p className="text-tiny font-medium text-destructive">Exposure exceeds the configured credit limit of ₹{creditLine.toLocaleString('en-IN')}.</p>
+                      : null;
+                  })()}
+                </div>
+              </div>
+
+              <h3 className="mb-3 mt-2 text-sm font-semibold">Repayment schedule</h3>
+
+              <div className="mb-2 hidden grid-cols-[1fr_1fr_1fr_40px] gap-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:grid">
                 <span>Type</span><span>Value</span><span>Days After Billing</span><span></span>
               </div>
               {tranches.map((t, i) => (
-                <div key={i} className={styles.trancheRow}>
-                  <select value={t.type} onChange={e => updateTranche(i, 'type', e.target.value)} className={styles.input}>
+                <div key={i} className="mb-2 grid grid-cols-1 gap-3 rounded-lg border border-border p-3 sm:grid-cols-[1fr_1fr_1fr_40px] sm:border-0 sm:p-0">
+                  <select aria-label={`Tranche ${i + 1} type`} value={t.type} onChange={e => updateTranche(i, 'type', e.target.value)} className={inputCls}>
                     <option value="amount">Amount (₹)</option>
                     <option value="percentage">Percentage (%)</option>
                   </select>
-                  <input type="number" value={t.value || ''} onChange={e => updateTranche(i, 'value', parseFloat(e.target.value) || 0)} className={styles.input} placeholder="0" />
-                  <input type="number" value={t.days_after_billing || ''} onChange={e => updateTranche(i, 'days_after_billing', parseInt(e.target.value) || 0)} className={styles.input} placeholder="0" />
-                  <button type="button" onClick={() => removeTranche(i)} className={styles.deleteBtn} disabled={tranches.length === 1}>
-                    <Trash2 size={16} />
+                  <input aria-label={`Tranche ${i + 1} value`} type="number" value={t.value || ''} onChange={e => updateTranche(i, 'value', parseFloat(e.target.value) || 0)} className={inputCls} placeholder="0" />
+                  <input aria-label={`Tranche ${i + 1} days after billing`} type="number" value={t.days_after_billing || ''} onChange={e => updateTranche(i, 'days_after_billing', parseInt(e.target.value) || 0)} className={inputCls} placeholder="0" />
+                  <button type="button" aria-label={`Remove tranche ${i + 1}`} onClick={() => removeTranche(i)} className="flex min-h-10 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-0" disabled={tranches.length === 1}>
+                    <Trash2 size={16} aria-hidden="true" />
                   </button>
                 </div>
               ))}
 
-              <button type="button" onClick={addTranche} className={styles.addTrancheBtn}>
+              <button type="button" onClick={addTranche} className="mt-2 flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-ring hover:text-foreground">
                 <Plus size={16} /> Add Tranche
               </button>
 
-              <div className={styles.trancheSummary}>
-                <div className={styles.summaryItem}>
+              <div className="mt-6 flex flex-col gap-2 rounded-lg bg-muted p-4">
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Tranche Total:</span>
-                  <span className={tranchesReconcile ? styles.success : styles.danger}>₹{trancheTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                  <span className={cn('font-semibold tabular-nums', tranchesReconcile ? 'text-success' : 'text-destructive')}>₹{trancheTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className={styles.summaryItem}>
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Bill Amount:</span>
-                  <span>₹{billAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                  <span className="tabular-nums">₹{billAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className={styles.summaryItem}>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Remaining to allocate:</span>
+                  <span className={cn(
+                    'font-semibold tabular-nums',
+                    Math.abs(billAmount - trancheTotal) < 0.01 ? 'text-success' : 'text-destructive'
+                  )}>
+                    ₹{Math.max(0, billAmount - trancheTotal).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    {trancheTotal > billAmount && ' (over-allocated)'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Composite Credit Days:</span>
-                  <span>{compositeDays()} days</span>
+                  <span className="tabular-nums">{compositeDays()} days</span>
                 </div>
               </div>
 
               {!tranchesReconcile && billAmount > 0 && (
-                <p className={styles.errorMsg}>Tranches must sum exactly to ₹{billAmount.toLocaleString('en-IN')} before continuing.</p>
+                <p className={errorCls}>Tranches must sum exactly to ₹{billAmount.toLocaleString('en-IN')} before continuing.</p>
               )}
 
-              <div className={styles.actions}>
+              {errorAlert}
+              <div className={actionsCls}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)} style={{ opacity: canGoNext(2) ? 1 : 0.5 }}>Continue</button>
+                {saveDraftButton}
+                <button type="button" className="btn-primary" onClick={() => setStep(3)} disabled={!canGoNext(2)}>Continue</button>
               </div>
             </div>
           )}
 
           {/* Step 3: Context & Strategy */}
           {step === 3 && (
-            <div className={styles.formSection}>
-              <h2>Context & Strategy</h2>
-              <p className={styles.helperText}>Provide strategic justification for this exposure.</p>
+            <div className="flex flex-col">
+              <h2 className="mb-1 text-lg font-semibold tracking-tight">Site & handoff</h2>
+              <p className="mb-6 text-xs text-muted-foreground">Identify where the work happens, who owns the review, and why credit is justified.</p>
 
-              <div className={styles.inputGroup}>
-                <label>Strategic Justification (Reason for Credit) *</label>
-                <select name="justification" value={justification} onChange={e => setJustification(e.target.value)} className={styles.input} required>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className={groupCls}>
+                  <label className={labelCls}>City Code *</label>
+                  <select value={cityCode} onChange={e => setCityCode(e.target.value)} className={inputCls}>
+                    <option value="">-- Select City --</option>
+                    {cityCodes.map(c => <option key={c.id} value={c.code}>{c.name} ({c.code})</option>)}
+                  </select>
+                </div>
+                <div className={groupCls}>
+                  <label className={labelCls}>Site ID</label>
+                  <input value={generatedSiteId} onChange={e => setGeneratedSiteId(e.target.value.toUpperCase())} className={cn(inputCls, 'font-mono font-semibold')} placeholder="Generated from city" maxLength={30} />
+                </div>
+              </div>
+              <div className={groupCls}>
+                <label className={labelCls}>Site Address *</label>
+                <textarea value={siteAddress} onChange={e => setSiteAddress(e.target.value)} className={inputCls} rows={2} placeholder="Street address of the site" required />
+              </div>
+              <div className={groupCls}>
+                <label htmlFor="kam-assignee" className={labelCls}>KAM Assignee <span className="font-normal">(required to submit)</span></label>
+                <select id="kam-assignee" value={kamUserId} onChange={e => setKamUserId(e.target.value)} className={inputCls}>
+                  <option value="">-- Select KAM --</option>
+                  {kams.map((k: any) => <option key={k.id} value={k.id}>{k.full_name}</option>)}
+                </select>
+              </div>
+
+              <div className={groupCls}>
+                <label className={labelCls}>Strategic Justification (Reason for Credit) *</label>
+                <select name="justification" value={justification} onChange={e => setJustification(e.target.value)} className={inputCls} required>
                   <option value="">-- Select Reason --</option>
                   {creditReasons.map((r: any) => (
                     <option key={r.id} value={r.value}>{r.value}</option>
@@ -601,22 +648,20 @@ export default function NewCaseForm({
                 </select>
               </div>
 
-              <div className="mt-6 p-4 bg-muted rounded-md text-sm border">
-                <strong>Routing Preview:</strong> Based on the requested exposure (₹{requestedExposure.toLocaleString('en-IN')}), this case is expected to route up to <strong>Stage {expectedStage()}</strong>.
-              </div>
-
-              <div className={styles.actions}>
+              {errorAlert}
+              <div className={actionsCls}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
-                <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={!canGoNext(3)} style={{ opacity: canGoNext(3) ? 1 : 0.5 }}>Continue to Questions</button>
+                {saveDraftButton}
+                <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={!canGoNext(3)}>Continue to Questions</button>
               </div>
             </div>
           )}
 
           {/* Step 4: RM Intake Tasks */}
           {step === 4 && (
-            <div className={styles.formSection}>
-              <h2>Stage 1 Intake Questions</h2>
-              <p className={styles.helperText}>Required stage 1 items for RM completion based on selected scenario and policy.</p>
+            <div className="flex flex-col">
+              <h2 className="mb-1 text-lg font-semibold tracking-tight">Stage 1 Intake Questions</h2>
+              <p className="mb-6 text-xs text-muted-foreground">Required stage 1 items for RM completion based on selected scenario and policy.</p>
 
               {rmTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground my-4">No specific intake questions required for this scenario.</p>
@@ -625,62 +670,72 @@ export default function NewCaseForm({
                   {rmTasks.map((task) => (
                     <div key={task.id} className="p-4 border border-border rounded-md bg-muted">
                       <label className="font-semibold block mb-1">
-                        {task.name} {task.is_required && <span className="text-red-500">*</span>}
+                        {task.name} {task.is_required && <span className="text-destructive">*</span>}
                       </label>
+                      {reusedParams[task.id] && (
+                        <p className="text-tiny text-info bg-info/10 border border-info/25 rounded px-2 py-1 mb-2">
+                          Reused from {reusedParams[task.id].partyName}
+                          {reusedParams[task.id].capturedAt && `, captured ${new Date(reusedParams[task.id].capturedAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                          {' '}— confirm or update before submitting.
+                        </p>
+                      )}
                       {task.rubric_guidance && (
                         <div
                           className="text-xs text-muted-foreground mb-3"
                         >
-                          {formatRubricGuidance(task.rubric_guidance)}
+                          {parseRubricGuidance(task.rubric_guidance).map((line, i) => (
+                            <span key={i} className="block">
+                              {line.map((part, j) => part.strong ? <strong key={j}>{part.text}</strong> : <span key={j}>{part.text}</span>)}
+                            </span>
+                          ))}
                         </div>
                       )}
 
                       <div className="flex flex-col gap-2">
-                        {task.input_type === 'grade_select' || task.input_type === 'yes_no' ? (
+                        {task.input_type === 'grade_select' ? (
                         <select
-                          className={styles.input}
+                          id={`intake-task-${task.id}`}
+                          className={inputCls}
                           value={rmTaskAnswers[task.id]?.grade_value ?? ''}
                           onChange={(e) => handleTaskAnswerChange(task.id, 'grade_value', e.target.value === '' ? undefined : Number(e.target.value))}
                         >
                           <option value="">-- Select --</option>
-                          {task.input_type === 'yes_no' ? (
-                            <>
-                              <option value="1">Yes</option>
-                              <option value="0">No</option>
-                            </>
-                          ) : (
-                            <>
+                          <>
                               {task.auto_band_config?.mappings ? (
                                 task.auto_band_config.mappings.map((m: any, i: number) => (
                                   <option key={i} value={m.grade}>{m.value} (Grade {m.grade})</option>
                                 ))
+                              ) : gradeScale.length > 0 ? (
+                                /* Labels come from policy grade_scale — higher grade = better */
+                                gradeScale.map(g => (
+                                  <option key={g.grade_value} value={g.grade_value}>{g.grade_value} — {g.grade_label}</option>
+                                ))
                               ) : (
-                                <>
-                                  <option value="1">Grade 1 (Best)</option>
-                                  <option value="2">Grade 2</option>
-                                  <option value="3">Grade 3</option>
-                                  <option value="4">Grade 4 (Worst)</option>
-                                  <option value="5">Grade 5</option>
-                                </>
+                                [5, 4, 3, 2, 1].map(n => (
+                                  <option key={n} value={n}>Grade {n}{n === 5 ? ' (strongest)' : n === 1 ? ' (weakest)' : ''}</option>
+                                ))
                               )}
-                            </>
-                          )}
+                          </>
                         </select>
-                      ) : task.input_type === 'link_list' || task.input_type === 'dropdown' ? (
+                      ) : task.input_type === 'link_list' || task.input_type === 'dropdown' || task.input_type === 'yes_no' ? (
                          <select
-                           className={styles.input}
+                           id={`intake-task-${task.id}`}
+                           className={inputCls}
                            value={rmTaskAnswers[task.id]?.raw_input_value ?? ''}
                            onChange={(e) => handleTaskAnswerChange(task.id, 'raw_input_value', e.target.value)}
                          >
                            <option value="">-- Select --</option>
-                           {task.auto_band_config?.mappings?.map((m: any, i: number) => (
-                             <option key={i} value={m.value}>{m.value}</option>
-                           ))}
+                           {task.input_type === 'yes_no' ? (
+                             <><option value="Yes">Yes</option><option value="No">No</option></>
+                           ) : task.auto_band_config?.mappings?.map((m: any, i: number) => (
+                               <option key={i} value={m.value}>{m.value}</option>
+                             ))}
                          </select>
                       ) : (
                         <input
+                          id={`intake-task-${task.id}`}
                           type={task.input_type === 'numeric' ? 'number' : task.input_type === 'date' ? 'date' : 'text'}
-                          className={styles.input}
+                          className={inputCls}
                           placeholder="Enter value"
                           value={rmTaskAnswers[task.id]?.raw_input_value || ''}
                           onChange={(e) => handleTaskAnswerChange(task.id, 'raw_input_value', e.target.value)}
@@ -689,13 +744,13 @@ export default function NewCaseForm({
 
                       {/* Display automatically mapped grade if applicable */}
                       {task.auto_band_config && rmTaskAnswers[task.id]?.grade_value !== undefined && (
-                        <div className="mt-1 text-xs text-green-600 font-medium">
+                        <div className="mt-1 text-xs text-success font-medium">
                            Auto-mapped to Grade {rmTaskAnswers[task.id].grade_value}
                         </div>
                       )}
 
                       <textarea
-                        className={styles.input}
+                        className={inputCls}
                         placeholder="Reason or notes (optional)"
                         rows={2}
                         value={rmTaskAnswers[task.id]?.reason || ''}
@@ -707,16 +762,58 @@ export default function NewCaseForm({
                 </div>
               )}
 
-              {error && <p className={styles.errorMsg}>{error}</p>}
+              {/* Final review — see the whole submission before committing (§12.3) */}
+              <div className="my-6 rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                <h3 className="text-sm font-semibold">Review before submit</h3>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">Scenario</dt>
+                    <dd className="font-medium text-right">Billed to {SCENARIO_LABELS[scenario]?.billedTo} · pays {SCENARIO_LABELS[scenario]?.pays}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">Customer</dt>
+                    <dd className="font-medium text-right">{parties.find(p => p.id === customerPartyId)?.legal_name || <span className="text-warning">Not selected</span>}</dd>
+                  </div>
+                  {needsContractor && (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Contractor</dt>
+                      <dd className="font-medium text-right">{parties.find(p => p.id === contractorPartyId)?.legal_name || <span className="text-warning">Not selected</span>}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">KAM owner</dt>
+                    <dd className="font-medium text-right">{kams.find((k: any) => k.id === kamUserId)?.full_name || <span className="text-warning">Required to submit</span>}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">Bill / exposure</dt>
+                    <dd className="font-medium text-right tabular-nums">₹{billAmount.toLocaleString('en-IN')} / ₹{requestedExposure.toLocaleString('en-IN')}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">Repayment schedule</dt>
+                    <dd className="font-medium text-right tabular-nums">{tranches.length} tranche{tranches.length !== 1 ? 's' : ''} · {compositeDays()}d composite</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">Required review depth</dt>
+                    <dd className="font-medium text-right">Stage {requiredStage} before approval</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">Site</dt>
+                    <dd className="font-medium text-right">{generatedSiteId || '—'} · {cityCode || '—'}</dd>
+                  </div>
+                </dl>
+                <p className="text-xs text-muted-foreground">
+                  On submit, the case moves to In Review, Stage 1 tasks are created, and the KAM is notified. Any missing question is linked directly in the error summary.
+                </p>
+              </div>
 
-              <div className={styles.actions}>
+              {errorAlert}
+
+              <div className={actionsCls}>
                 <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
                 <div className="flex gap-2">
-                  <button type="button" className="btn-secondary" onClick={() => handleSubmit('draft')} disabled={submitting}>
-                    {submitting ? 'Saving...' : 'Save as Draft'}
-                  </button>
+                  {saveDraftButton}
                   <button type="button" className="btn-primary" onClick={() => handleSubmit('submit')} disabled={submitting}>
-                    {submitting ? 'Submitting...' : 'Submit for Review'}
+                    {submitting ? 'Submitting…' : 'Submit for Review'}
                   </button>
                 </div>
               </div>

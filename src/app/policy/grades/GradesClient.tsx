@@ -20,7 +20,7 @@ interface Grade {
   policy_version_id: string;
 }
 
-export default function GradesClient({ initialGrades }: { initialGrades: Grade[] }) {
+export default function GradesClient({ initialGrades, policyVersionId, backHref = '/policy' }: { initialGrades: Grade[], policyVersionId?: string | null, backHref?: string }) {
   const [grades, setGrades] = useState(initialGrades);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Grade | null>(null);
@@ -45,7 +45,7 @@ export default function GradesClient({ initialGrades }: { initialGrades: Grade[]
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/policy"><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
+        <Link href={backHref}><Button variant="ghost" size="sm"><ChevronLeft size={15} /> Back</Button></Link>
         <div className="flex-1">
           <h1 className="text-xl font-bold">Grade Scales</h1>
           <p className="text-sm text-muted-foreground">Manage grade definitions and numeric values</p>
@@ -107,6 +107,7 @@ export default function GradesClient({ initialGrades }: { initialGrades: Grade[]
           <DialogHeader><DialogTitle>{editing ? 'Edit Grade' : 'New Grade Definition'}</DialogTitle></DialogHeader>
           <form action={upsertGradeDefinition} onSubmit={() => setOpen(false)} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
+            <input type="hidden" name="policy_version_id" value={policyVersionId || ''} />
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-1">
                 <Label>Grade Label</Label>

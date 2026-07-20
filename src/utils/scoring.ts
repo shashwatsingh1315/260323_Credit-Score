@@ -1,4 +1,5 @@
 import { createClient } from './supabase/server';
+import { evaluateRequiredStage } from './routing';
 
 /**
  * Real scoring engine per Doc 06.
@@ -63,7 +64,8 @@ export async function calculateSubjectScore(params: {
 
   let weightedSum = 0;
   for (const task of relevantTasks) {
-    const defaultWeight = task.parameter?.weight || 1;
+    // ?? not ||: a configured weight of 0 means "excluded", not "default to 1"
+    const defaultWeight = task.parameter?.weight ?? 1;
     const weight = weightsMap[task.parameter_id] ?? defaultWeight;
     const grade = task.grade_value || 0;
     weightedSum += grade * weight;
@@ -92,14 +94,17 @@ export async function calculateCumulativeScore(params: {
 
   if (cycleError || !cycle) return 0;
 
-  let weightedSum = 0;
-  for (let s = 1; s <= params.upToStage; s++) {
-    weightedSum += await calculateSubjectScore({
-      reviewCycleId: params.reviewCycleId,
-      subjectType: params.subjectType,
-      stage: s,
-    });
-  }
+  // Stages are independent — score them in parallel (CLAUDE.md constraint)
+  const stageScores = await Promise.all(
+    Array.from({ length: params.upToStage }, (_, i) =>
+      calculateSubjectScore({
+        reviewCycleId: params.reviewCycleId,
+        subjectType: params.subjectType,
+        stage: i + 1,
+      })
+    )
+  );
+  const weightedSum = stageScores.reduce((sum, s) => sum + s, 0);
 
   // Fetch max total for the cumulative stage
   const { data: maxTotal, error: maxTotalError } = await supabase
@@ -132,28 +137,27 @@ export async function calculateFinalCaseScore(params: {
 }> {
   const supabase = await createClient();
 
-  const customerScore = await calculateCumulativeScore({
-    reviewCycleId: params.reviewCycleId,
-    subjectType: 'customer',
-    upToStage: params.upToStage,
-  });
-
-  // For "contractor_name_contractor_pays", customer is context-only
-  let contractorScore = 0;
-  if (params.caseScenario !== 'customer_name_customer_pays') {
-    contractorScore = await calculateCumulativeScore({
+  // Customer score, contractor score (context-only scenarios skip it), and the
+  // cycle's dominance selection are independent — fetch in parallel.
+  const [customerScore, contractorScore, { data: cycle, error: cycleError }] = await Promise.all([
+    calculateCumulativeScore({
       reviewCycleId: params.reviewCycleId,
-      subjectType: 'contractor',
+      subjectType: 'customer',
       upToStage: params.upToStage,
-    });
-  }
-
-  // Get dominance category for this cycle
-  const { data: cycle, error: cycleError } = await supabase
-    .from('review_cycles')
-    .select('dominance_category_id')
-    .eq('id', params.reviewCycleId)
-    .maybeSingle();
+    }),
+    params.caseScenario !== 'customer_name_customer_pays'
+      ? calculateCumulativeScore({
+          reviewCycleId: params.reviewCycleId,
+          subjectType: 'contractor',
+          upToStage: params.upToStage,
+        })
+      : Promise.resolve(0),
+    supabase
+      .from('review_cycles')
+      .select('dominance_category_id')
+      .eq('id', params.reviewCycleId)
+      .maybeSingle(),
+  ]);
 
   let finalScore: number;
 
@@ -187,17 +191,13 @@ export async function calculateFinalCaseScore(params: {
           break;
       }
     } else {
-      finalScore = customerScore; // fallback
+      // Dominance row missing/broken — fall back to scenario defaults rather
+      // than blindly using the customer score (wrong for contractor-name cases)
+      finalScore = scenarioDefaultScore(params.caseScenario, customerScore, contractorScore);
     }
   } else {
     // No dominance selected — use scenario defaults
-    if (params.caseScenario === 'customer_name_customer_pays') {
-      finalScore = customerScore;
-    } else if (params.caseScenario === 'contractor_name_contractor_pays') {
-      finalScore = contractorScore;
-    } else {
-      finalScore = (customerScore * 0.5) + (contractorScore * 0.5);
-    }
+    finalScore = scenarioDefaultScore(params.caseScenario, customerScore, contractorScore);
   }
 
   return {
@@ -205,6 +205,12 @@ export async function calculateFinalCaseScore(params: {
     contractorScore,
     finalScore: Math.round(finalScore * 100) / 100,
   };
+}
+
+function scenarioDefaultScore(caseScenario: string, customerScore: number, contractorScore: number): number {
+  if (caseScenario === 'customer_name_customer_pays') return customerScore;
+  if (caseScenario === 'contractor_name_contractor_pays') return contractorScore;
+  return (customerScore * 0.5) + (contractorScore * 0.5);
 }
 
 /**
@@ -249,27 +255,37 @@ export async function checkAmbiguity(params: {
   reviewCycleId: string;
   policyVersionId: string;
   score: number;
+  /** Only consider tasks up to this stage. Tasks for all stages are generated
+   *  upfront, so without this bound every early-stage case looks ambiguous. */
+  upToStage?: number;
+  /** Pass a band already fetched for this score to avoid a duplicate query. */
+  precomputedBand?: { bandName: string; approvedDays: number; isAmbiguity: boolean } | null;
+  subjectScores?: { customer?: number; contractor?: number };
 }): Promise<{ isAmbiguous: boolean; reasons: string[] }> {
   const supabase = await createClient();
   const reasons: string[] = [];
 
   // Check score band
-  const bandResult = await mapScoreToCreditDays({
-    policyVersionId: params.policyVersionId,
-    score: params.score,
-  });
+  const bandResult = params.precomputedBand !== undefined
+    ? params.precomputedBand
+    : await mapScoreToCreditDays({
+        policyVersionId: params.policyVersionId,
+        score: params.score,
+      });
 
   if (bandResult?.isAmbiguity) {
     reasons.push(`Score ${params.score} falls in ambiguity band "${bandResult.bandName}".`);
   }
 
   // Check missing critical parameters
-  const { data: incompleteCritical, error: incompleteError } = await supabase
+  let query = supabase
     .from('stage_tasks')
     .select('description, parameter:parameter_definitions(name, is_critical)')
     .eq('review_cycle_id', params.reviewCycleId)
     .eq('task_type', 'scoring')
     .is('grade_value', null);
+  if (params.upToStage != null) query = query.lte('stage', params.upToStage);
+  const { data: incompleteCritical, error: incompleteError } = await query;
 
   if (incompleteError) throw new Error(incompleteError.message);
 
@@ -279,6 +295,27 @@ export async function checkAmbiguity(params: {
 
   if (missingCritical.length > 0) {
     reasons.push(`${missingCritical.length} critical parameter(s) are incomplete.`);
+  }
+
+  if (params.subjectScores) {
+    const { data: cycle } = await supabase
+      .from('review_cycles')
+      .select('customer_persona_id, contractor_persona_id')
+      .eq('id', params.reviewCycleId)
+      .maybeSingle();
+    const personaIds = [cycle?.customer_persona_id, cycle?.contractor_persona_id].filter(Boolean) as string[];
+    if (personaIds.length > 0) {
+      const { data: personas } = await supabase.from('personas').select('id, name, minimum_score').in('id', personaIds);
+      const personaById = new Map((personas || []).map((persona: any) => [persona.id, persona]));
+      for (const subject of ['customer', 'contractor'] as const) {
+        const personaId = cycle?.[`${subject}_persona_id`];
+        const persona: any = personaId ? personaById.get(personaId) : null;
+        const score = params.subjectScores[subject];
+        if (persona?.minimum_score != null && score != null && score < Number(persona.minimum_score)) {
+          reasons.push(`${subject === 'customer' ? 'Customer' : 'Contractor'} score ${score} is below persona '${persona.name}' minimum ${persona.minimum_score}.`);
+        }
+      }
+    }
   }
 
   return {
@@ -294,7 +331,7 @@ export async function updateCycleScore(reviewCycleId: string) {
   const supabase = await createClient();
   const { data: cycle, error: cycleError } = await supabase
     .from('review_cycles')
-    .select('*, credit_cases(case_scenario)')
+    .select('*, credit_cases(case_scenario, requested_exposure_amount)')
     .eq('id', reviewCycleId)
     .maybeSingle();
 
@@ -314,10 +351,36 @@ export async function updateCycleScore(reviewCycleId: string) {
     score: result.finalScore,
   });
 
+  // Full ambiguity rule (band OR missing critical parameters) — must match
+  // what the simulation preview shows, or live cases behave differently.
+  const ambiguity = await checkAmbiguity({
+    reviewCycleId,
+    policyVersionId: cycle.policy_snapshot_id,
+    score: result.finalScore,
+    upToStage: cycle.active_stage,
+    precomputedBand: bandResult,
+    subjectScores: { customer: result.customerScore, contractor: result.contractorScore },
+  });
+
+  const { data: routingRules } = await supabase
+    .from('routing_thresholds')
+    .select('context_rule, target_stage')
+    .eq('policy_version_id', cycle.policy_snapshot_id);
+  const evaluatedStage = evaluateRequiredStage(routingRules || [], {
+    exposure: Number((cycle.credit_cases as any)?.requested_exposure_amount) || 0,
+    scenario: caseScenario,
+    score: result.finalScore,
+  });
+  const storedStage = cycle.required_stage == null ? 3 : Number(cycle.required_stage);
+  const requiredStage = Math.max(storedStage, evaluatedStage);
+
   await supabase.from('review_cycles').update({
+    current_customer_score: result.customerScore,
+    current_contractor_score: result.contractorScore,
     current_case_score: result.finalScore,
     approved_credit_days: bandResult?.approvedDays ?? null,
     score_band_name: bandResult?.bandName ?? null,
-    is_ambiguous: bandResult?.isAmbiguity ?? false,
+    is_ambiguous: ambiguity.isAmbiguous,
+    ...(requiredStage > storedStage ? { required_stage: requiredStage } : {}),
   }).eq('id', reviewCycleId);
 }

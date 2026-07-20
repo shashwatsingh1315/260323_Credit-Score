@@ -25,6 +25,7 @@ module.exports = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+          strong: 'hsl(var(--color-destructive-strong))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
@@ -45,18 +46,22 @@ module.exports = {
         success: {
           DEFAULT: 'hsl(var(--color-success))',
           foreground: 'hsl(var(--color-success-foreground))',
+          strong: 'hsl(var(--color-success-strong))',
         },
         warning: {
           DEFAULT: 'hsl(var(--color-warning))',
           foreground: 'hsl(var(--color-warning-foreground))',
+          strong: 'hsl(var(--color-warning-strong))',
         },
         info: {
           DEFAULT: 'hsl(var(--color-info))',
           foreground: 'hsl(var(--color-info-foreground))',
+          strong: 'hsl(var(--color-info-strong))',
         },
         attention: {
           DEFAULT: 'hsl(var(--color-attention))',
           foreground: 'hsl(var(--color-attention-foreground))',
+          strong: 'hsl(var(--color-attention-strong))',
         },
         brand: {
           DEFAULT: 'hsl(var(--color-brand))',

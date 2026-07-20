@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Edit } from 'lucide-react';
 import { upsertStageMaxTotal } from '../actions';
 
-export default function StagesClient({ totals, activePolicyId }: { totals: any[]; activePolicyId?: string }) {
+export default function StagesClient({ totals, impliedTotals, activePolicyId }: { totals: any[]; impliedTotals: any[]; activePolicyId?: string }) {
   const [editingTotal, setEditingTotal] = useState<any | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,7 +77,15 @@ export default function StagesClient({ totals, activePolicyId }: { totals: any[]
                   {totals.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="font-medium text-brand font-bold">Stage {t.stage}</TableCell>
-                      <TableCell>{t.max_total}</TableCell>
+                      <TableCell>
+                        <span>{t.max_total}</span>
+                        {(() => {
+                          const implied = Number(impliedTotals.find((item) => item.stage === t.stage)?.value || 0);
+                          const configured = Number(t.max_total || 0);
+                          const drift = configured > 0 ? Math.abs(implied - configured) / configured : implied > 0 ? 1 : 0;
+                          return drift > 0.05 ? <p className="mt-1 text-xs text-warning-strong">Configured {configured}, but parameters can produce up to {implied} — scores will cap.</p> : <p className="mt-1 text-xs text-muted-foreground">Parameter capacity: {implied}</p>;
+                        })()}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Button size="sm" variant="ghost" onClick={() => setEditingTotal(t)}>

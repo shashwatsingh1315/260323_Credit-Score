@@ -23,13 +23,14 @@ export async function handleNewCase(formData: FormData) {
   const billAmount = parseFloat(formData.get('billAmount') as string) || 0;
   const requestedExposure = parseFloat(formData.get('requestedExposure') as string) || 0;
   const tranchesRaw = formData.get('tranches') as string;
-  const dealSizeBucket = formData.get('dealSizeBucket') as string || '';
   const justification = formData.get('justification') as string || '';
   const action = formData.get('action') as string;
   const kamUserId = formData.get('kamUserId') as string || undefined; // 'draft' or 'submit'
 
-  if (!kamUserId) {
-    throw new Error('KAM Assignee is required.');
+  // Doctrine Principle 11: drafts reduce commitment. KAM assignment and other
+  // submission-critical fields are enforced only at submission, not at save.
+  if (action === 'submit' && !kamUserId) {
+    throw new Error('A KAM owner is required before submitting for review.');
   }
 
   let tranches: any[] = [];
@@ -73,7 +74,6 @@ export async function handleNewCase(formData: FormData) {
     requested_exposure_amount: requestedExposure,
     proposed_tranches: tranches,
     case_attributes: {
-      deal_size_bucket: dealSizeBucket,
       draft_rm_answers: rmTaskAnswers,
       site_address: formData.get('siteAddress'),
       city_code: formData.get('cityCode'),
@@ -124,7 +124,8 @@ export async function handleNewCase(formData: FormData) {
     await submitCase(newCase.id, user.id);
   }
 
-  redirect(`/cases/${newCase.id}`);
+  // Receipt: feedback confirms the business outcome (doctrine Principle 13).
+  redirect(`/cases/${newCase.id}?receipt=${action === 'submit' ? 'submitted' : 'draft'}`);
 }
 
 /**
@@ -164,7 +165,7 @@ export async function fetchPartyDetails(partyId: string) {
   // Fetch last case for this party (as customer or contractor) to pre-fill bill amounts
   const { data: lastCase } = await supabase
     .from('credit_cases')
-    .select('bill_amount, requested_exposure_amount, composite_credit_days, deal_size_bucket')
+    .select('bill_amount, requested_exposure_amount, composite_credit_days')
     .or(`customer_party_id.eq.${partyId},contractor_party_id.eq.${partyId}`)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -173,7 +174,7 @@ export async function fetchPartyDetails(partyId: string) {
   // Fetch saved parameters for this party
   const { data: savedParams } = await supabase
     .from('party_parameter_values')
-    .select('parameter_id, grade_value, raw_input_value')
+    .select('parameter_id, grade_value, raw_input_value, captured_at')
     .eq('party_id', partyId);
 
   return { ...party, lastCase, savedParams: savedParams || [] };
@@ -217,6 +218,28 @@ export async function fetchActiveRoutingThresholds() {
     .eq('policy_version_id', activePolicy.id)
     .order('target_stage', { ascending: false }); // Highest stage first
 
+  return data || [];
+}
+
+/**
+ * Server action: Grade scale for the active policy. Labels come from policy —
+ * never hardcode grade semantics in the UI (higher grade_value = better).
+ */
+export async function fetchGradeScale() {
+  const supabase = await createClient();
+  const { data: activePolicy } = await supabase
+    .from('policy_versions')
+    .select('id')
+    .eq('is_active', true)
+    .single();
+
+  if (!activePolicy) return [];
+
+  const { data } = await supabase
+    .from('grade_scale')
+    .select('grade_value, grade_label, description')
+    .eq('policy_version_id', activePolicy.id)
+    .order('grade_value', { ascending: false });
   return data || [];
 }
 

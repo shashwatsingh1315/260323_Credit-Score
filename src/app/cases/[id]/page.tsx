@@ -11,8 +11,9 @@ import { notFound } from 'next/navigation';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
 
-export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CaseDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ receipt?: string }> }) {
   const { id } = await params;
+  const { receipt } = await searchParams;
   const corePromise = fetchCaseCore(id);
   const activeRolePromise = getImpersonationRole();
   const userPromise = getCurrentUser();
@@ -43,5 +44,5 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     ledgerPromise: fetchCaseLedger(id, caseStatus)
   };
 
-  return <CaseWorkspace coreData={coreData} promises={promises} initialActiveRole={activeRole || 'viewer'} />;
+  return <CaseWorkspace coreData={coreData} promises={promises} initialActiveRole={activeRole || 'viewer'} receipt={receipt} />;
 }

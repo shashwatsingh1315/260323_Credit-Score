@@ -133,7 +133,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                   type="checkbox" 
                   checked={ignoreMissing} 
                   onChange={(e) => setIgnoreMissing(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="w-4 h-4 rounded border-input text-primary focus:ring-primary"
                 />
                 <span className="text-sm font-medium">Ignore missing/invalid Party IDs (skip rows)</span>
               </label>
