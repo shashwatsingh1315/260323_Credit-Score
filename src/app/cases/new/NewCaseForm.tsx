@@ -284,7 +284,7 @@ export default function NewCaseForm({
     }
 
     if (action === 'submit' && billAmount > 0 && !tranchesReconcile) {
-      setError('Tranches must reconcile exactly to bill amount before submission.');
+      setError('Tranches must reconcile exactly to the total site value before submission.');
       setSubmitting(false);
       return;
     }
@@ -327,10 +327,19 @@ export default function NewCaseForm({
 
     try {
       submittedRef.current = true;
-      await handleNewCase(fd);
+      const result = await handleNewCase(fd);
+      if (result?.error) {
+        submittedRef.current = false;
+        setError(result.error);
+        setSubmitting(false);
+      }
     } catch (err: any) {
       submittedRef.current = false;
-      setError(err.message || 'Failed to create case.');
+      const isSanitizedServerError = typeof err?.message === 'string' && err.message.includes('Server Components render');
+      const reference = typeof err?.digest === 'string' ? ` Reference: ${err.digest}.` : '';
+      setError(isSanitizedServerError
+        ? `An unexpected server error prevented the case from being created.${reference} Please share the reference with support.`
+        : err?.message || 'Failed to create case.');
       setSubmitting(false);
     }
   };
@@ -469,9 +478,15 @@ export default function NewCaseForm({
                       {customerDetails.credit_line_amount !== null && customerDetails.credit_line_amount !== undefined && (
                         <p><span className="font-semibold text-warning">Credit Limit:</span> ₹{customerDetails.credit_line_amount.toLocaleString('en-IN')}</p>
                       )}
+                      <p>
+                        <span className="font-semibold text-foreground">Current outstanding:</span>{' '}
+                        {customerDetails.currentExposure
+                          ? <>₹{Number(customerDetails.currentExposure.outstanding_amount || 0).toLocaleString('en-IN')} <span className="text-muted-foreground">(as of {new Date(customerDetails.currentExposure.data_as_of).toLocaleDateString('en-IN')})</span></>
+                          : <span className="italic">No exposure data imported</span>}
+                      </p>
                       {customerDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {customerDetails.address}</p>}
                       {customerDetails.lastCase && (
-                        <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{customerDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {customerDetails.lastCase.composite_credit_days}d credit</p>
+                        <p><span className="font-semibold text-foreground">Last case site value:</span> ₹{customerDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {customerDetails.lastCase.composite_credit_days}d credit</p>
                       )}
                     </div>
                   )}
@@ -502,9 +517,15 @@ export default function NewCaseForm({
                       {contractorDetails.credit_line_amount !== null && contractorDetails.credit_line_amount !== undefined && (
                         <p><span className="font-semibold text-warning">Credit Limit:</span> ₹{contractorDetails.credit_line_amount.toLocaleString('en-IN')}</p>
                       )}
+                      <p>
+                        <span className="font-semibold text-foreground">Current outstanding:</span>{' '}
+                        {contractorDetails.currentExposure
+                          ? <>₹{Number(contractorDetails.currentExposure.outstanding_amount || 0).toLocaleString('en-IN')} <span className="text-muted-foreground">(as of {new Date(contractorDetails.currentExposure.data_as_of).toLocaleDateString('en-IN')})</span></>
+                          : <span className="italic">No exposure data imported</span>}
+                      </p>
                       {contractorDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {contractorDetails.address}</p>}
                       {contractorDetails.lastCase && (
-                        <p><span className="font-semibold text-foreground">Last case bill:</span> ₹{contractorDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {contractorDetails.lastCase.composite_credit_days}d credit</p>
+                        <p><span className="font-semibold text-foreground">Last case site value:</span> ₹{contractorDetails.lastCase.bill_amount?.toLocaleString('en-IN')} · {contractorDetails.lastCase.composite_credit_days}d credit</p>
                       )}
                     </div>
                   )}
@@ -527,16 +548,16 @@ export default function NewCaseForm({
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className={groupCls}>
-                  <label className={labelCls}>Bill Amount (₹) *</label>
+                  <label className={labelCls}>Total Site Value (₹) *</label>
                   <input type="number" value={billAmount || ''} onChange={e => setBillAmount(parseFloat(e.target.value) || 0)} className={inputCls} placeholder="0" required />
                 </div>
                 <div className={groupCls}>
                   <div className="flex justify-between items-center">
                     <label className={labelCls}>Requested Exposure (₹) *</label>
-                    {billAmount > 0 && <span className={cn('text-xs font-medium', requestedExposure > billAmount ? 'text-destructive' : 'text-primary')}>{((requestedExposure / billAmount) * 100).toFixed(1)}% of bill</span>}
+                    {billAmount > 0 && <span className={cn('text-xs font-medium', requestedExposure > billAmount ? 'text-destructive' : 'text-primary')}>{((requestedExposure / billAmount) * 100).toFixed(1)}% of site value</span>}
                   </div>
                   <input type="number" value={requestedExposure || ''} onChange={e => setRequestedExposure(parseFloat(e.target.value) || 0)} className={cn(inputCls, requestedExposure > billAmount && 'border-destructive')} placeholder="0" required />
-                  {requestedExposure > billAmount && <p className="text-tiny font-medium text-destructive">Exposure cannot exceed the bill amount.</p>}
+                  {requestedExposure > billAmount && <p className="text-tiny font-medium text-destructive">Exposure cannot exceed the total site value.</p>}
                   {(() => {
                     const creditLine = (scenario.startsWith('customer') ? customerDetails : contractorDetails)?.credit_line_amount;
                     return creditLine != null && requestedExposure > creditLine
@@ -575,7 +596,7 @@ export default function NewCaseForm({
                   <span className={cn('font-semibold tabular-nums', tranchesReconcile ? 'text-success' : 'text-destructive')}>₹{trancheTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Bill Amount:</span>
+                  <span>Total Site Value:</span>
                   <span className="tabular-nums">₹{billAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
@@ -785,7 +806,7 @@ export default function NewCaseForm({
                     <dd className="font-medium text-right">{kams.find((k: any) => k.id === kamUserId)?.full_name || <span className="text-warning">Required to submit</span>}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Bill / exposure</dt>
+                    <dt className="text-muted-foreground">Site value / exposure</dt>
                     <dd className="font-medium text-right tabular-nums">₹{billAmount.toLocaleString('en-IN')} / ₹{requestedExposure.toLocaleString('en-IN')}</dd>
                   </div>
                   <div className="flex justify-between gap-2">

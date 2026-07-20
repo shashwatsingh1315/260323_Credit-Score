@@ -27,6 +27,7 @@ export function ConfirmDialog({
   tone = 'default',
   action,
   hiddenFields = {},
+  requireMatchText,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,9 +43,14 @@ export function ConfirmDialog({
   /** Server action invoked on confirm (form action). */
   action: (formData: FormData) => void | Promise<void>;
   hiddenFields?: Record<string, string>;
+  /** For irreversible actions: the exact text the user must retype (submitted as `confirmText`). */
+  requireMatchText?: string;
 }) {
   const [reason, setReason] = useState('');
-  const canConfirm = !requireReason || reason.trim().length > 0;
+  const [matchText, setMatchText] = useState('');
+  const canConfirm =
+    (!requireReason || reason.trim().length > 0) &&
+    (!requireMatchText || matchText.trim() === requireMatchText);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,6 +87,22 @@ export function ConfirmDialog({
           {Object.entries(hiddenFields).map(([k, v]) => (
             <input key={k} type="hidden" name={k} value={v} />
           ))}
+          {requireMatchText && (
+            <div className="space-y-1.5">
+              <label htmlFor="confirm-match" className="text-xs font-semibold text-muted-foreground">
+                Type <span className="font-mono text-foreground">{requireMatchText}</span> to confirm <span className="text-destructive">*</span>
+              </label>
+              <input
+                id="confirm-match"
+                name="confirmText"
+                value={matchText}
+                onChange={(e) => setMatchText(e.target.value)}
+                autoComplete="off"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder={requireMatchText}
+              />
+            </div>
+          )}
           {(requireReason || reasonLabel) && (
             <div className="space-y-1.5">
               <label htmlFor="confirm-reason" className="text-xs font-semibold text-muted-foreground">

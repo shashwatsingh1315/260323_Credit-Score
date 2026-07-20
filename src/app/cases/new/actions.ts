@@ -14,7 +14,7 @@ export async function handleNewCase(formData: FormData) {
   if (!user) redirect('/login');
 
   if (!hasAnyRole(user, ['rm', 'founder_admin'])) {
-    throw new Error('Only RM or Admin can create cases');
+    return { error: 'Only RM or Admin can create cases.' };
   }
 
   const caseScenario = formData.get('caseScenario') as string;
@@ -30,14 +30,14 @@ export async function handleNewCase(formData: FormData) {
   // Doctrine Principle 11: drafts reduce commitment. KAM assignment and other
   // submission-critical fields are enforced only at submission, not at save.
   if (action === 'submit' && !kamUserId) {
-    throw new Error('A KAM owner is required before submitting for review.');
+    return { error: 'A KAM owner is required before submitting for review.' };
   }
 
   let tranches: any[] = [];
   try {
     tranches = JSON.parse(tranchesRaw || '[]');
   } catch {
-    throw new Error('Invalid tranche data.');
+    return { error: 'Invalid tranche data.' };
   }
 
   const rmTaskAnswersRaw = formData.get('rmTaskAnswers') as string;
@@ -52,7 +52,7 @@ export async function handleNewCase(formData: FormData) {
   if (action === 'submit' && billAmount > 0) {
     const validation = validateTranches(tranches, billAmount);
     if (!validation.valid) {
-      throw new Error(validation.error);
+      return { error: validation.error || 'The repayment schedule does not match the total site value.' };
     }
   }
 
@@ -61,7 +61,7 @@ export async function handleNewCase(formData: FormData) {
   if (partyToValidate && action === 'submit') {
     const clValidation = await validateCreditLine(partyToValidate, requestedExposure, billAmount);
     if (!clValidation.valid) {
-      throw new Error(clValidation.message || 'Credit line validation failed');
+      return { error: clValidation.message || 'Credit line validation failed.' };
     }
   }
 
@@ -162,22 +162,30 @@ export async function fetchPartyDetails(partyId: string) {
 
   if (!party) return null;
 
-  // Fetch last case for this party (as customer or contractor) to pre-fill bill amounts
-  const { data: lastCase } = await supabase
-    .from('credit_cases')
-    .select('bill_amount, requested_exposure_amount, composite_credit_days')
-    .or(`customer_party_id.eq.${partyId},contractor_party_id.eq.${partyId}`)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Load the latest case, live exposure snapshot, and reusable answers together.
+  const [{ data: lastCase }, { data: currentExposure }, { data: savedParams }] = await Promise.all([
+    supabase
+      .from('credit_cases')
+      .select('bill_amount, requested_exposure_amount, composite_credit_days')
+      .or(`customer_party_id.eq.${partyId},contractor_party_id.eq.${partyId}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('party_exposure')
+      .select('outstanding_amount, data_as_of')
+      .eq('party_id', partyId)
+      .order('data_as_of', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('party_parameter_values')
+      .select('parameter_id, grade_value, raw_input_value, captured_at')
+      .eq('party_id', partyId),
+  ]);
 
-  // Fetch saved parameters for this party
-  const { data: savedParams } = await supabase
-    .from('party_parameter_values')
-    .select('parameter_id, grade_value, raw_input_value, captured_at')
-    .eq('party_id', partyId);
-
-  return { ...party, lastCase, savedParams: savedParams || [] };
+  return { ...party, lastCase, currentExposure, savedParams: savedParams || [] };
 }
 
 
