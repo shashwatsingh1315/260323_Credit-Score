@@ -194,7 +194,7 @@ describe('cases/[id]/actions.ts', () => {
 
       await handleCompleteTask(formData({
         caseId: 'c1', taskId: 't1', cycleId: 'cy1',
-        rawInput: '5', gradeValue: '5', reason: 'ok'
+        rawInput: '5', gradeValue: '5', reasonNote: 'ok'
       }));
 
       expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
