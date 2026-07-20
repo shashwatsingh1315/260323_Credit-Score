@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { handleWithdraw, handleCreateApprovalRound } from './actions';
+import { handleRestoreCase } from '@/app/cases/actions';
 import dynamic from 'next/dynamic';
 import { StatusBadge } from '@/components/creditflow/StatusBadge';
 import { MacroProgressRail } from '@/components/creditflow/MacroProgressRail';
@@ -147,6 +148,24 @@ export default function CaseWorkspace({ coreData, promises, initialActiveRole = 
         </div>
       )}
 
+      {/* ── Archived banner — the case is read-context, hidden from lists ── */}
+      {c.archived_at && (
+        <div role="status" className="rounded-lg border border-border bg-muted/40 p-4 text-sm flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold text-foreground">This case is archived</p>
+            <p className="text-muted-foreground mt-0.5">
+              It is hidden from the case list, search and My Work. All data and history are preserved.
+            </p>
+          </div>
+          {['rm', 'kam', 'founder_admin'].includes(activeRole) && (
+            <form action={handleRestoreCase}>
+              <input type="hidden" name="caseId" value={c.id} />
+              <Button type="submit" size="sm" variant="outline">Restore from archive</Button>
+            </form>
+          )}
+        </div>
+      )}
+
       {/* ── Case command bar ───────────────────────────────────────────────── */}
       <div className="space-y-1">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -162,6 +181,7 @@ export default function CaseWorkspace({ coreData, promises, initialActiveRole = 
             </p>
             <div className="flex items-center gap-2 flex-wrap pt-0.5">
               <StatusBadge status={c.status} substatus={c.substatus} />
+              {c.archived_at && <Badge variant="secondary" className="text-xs">Archived</Badge>}
               {cycle?.is_ambiguous && (
                 <Badge variant="attention" className="text-xs">Ambiguity — board review</Badge>
               )}

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
 import { MetricCard } from '@/components/creditflow/MetricCard';
+import { TaskKanban } from '@/components/creditflow/TaskKanban';
 import { WorkItemRow } from '@/components/creditflow/WorkItemRow';
 import { StatusBadge } from '@/components/creditflow/StatusBadge';
 import { formatCompactINR, relativeDays, daysUntil } from '@/lib/format';
@@ -260,25 +261,43 @@ export default async function MyWorkPage() {
   // ── Shared fetches ─────────────────────────────────────────────────────────
   const recentQuery = scoped(supabase.from('credit_cases')
     .select(caseSelect)
+    .is('archived_at', null)
     .order('updated_at', { ascending: false })
     .limit(5));
 
   // Real assigned tasks (not notifications) — doctrine: a task ≠ a notification.
+  const taskSelect = `id, description, status, sla_deadline, stage, is_waiting, waiting_reason, completed_at,
+    review_cycle:review_cycles!stage_tasks_review_cycle_id_fkey(
+      case:credit_cases!review_cycles_case_id_fkey(id, case_number, status, bill_amount,
+        customer:parties!credit_cases_customer_party_id_fkey(legal_name)))`;
   const myTasksQuery = user
     ? supabase.from('stage_tasks')
-      .select(`id, description, status, sla_deadline, stage, is_waiting,
-        review_cycle:review_cycles!stage_tasks_review_cycle_id_fkey(
-          case:credit_cases!review_cycles_case_id_fkey(id, case_number, status, bill_amount,
-            customer:parties!credit_cases_customer_party_id_fkey(legal_name)))`)
+      .select(taskSelect)
       .eq('assigned_to', user.id)
-      .neq('status', 'Completed')
+      .in('status', ['Pending', 'In Progress'])
       .order('sla_deadline', { ascending: true, nullsFirst: false })
-      .limit(10)
+      .limit(50)
     : Promise.resolve({ data: [] });
 
-  const [recentRes, myTasksRes] = await Promise.all([recentQuery, myTasksQuery]);
+  // Recently finished tasks feed the "Done" column of the task board.
+  const doneCutoff = new Date(Date.now() - 14 * 86400000).toISOString();
+  const doneTasksQuery = user
+    ? supabase.from('stage_tasks')
+      .select(taskSelect)
+      .eq('assigned_to', user.id)
+      .in('status', ['Completed', 'Waived'])
+      .gte('completed_at', doneCutoff)
+      .order('completed_at', { ascending: false })
+      .limit(20)
+    : Promise.resolve({ data: [] });
+
+  const [recentRes, myTasksRes, doneTasksRes] = await Promise.all([recentQuery, myTasksQuery, doneTasksQuery]);
   const recentCases = recentRes.data || [];
-  const myTasks = (myTasksRes.data || []).filter((t: any) => t.review_cycle?.case?.id);
+  const toKanban = (rows: any[]) => rows
+    .filter((t: any) => t.review_cycle?.case?.id)
+    .map((t: any) => ({ ...t, case: t.review_cycle.case }));
+  const myTasks = toKanban(myTasksRes.data || []);
+  const myDoneTasks = toKanban(doneTasksRes.data || []);
 
   // ── Role queues ────────────────────────────────────────────────────────────
   let rmDrafts: any[] = [], rmReturned: any[] = [], rmApproved: any[] = [];
@@ -418,7 +437,7 @@ export default async function MyWorkPage() {
           count={myTasks.length}
           viewAllHref="/cases"
         >
-          {myTasks.length === 0 ? <Empty text="No open tasks assigned to you." /> : myTasks.map((t: any) => {
+          {myTasks.length === 0 ? <Empty text="No open tasks assigned to you." /> : myTasks.slice(0, 8).map((t: any) => {
             const c = t.review_cycle?.case;
             const until = daysUntil(t.sla_deadline);
             const overdue = until !== null && until < 0;
@@ -655,6 +674,16 @@ export default async function MyWorkPage() {
           ))}
         </QueueSection>
       </div>
+
+      {/* ── Task board — every task assigned to me, by lifecycle state ─────── */}
+      {(myTasks.length > 0 || myDoneTasks.length > 0) && (
+        <section aria-label="My task board" className="space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            My task board
+          </h2>
+          <TaskKanban openTasks={myTasks} doneTasks={myDoneTasks} />
+        </section>
+      )}
 
       {/* ── Metrics support the queue, never displace it ───────────────────── */}
       {(isRm || isAdmin) && rmMetrics && (

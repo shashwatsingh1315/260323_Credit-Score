@@ -4,25 +4,56 @@ import { getCurrentUser, isAdmin } from '@/utils/auth';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
-// Called programmatically (can return values)
-export async function addRcaReason(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user || !isAdmin(user)) redirect('/unauthorized');
+type EnumerationCategory = 'reason_for_credit' | 'delay_reason';
+type EnumerationMutationResult = { success: true; reactivated?: boolean } | { error: string };
 
-  const value = (formData.get('value') as string)?.trim();
+const normalizeReason = (value: string) => value.trim().replace(/\s+/g, ' ');
+
+async function addEnumeration(category: EnumerationCategory, rawValue: string): Promise<EnumerationMutationResult> {
+  const value = normalizeReason(rawValue);
   if (!value) return { error: 'Value is required' };
 
   const supabase = await createClient();
+  const { data: existingRows, error: lookupError } = await supabase
+    .from('admin_enumerations')
+    .select('id, value, is_active')
+    .eq('category', category);
+
+  if (lookupError) return { error: 'Unable to check the existing reasons. Please try again.' };
+
+  const existing = existingRows?.find((row) => normalizeReason(row.value).toLowerCase() === value.toLowerCase());
+  if (existing?.is_active) return { error: 'That reason already exists.' };
+
+  if (existing) {
+    const { error } = await supabase
+      .from('admin_enumerations')
+      .update({ value, is_active: true })
+      .eq('id', existing.id)
+      .eq('category', category);
+    if (error) return { error: 'Unable to reactivate that reason. Please try again.' };
+    revalidatePath('/settings');
+    return { success: true, reactivated: true };
+  }
+
   const { error } = await supabase.from('admin_enumerations').insert({
-    category: 'reason_for_credit',
+    category,
     value,
     is_active: true,
     sort_order: 100,
   });
 
-  if (error) return { error: error.message };
+  if (error?.code === '23505') return { error: 'That reason already exists.' };
+  if (error) return { error: 'Unable to add the reason. Please try again.' };
   revalidatePath('/settings');
   return { success: true };
+}
+
+// Called programmatically (can return values)
+export async function addRcaReason(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isAdmin(user)) redirect('/unauthorized');
+
+  return addEnumeration('reason_for_credit', (formData.get('value') as string) || '');
 }
 
 // Used as form action – must return void
@@ -43,20 +74,7 @@ export async function addDelayReason(formData: FormData) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) redirect('/unauthorized');
 
-  const value = (formData.get('value') as string)?.trim();
-  if (!value) return { error: 'Value is required' };
-
-  const supabase = await createClient();
-  const { error } = await supabase.from('admin_enumerations').insert({
-    category: 'delay_reason',
-    value,
-    is_active: true,
-    sort_order: 100,
-  });
-
-  if (error) return { error: error.message };
-  revalidatePath('/settings');
-  return { success: true };
+  return addEnumeration('delay_reason', (formData.get('value') as string) || '');
 }
 
 // Used as form action – must return void
@@ -72,26 +90,30 @@ export async function toggleDelayReason(formData: FormData): Promise<void> {
   revalidatePath('/settings');
 }
 
-// Used as form action – must return void
-export async function deleteRcaReason(formData: FormData): Promise<void> {
+// Called programmatically so the manager can show deletion feedback.
+export async function deleteRcaReason(formData: FormData) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) redirect('/unauthorized');
 
   const id = formData.get('id') as string;
   const supabase = await createClient();
-  await supabase.from('admin_enumerations').delete().eq('id', id).eq('category', 'reason_for_credit');
+  const { error } = await supabase.from('admin_enumerations').delete().eq('id', id).eq('category', 'reason_for_credit');
+  if (error) return { error: 'Unable to delete the reason. Please try again.' };
   revalidatePath('/settings');
+  return { success: true };
 }
 
-// Used as form action – must return void
-export async function deleteDelayReason(formData: FormData): Promise<void> {
+// Called programmatically so the manager can show deletion feedback.
+export async function deleteDelayReason(formData: FormData) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) redirect('/unauthorized');
 
   const id = formData.get('id') as string;
   const supabase = await createClient();
-  await supabase.from('admin_enumerations').delete().eq('id', id).eq('category', 'delay_reason');
+  const { error } = await supabase.from('admin_enumerations').delete().eq('id', id).eq('category', 'delay_reason');
+  if (error) return { error: 'Unable to delete the reason. Please try again.' };
   revalidatePath('/settings');
+  return { success: true };
 }
 
 // ID GENERATION LOGIC ACTIONS
@@ -100,7 +122,7 @@ export async function addCityCode(formData: FormData) {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user)) redirect('/unauthorized');
 
-  let code = (formData.get('code') as string)?.trim().toUpperCase();
+  const code = (formData.get('code') as string)?.trim().toUpperCase();
   const name = (formData.get('name') as string)?.trim();
 
   if (!code || code.length !== 3) return { error: 'Code must be exactly 3 characters' };

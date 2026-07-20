@@ -5,14 +5,17 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Briefcase, Building2, Search as SearchIcon } from 'lucide-react';
 import { StatusBadge } from '@/components/creditflow/StatusBadge';
 import { formatCompactINR, relativeDays } from '@/lib/format';
+import { getImpersonationRole } from '@/utils/auth-actions';
+import { getCurrentUser } from '@/utils/auth';
 
 /**
  * Global search — doctrine §11.3: find cases and parties with the identifiers
  * users naturally know (case number, party name, customer/contractor code,
  * RM/KAM name). Every result is actionable — a party leads to its cases.
+ * Case results respect role scoping: RMs and KAMs only see their own cases.
  */
-export default async function SearchResultsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams;
+export default async function SearchResultsPage({ searchParams }: { searchParams: Promise<{ q?: string; archived?: string }> }) {
+  const { q, archived } = await searchParams;
   if (!q) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
@@ -23,6 +26,9 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
   }
 
   const supabase = await createClient();
+  const activeRole = await getImpersonationRole();
+  const user = await getCurrentUser();
+  const includeArchived = archived === '1';
   const term = q.trim();
   const like = `%${term}%`;
 
@@ -55,11 +61,20 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
     orClauses.push(`rm_user_id.in.(${ids})`, `kam_user_id.in.(${ids})`);
   }
 
-  const { data: cases } = await supabase.from('credit_cases')
-    .select('id, case_number, status, case_scenario, bill_amount, updated_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name), rm:profiles!credit_cases_rm_user_id_fkey(full_name), kam:profiles!credit_cases_kam_user_id_fkey(full_name)')
+  let caseQuery = supabase.from('credit_cases')
+    .select('id, case_number, status, case_scenario, bill_amount, updated_at, archived_at, customer:parties!credit_cases_customer_party_id_fkey(legal_name), rm:profiles!credit_cases_rm_user_id_fkey(full_name), kam:profiles!credit_cases_kam_user_id_fkey(full_name)')
     .or(orClauses.join(','))
     .order('updated_at', { ascending: false })
     .limit(25);
+
+  // Role scoping mirrors /cases — RMs and KAMs search only their own book.
+  if (user) {
+    if (activeRole === 'rm') caseQuery = caseQuery.eq('rm_user_id', user.id);
+    else if (activeRole === 'kam') caseQuery = caseQuery.eq('kam_user_id', user.id);
+  }
+  if (!includeArchived) caseQuery = caseQuery.is('archived_at', null);
+
+  const { data: cases } = await caseQuery;
 
   // Case counts per matched party so results are actionable.
   const partyCaseCounts: Record<string, number> = {};
@@ -84,6 +99,11 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
         <h1 className="text-2xl font-bold">Search Results</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           {(cases?.length || 0)} case{(cases?.length || 0) !== 1 ? 's' : ''} and {parties?.length || 0} part{(parties?.length || 0) !== 1 ? 'ies' : 'y'} matching <strong>&ldquo;{term}&rdquo;</strong>
+          {includeArchived ? (
+            <> · including archived · <Link href={`/search?q=${encodeURIComponent(term)}`} className="underline underline-offset-2">hide archived</Link></>
+          ) : (
+            <> · <Link href={`/search?q=${encodeURIComponent(term)}&archived=1`} className="underline underline-offset-2">include archived cases</Link></>
+          )}
         </p>
       </div>
 
@@ -102,6 +122,7 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm">{c.case_number}</p>
                           <StatusBadge status={c.status} />
+                          {c.archived_at && <Badge variant="secondary">Archived</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 truncate">
                           {(c.customer as any)?.legal_name || 'No customer'} · {formatCompactINR(c.bill_amount)} · RM {(c.rm as any)?.full_name || '—'} · activity {relativeDays(c.updated_at)}

@@ -93,14 +93,14 @@ describe('cases/new/actions.ts', () => {
       expect(redirect).toHaveBeenCalledWith('/login');
     });
 
-    it('throws error if user is not rm or founder_admin', async () => {
+    it('returns an error if user is not rm or founder_admin', async () => {
       vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['bdo'] } as any);
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(false);
 
-      await expect(handleNewCase(new FormData())).rejects.toThrow(/Only RM or Admin/);
+      await expect(handleNewCase(new FormData())).resolves.toEqual({ error: 'Only RM or Admin can create cases.' });
     });
 
-    it('throws error for invalid tranche data', async () => {
+    it('returns an error for invalid tranche data', async () => {
       vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
@@ -108,7 +108,7 @@ describe('cases/new/actions.ts', () => {
       formData.append('kamUserId', 'kam-123');
       formData.append('tranches', 'invalid-json');
 
-      await expect(handleNewCase(formData)).rejects.toThrow(/Invalid tranche data/);
+      await expect(handleNewCase(formData)).resolves.toEqual({ error: 'Invalid tranche data.' });
     });
 
     it('creates draft case successfully', async () => {
@@ -154,7 +154,7 @@ describe('cases/new/actions.ts', () => {
       expect(redirect).toHaveBeenCalledWith('/cases/case-123?receipt=submitted');
     });
 
-    it('throws error if tranches are invalid when submitting', async () => {
+    it('returns an error if tranches are invalid when submitting', async () => {
       vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
       vi.spyOn(engine, 'validateTranches').mockReturnValue({ valid: false, error: 'Validation failed' });
@@ -164,7 +164,7 @@ describe('cases/new/actions.ts', () => {
       formData.append('action', 'submit');
       formData.append('billAmount', '1000');
 
-      await expect(handleNewCase(formData)).rejects.toThrow(/Validation failed/);
+      await expect(handleNewCase(formData)).resolves.toEqual({ error: 'Validation failed' });
     });
   });
 
