@@ -1,0 +1,3 @@
+## 2024-05-24 - Initial Design System Audit
+**Learning:** Found several hardcoded typography classes `text-[10px]` and `text-[11px]` representing structural microcopy and badges, bypassing the design system scale. Also found bracket notation sizes for width and heights like `w-[200px]`, `min-w-[260px]`, `max-h-[26rem]`, `h-[50vh]`.
+**Action:** Replace `text-[10px]` with the existing `text-tiny` token, add a `text-micro` (`11px`) token to `tailwind.config.js`, and replace bracket notations with the standard spacing/sizing tokens where applicable (e.g., `text-micro`, `w-48`, `w-64`, `min-w-64`, `max-h-96`, `min-h-32`, `h-4`).
