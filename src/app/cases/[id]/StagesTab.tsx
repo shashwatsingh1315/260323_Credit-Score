@@ -102,7 +102,7 @@ export default function StagesTab({ coreData, tasksData, activeRole, optimisticT
                     </CardTitle>
                     <Badge
                       variant={isPast ? 'success' : isCurrent ? 'info' : 'secondary'}
-                      className="text-[10px] h-4 px-1.5 uppercase font-bold tracking-wider"
+                      className="text-tiny h-4 px-1.5 uppercase font-bold tracking-wider"
                     >
                       {stageState}
                     </Badge>
@@ -122,7 +122,7 @@ export default function StagesTab({ coreData, tasksData, activeRole, optimisticT
                       <Award size={12} aria-hidden="true" /> {displayScore}/100
                     </Badge>
                     {bandName && bandName !== 'No Band' && (
-                      <span className="text-[10px] font-medium text-muted-foreground">
+                      <span className="text-tiny font-medium text-muted-foreground">
                         {bandName} · policy recommends {recommendedDays}d
                       </span>
                     )}

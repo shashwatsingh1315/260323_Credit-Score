@@ -69,7 +69,7 @@ function Column({ title, icon: Icon, tasks, tone, done, emptyText }: {
   emptyText: string;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-muted/30 min-w-[240px]">
+    <div className="flex flex-col rounded-xl border border-border bg-muted/30 min-w-60">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
         <Icon
           size={14}
@@ -79,7 +79,7 @@ function Column({ title, icon: Icon, tasks, tone, done, emptyText }: {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground/80">{title}</h3>
         <span className="text-xs text-muted-foreground ml-auto">{tasks.length}</span>
       </div>
-      <div className="p-2 space-y-2 overflow-y-auto max-h-[26rem]">
+      <div className="p-2 space-y-2 overflow-y-auto max-h-96">
         {tasks.length === 0
           ? <p className="text-tiny text-muted-foreground px-1.5 py-3">{emptyText}</p>
           : tasks.map((t) => <TaskCard key={t.id} t={t} done={done} />)}

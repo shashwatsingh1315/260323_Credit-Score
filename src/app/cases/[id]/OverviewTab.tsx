@@ -74,7 +74,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                   <div className="flex flex-wrap gap-2 mb-2">
                     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                       Customer persona
-                      <select name="customerPersonaId" defaultValue={cycle.customer_persona_id || ''} className="flex h-9 w-[200px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                      <select name="customerPersonaId" defaultValue={cycle.customer_persona_id || ''} className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                         <option value="">Default (no persona)</option>
                         {(coreData.policyOptions?.personas || []).map((p: any) => (
                           <option key={p.id} value={p.id}>{p.name}</option>
@@ -83,7 +83,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                     </label>
                     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                       Contractor persona
-                      <select name="contractorPersonaId" defaultValue={cycle.contractor_persona_id || ''} className="flex h-9 w-[200px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                      <select name="contractorPersonaId" defaultValue={cycle.contractor_persona_id || ''} className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                         <option value="">Default (no persona)</option>
                         {(coreData.policyOptions?.personas || []).map((p: any) => (
                           <option key={p.id} value={p.id}>{p.name}</option>
@@ -92,7 +92,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                     </label>
                     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                       Dominance model
-                      <select name="dominanceCategoryId" defaultValue={cycle.dominance_category_id || ''} className="flex h-9 w-[220px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                      <select name="dominanceCategoryId" defaultValue={cycle.dominance_category_id || ''} className="flex h-9 w-56 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                         <option value="">Scenario default</option>
                         {(coreData.policyOptions?.dominanceCategories || []).map((d: any) => (
                           <option key={d.id} value={d.id}>{d.name} ({d.combination_method})</option>
@@ -124,7 +124,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                   <h3 className="font-semibold text-sm">Selective Unlock</h3>
                   <p className="text-xs text-muted-foreground mb-2">Unlocking a section allows editing but requires a manual re-review if changes are material.</p>
                   <div className="flex gap-2 mb-2">
-                    <select name="section" className="flex h-9 w-[200px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    <select name="section" className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                       <option value="commercial">Commercial Section</option>
                       <option value="parties">Parties</option>
                       <option value="history">History Classification</option>
@@ -150,7 +150,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                   <p className="text-xs text-muted-foreground mb-2">Approved Limit: <strong className="font-bold">{cycle?.approved_credit_days} days</strong>. You may restructure tranches to fit within this limit without requiring a new review.</p>
 
                   <div className="flex items-center gap-2 mb-2">
-                    <Input type="number" name="compositeDays" placeholder="New Composite Days" className="h-9 w-[200px]" required max={cycle?.approved_credit_days} />
+                    <Input type="number" name="compositeDays" placeholder="New Composite Days" className="h-9 w-48" required max={cycle?.approved_credit_days} />
                     <span className="text-xs text-muted-foreground">(Must be ≤ {cycle?.approved_credit_days})</span>
                   </div>
 
