@@ -35,7 +35,7 @@ export function MacroProgressRail({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'absolute top-[9px] right-1/2 w-full h-px',
+                    'absolute top-2.5 right-1/2 w-full h-px',
                     i <= currentIdx ? 'bg-primary/60' : 'bg-border'
                   )}
                 />
@@ -44,7 +44,7 @@ export function MacroProgressRail({
                 aria-current={state === 'current' ? 'step' : undefined}
                 className={cn(
                   'relative z-10 flex items-center justify-center rounded-full border shrink-0',
-                  'w-[18px] h-[18px] text-[10px]',
+                  'w-4 h-4 text-tiny',
                   state === 'done' && 'bg-primary/80 border-primary text-primary-foreground',
                   state === 'current' && 'bg-background border-primary ring-2 ring-primary/25',
                   state === 'upcoming' && 'bg-background border-border'
@@ -58,14 +58,14 @@ export function MacroProgressRail({
               </span>
               <span
                 className={cn(
-                  'mt-1.5 text-[10px] leading-tight text-center px-0.5 hidden sm:block',
+                  'mt-1.5 text-tiny leading-tight text-center px-0.5 hidden sm:block',
                   state === 'current' ? 'font-semibold text-foreground' : 'text-muted-foreground'
                 )}
               >
                 {node.label}
               </span>
               {state === 'current' && (
-                <span className="sm:hidden mt-1 text-[10px] font-semibold text-foreground">{node.label}</span>
+                <span className="sm:hidden mt-1 text-tiny font-semibold text-foreground">{node.label}</span>
               )}
             </li>
           );
