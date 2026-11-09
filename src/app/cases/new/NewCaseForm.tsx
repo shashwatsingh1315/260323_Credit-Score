@@ -7,7 +7,7 @@ import { PartyDialog } from '@/components/admin/PartyDialog';
 import { cn } from '@/lib/utils';
 import { SCENARIO_LABELS } from '@/lib/vocabulary';
 import { evaluateRequiredStage } from '@/utils/routing';
-import { formatPolicyOptionLabel, parseRubricGuidance } from '@/lib/format';
+import { formatDateIST, formatPolicyOptionLabel, parseRubricGuidance } from '@/lib/format';
 
 interface Tranche {
   type: 'amount' | 'percentage';
@@ -486,7 +486,7 @@ export default function NewCaseForm({
                       <p>
                         <span className="font-semibold text-foreground">Current outstanding:</span>{' '}
                         {customerDetails.currentExposure
-                          ? <>₹{Number(customerDetails.currentExposure.outstanding_amount || 0).toLocaleString('en-IN')} <span className="text-muted-foreground">(as of {new Date(customerDetails.currentExposure.data_as_of).toLocaleDateString('en-IN')})</span></>
+                          ? <>₹{Number(customerDetails.currentExposure.outstanding_amount || 0).toLocaleString('en-IN')} <span className="text-muted-foreground">(as of {formatDateIST(customerDetails.currentExposure.data_as_of)})</span></>
                           : <span className="italic">No exposure data imported</span>}
                       </p>
                       {customerDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {customerDetails.address}</p>}
@@ -525,7 +525,7 @@ export default function NewCaseForm({
                       <p>
                         <span className="font-semibold text-foreground">Current outstanding:</span>{' '}
                         {contractorDetails.currentExposure
-                          ? <>₹{Number(contractorDetails.currentExposure.outstanding_amount || 0).toLocaleString('en-IN')} <span className="text-muted-foreground">(as of {new Date(contractorDetails.currentExposure.data_as_of).toLocaleDateString('en-IN')})</span></>
+                          ? <>₹{Number(contractorDetails.currentExposure.outstanding_amount || 0).toLocaleString('en-IN')} <span className="text-muted-foreground">(as of {formatDateIST(contractorDetails.currentExposure.data_as_of)})</span></>
                           : <span className="italic">No exposure data imported</span>}
                       </p>
                       {contractorDetails.address && <p><span className="font-semibold text-foreground">Location:</span> {contractorDetails.address}</p>}
@@ -740,7 +740,7 @@ export default function NewCaseForm({
                       {reusedParams[task.id] && (
                         <p className="text-tiny text-info bg-info/10 border border-info/25 rounded px-2 py-1 mb-2">
                           Reused from {reusedParams[task.id].partyName}
-                          {reusedParams[task.id].capturedAt && `, captured ${new Date(reusedParams[task.id].capturedAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                          {reusedParams[task.id].capturedAt && `, captured ${new Date(reusedParams[task.id].capturedAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}`}
                           {' '}— confirm or update before submitting.
                         </p>
                       )}

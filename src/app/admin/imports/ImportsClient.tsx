@@ -1,4 +1,5 @@
 "use client";
+import { formatDateTimeIST } from '@/lib/format';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -223,7 +224,7 @@ export default function ImportsClient({ jobs }: { jobs: any[] }) {
                         )}
                       </TableCell>
                       <TableCell className="text-tiny text-muted-foreground">
-                        {new Date(j.created_at).toLocaleString()}
+                        {formatDateTimeIST(j.created_at)}
                       </TableCell>
                     </TableRow>
                   ))}

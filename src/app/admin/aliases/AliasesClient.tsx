@@ -1,9 +1,10 @@
 "use client";
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ConfirmDialog } from '@/components/creditflow/ConfirmDialog';
 import { handleMergeParties } from './actions';
 import { Shuffle } from 'lucide-react';
 
@@ -12,11 +13,16 @@ import { useRouter } from 'next/navigation';
 export default function AliasesClient({ parties }: { parties: any[] }) {
   const [primaryId, setPrimaryId] = useState('');
   const [duplicateId, setDuplicateId] = useState('');
-  const [isPending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
 
-  const handleMerge = async () => {
+  const primary = parties.find(p => p.id === primaryId);
+  const duplicate = parties.find(p => p.id === duplicateId);
+  const duplicateAliasCount = duplicate?.aliases?.length ?? 0;
+
+  const openConfirm = () => {
     if (!primaryId || !duplicateId) {
       setError('Please select both a primary and duplicate party.');
       return;
@@ -25,21 +31,23 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
       setError('Cannot merge a party into itself.');
       return;
     }
-
     setError('');
+    setConfirmOpen(true);
+  };
 
-    startTransition(async () => {
-      try {
-        const fd = new FormData();
-        fd.set('primary_id', primaryId);
-        fd.set('duplicate_id', duplicateId);
-        await handleMergeParties(fd);
-        setDuplicateId('');
-        router.refresh();
-      } catch (err: any) {
-        setError(err.message);
-      }
-    });
+  // Runs from the ConfirmDialog form. Errors are shown inline on the card.
+  const runMerge = async (fd: FormData) => {
+    setIsPending(true);
+    setError('');
+    try {
+      await handleMergeParties(fd);
+      setDuplicateId('');
+      router.refresh();
+    } catch (err: any) {
+      setError(err?.message || 'The merge could not be completed. Please try again.');
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -59,16 +67,16 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">1. Select Primary Record (Keep)</label>
-                <select value={primaryId} onChange={e => setPrimaryId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                <label htmlFor="merge-primary" className="text-sm font-medium">1. Select Primary Record (Keep)</label>
+                <select id="merge-primary" value={primaryId} onChange={e => setPrimaryId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                   <option value="">-- Select Primary --</option>
                   {parties.map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.is_candidate ? '(Cand)' : ''}</option>)}
                 </select>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-destructive">2. Select Duplicate (Merge & Delete)</label>
-                <select value={duplicateId} onChange={e => setDuplicateId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                <label htmlFor="merge-duplicate" className="text-sm font-medium text-destructive">2. Select Duplicate (Merge & Delete)</label>
+                <select id="merge-duplicate" value={duplicateId} onChange={e => setDuplicateId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                   <option value="">-- Select Duplicate --</option>
                   {parties.map(p => <option key={p.id} value={p.id}>{p.legal_name} {p.is_candidate ? '(Cand)' : ''}</option>)}
                 </select>
@@ -77,10 +85,10 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
                 </p>
               </div>
 
-              {error && <p className="text-xs text-destructive font-medium bg-destructive/10 p-2 rounded">{error}</p>}
+              {error && <p role="alert" className="text-xs text-destructive font-medium bg-destructive/10 p-2 rounded">{error}</p>}
 
-              <Button onClick={handleMerge} disabled={isPending || !primaryId || !duplicateId} className="w-full bg-brand hover:bg-brand/90">
-                {isPending ? 'Merging...' : 'Confirm Merge'}
+              <Button onClick={openConfirm} disabled={isPending || !primaryId || !duplicateId} className="w-full bg-brand hover:bg-brand/90">
+                {isPending ? 'Merging...' : 'Review Merge'}
               </Button>
             </CardContent>
           </Card>
@@ -131,6 +139,27 @@ export default function AliasesClient({ parties }: { parties: any[] }) {
           </Card>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Merge and delete duplicate party?"
+        description={primary && duplicate ? `“${duplicate.legal_name}” will be merged into “${primary.legal_name}”.` : undefined}
+        consequences={[
+          `“${duplicate?.legal_name ?? 'The duplicate'}” is deleted as a party record.`,
+          'Its cases, history and exposure move to the primary party.',
+          `Its name is saved as an alias of the primary party${duplicateAliasCount > 0 ? `, alongside its ${duplicateAliasCount} existing alias(es)` : ''}.`,
+        ]
+        }
+        irreversible
+        tone="destructive"
+        confirmLabel="Merge parties"
+        reasonLabel=""
+        hiddenFields={{ primary_id: primaryId, duplicate_id: duplicateId }}
+        action={async (fd) => {
+          await runMerge(fd);
+        }}
+      />
     </div>
   );
 }

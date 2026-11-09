@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,21 +9,32 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { upsertGradeDefinition } from '../actions';
-import { Pencil, Plus, ChevronLeft, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
+import { Pencil, Plus, ChevronLeft, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
+import { InlineError, ReadOnlyNotice, Receipt } from '../PolicyFeedback';
+import type { ActionResult } from '../policy-parsing';
 
-interface Grade { 
-  id: string; 
-  grade_label: string; 
+interface Grade {
+  id: string;
+  grade_label: string;
   grade_value: number;
-  description: string; 
+  description: string;
   policy_version_id: string;
 }
 
-export default function GradesClient({ initialGrades, policyVersionId, backHref = '/policy' }: { initialGrades: Grade[], policyVersionId?: string | null, backHref?: string }) {
-  const [grades, setGrades] = useState(initialGrades);
+export default function GradesClient({ initialGrades, policyVersionId, backHref = '/policy', readOnlyReason = null }: {
+  initialGrades: Grade[];
+  policyVersionId?: string | null;
+  backHref?: string;
+  readOnlyReason?: string | null;
+}) {
+  // Render from props so revalidated server data shows after save.
+  const grades = initialGrades;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Grade | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [isSaving, startSave] = useTransition();
   const [sortConfig, setSortConfig] = useState<{ key: keyof Grade, direction: 'asc' | 'desc' } | null>({ key: 'grade_value', direction: 'desc' });
 
   const handleSort = (key: keyof Grade) => {
@@ -42,6 +53,29 @@ export default function GradesClient({ initialGrades, policyVersionId, backHref 
     return 0;
   });
 
+  const openDialog = (grade: Grade | null) => {
+    setEditing(grade);
+    setFormError(null);
+    setOpen(true);
+  };
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    setFormError(null);
+    startSave(async () => {
+      const result: ActionResult = await upsertGradeDefinition(formData);
+      if (result.ok) {
+        setReceipt(result.message);
+        setOpen(false);
+      } else {
+        setFormError(result.error);
+      }
+    });
+  };
+
+  const canEdit = readOnlyReason === null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -52,13 +86,22 @@ export default function GradesClient({ initialGrades, policyVersionId, backHref 
         </div>
       </div>
 
+      <ReadOnlyNotice reason={readOnlyReason} />
+      <Receipt message={receipt} />
+
       {grades.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <p>No grades defined yet.</p>
-            <Button variant="outline" size="sm" className="mt-4" onClick={() => { setEditing(null); setOpen(true); }}>
-              <Plus size={15} /> Add First Grade
-            </Button>
+            {canEdit ? (
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => openDialog(null)}>
+                <Plus size={15} /> Add First Grade
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="mt-4" disabled title={readOnlyReason ?? undefined}>
+                <Plus size={15} /> Add First Grade
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -67,9 +110,15 @@ export default function GradesClient({ initialGrades, policyVersionId, backHref 
             <div>
               <CardTitle className="text-base">System Grade Scale</CardTitle>
             </div>
-            <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
-              <Plus size={15} /> Add Grade
-            </Button>
+            {canEdit ? (
+              <Button size="sm" onClick={() => openDialog(null)}>
+                <Plus size={15} /> Add Grade
+              </Button>
+            ) : (
+              <Button size="sm" disabled title={readOnlyReason ?? undefined}>
+                <Plus size={15} /> Add Grade
+              </Button>
+            )}
           </CardHeader>
           <Table>
             <TableHeader>
@@ -81,7 +130,7 @@ export default function GradesClient({ initialGrades, policyVersionId, backHref 
                   <div className="flex items-center gap-1">Grade Value <ArrowUpDown size={12} /></div>
                 </TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="text-right">Edit</TableHead>
+                {canEdit && <TableHead className="text-right">Edit</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -90,11 +139,13 @@ export default function GradesClient({ initialGrades, policyVersionId, backHref 
                   <TableCell><Badge variant="info">{g.grade_label}</Badge></TableCell>
                   <TableCell>{g.grade_value}</TableCell>
                   <TableCell className="text-muted-foreground">{g.description || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => { setEditing(g); setOpen(true); }}>
-                      <Pencil size={15} />
-                    </Button>
-                  </TableCell>
+                  {canEdit && (
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" aria-label={`Edit ${g.grade_label}`} onClick={() => openDialog(g)}>
+                        <Pencil size={15} />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -105,26 +156,27 @@ export default function GradesClient({ initialGrades, policyVersionId, backHref 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? 'Edit Grade' : 'New Grade Definition'}</DialogTitle></DialogHeader>
-          <form action={upsertGradeDefinition} onSubmit={() => setOpen(false)} className="space-y-4">
+          <form onSubmit={submit} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <input type="hidden" name="policy_version_id" value={policyVersionId || ''} />
+            <InlineError message={formError} />
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-1">
                 <Label>Grade Label</Label>
-                <Input name="grade_label" defaultValue={editing?.grade_label} placeholder="e.g. A, B+, Satisfactory" required />
+                <Input name="grade_label" defaultValue={editing?.grade_label ?? ''} placeholder="e.g. A, B+, Satisfactory" required />
               </div>
               <div className="space-y-1">
                 <Label>Grade Value</Label>
-                <Input name="grade_value" type="number" defaultValue={editing?.grade_value} required />
+                <Input name="grade_value" type="number" defaultValue={editing ? String(editing.grade_value) : ''} required />
               </div>
             </div>
             <div className="space-y-1">
               <Label>Description</Label>
-              <Textarea name="description" defaultValue={editing?.description} rows={2} />
+              <Textarea name="description" defaultValue={editing?.description ?? ''} rows={2} />
             </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? 'Save' : 'Create'}</Button>
+              <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : editing ? 'Save' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

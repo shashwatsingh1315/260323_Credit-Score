@@ -1,40 +1,66 @@
 "use client";
-import { useState } from 'react';
+import { Suspense, useState, useSyncExternalStore } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { authErrorMessage, friendlySignInError } from './messages';
 
 const Squares = dynamic(() => import('@/components/animations/Squares').then(mod => mod.Squares), { ssr: false });
 
-export default function LoginPage() {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+function subscribeReducedMotion(onChange: () => void) {
+  const mq = window.matchMedia(REDUCED_MOTION_QUERY);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
+function getReducedMotionSnapshot() {
+  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
+}
+
+function usePrefersReducedMotion() {
+  // Server snapshot is false (no motion preference known during SSR); the client value is read after hydration.
+  return useSyncExternalStore(subscribeReducedMotion, getReducedMotionSnapshot, () => false);
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<'signin' | 'reset'>(() =>
+    searchParams.get('mode') === 'reset' ? 'reset' : 'signin'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  // Errors redirected from the callback or server actions arrive as ?error=<code>.
+  const [error, setError] = useState(() => authErrorMessage(searchParams.get('error')) ?? '');
   const [loading, setLoading] = useState(false);
   const [info, setInfo] = useState('');
   const router = useRouter();
+  const reduceMotion = usePrefersReducedMotion();
+
+  const switchMode = (next: 'signin' | 'reset') => {
+    setMode(next);
+    setError('');
+    setInfo('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setInfo(''); setLoading(true);
     const supabase = createClient();
     try {
-      if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setInfo('Check your email to confirm your account, then sign in.');
-      } else if (mode === 'reset') {
+      if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
         });
         if (error) throw error;
-        setInfo('Password reset instructions sent to your email.');
+        // Same message whether or not the account exists, so the form does not reveal who has access.
+        setInfo('If that email has an account, a reset link is on its way.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -42,7 +68,9 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      setError(mode === 'reset'
+        ? "We couldn't send the reset link. Please try again in a moment."
+        : friendlySignInError(err?.message));
     } finally {
       setLoading(false);
     }
@@ -59,15 +87,15 @@ export default function LoginPage() {
         }
       });
       if (error) throw error;
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+    } catch {
+      setError("Google sign-in didn't complete. Please try again.");
       setLoading(false);
     }
   };
 
   return (
     <div className="relative min-h-screen bg-background flex items-center justify-center p-4">
-      <Squares />
+      {!reduceMotion && <Squares />}
       <div className="w-full max-w-sm relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-3 justify-center mb-8">
@@ -79,91 +107,99 @@ export default function LoginPage() {
 
         <Card>
           <CardHeader className="text-center pb-4">
-            <CardTitle>{mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create account' : 'Reset Password'}</CardTitle>
+            <CardTitle>{mode === 'signin' ? 'Welcome back' : 'Reset Password'}</CardTitle>
             <CardDescription>
-              {mode === 'signin' ? 'Sign in to your account to continue' : mode === 'signup' ? 'Create your CreditFlow account' : 'Enter your email to receive a reset link'}
+              {mode === 'signin' ? 'Sign in to your account to continue' : 'Enter your email to receive a reset link'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                <Input id="email" type="email" autoComplete="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
               </div>
-              {mode !== 'reset' && (
+              {mode === 'signin' && (
                 <div className="space-y-1.5">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+                  <Input id="password" type="password" autoComplete="current-password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
                 </div>
               )}
 
-              {error && <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>}
-              {info && <p className="text-sm text-success bg-success/15 px-3 py-2 rounded-lg border border-success/20">{info}</p>}
+              {error && <p role="alert" className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>}
+              {info && <p role="status" className="text-sm text-success bg-success/15 px-3 py-2 rounded-lg border border-success/20">{info}</p>}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 size={16} className="animate-spin" />}
-                {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
+                {mode === 'signin' ? 'Sign In' : 'Send Reset Link'}
               </Button>
             </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-                </span>
-              </div>
-            </div>
+            {mode === 'signin' && (
+              <>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">
+                      Or continue with
+                    </span>
+                  </div>
+                </div>
 
-            <Button
-              variant="outline"
-              type="button"
-              className="w-full"
-              disabled={loading}
-              onClick={handleGoogleSignIn}
-            >
-              {loading ? (
-                <Loader2 size={16} className="animate-spin mr-2" />
-              ) : (
-                <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                  <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-                </svg>
-              )}
-              Google
-            </Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full"
+                  disabled={loading}
+                  onClick={handleGoogleSignIn}
+                >
+                  {loading ? (
+                    <Loader2 size={16} className="animate-spin mr-2" />
+                  ) : (
+                    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                      <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                    </svg>
+                  )}
+                  Google
+                </Button>
+              </>
+            )}
 
             <div className="mt-6 text-center flex flex-col gap-2">
               {mode === 'signin' && (
                 <button
                   type="button"
-                  onClick={() => { setMode('reset'); setError(''); setInfo(''); }}
+                  onClick={() => switchMode('reset')}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Forgot your password?
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => { setMode(m => m === 'signin' ? 'signup' : 'signin'); setError(''); setInfo(''); }}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {mode === 'signin' || mode === 'reset' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-              </button>
               {mode === 'reset' && (
                 <button
                   type="button"
-                  onClick={() => { setMode('signin'); setError(''); setInfo(''); }}
+                  onClick={() => switchMode('signin')}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Back to Sign in
                 </button>
               )}
+              <p className="text-xs text-muted-foreground">
+                Access is by invitation only. Contact a Founder Admin if you need an account.
+              </p>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

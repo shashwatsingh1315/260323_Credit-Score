@@ -3,15 +3,19 @@ import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Lock } from 'lucide-react';
 import { handleCompleteTask } from './actions';
 import { formatPolicyOptionLabel, parseRubricGuidance } from '@/lib/format';
+
+// Must match DECISION_FROZEN_STATUSES in actions.ts (server enforces the same rule).
+const DECISION_FROZEN_STATUSES = ['Awaiting Approval', 'Appealed'];
 
 const isTaskOverdue = (task: any) => {
   if (!task.sla_deadline || task.status === 'Completed') return false;
   return new Date(task.sla_deadline) < new Date();
 };
 
-export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: { task: any, c: any, data: any, addOptimisticTask?: (t: any) => void }) {
+export default function TaskCompleteForm({ task, c, data, addOptimisticTask, hasOpenBoardRound }: { task: any, c: any, data: any, addOptimisticTask?: (t: any) => void, hasOpenBoardRound?: boolean }) {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(task.status !== 'Completed');
   const isUpdate = task.status === 'Completed';
@@ -21,6 +25,20 @@ export default function TaskCompleteForm({ task, c, data, addOptimisticTask }: {
   );
   const topGrade = configuredTopGrade || 5;
   const weight = Number(task.param?.weight) || 0;
+
+  // Decision packet frozen: the approver is deciding on this exact evidence.
+  if (DECISION_FROZEN_STATUSES.includes(c.status)) {
+    // Mirrors StagesTab: board rounds are decided by ballot, so revision does not apply.
+    const boardDecision = c.status === 'Appealed' || !!hasOpenBoardRound;
+    return (
+      <p className="inline-flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+        <Lock size={12} aria-hidden="true" />
+        {boardDecision
+          ? 'The board is deciding this case. Grades and personas stay frozen until an Admin finalizes the board decision.'
+          : 'Locked for decision — return for revision to edit'}
+      </p>
+    );
+  }
 
   if (!editing) {
     return (

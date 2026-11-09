@@ -280,7 +280,7 @@ export async function checkAmbiguity(params: {
   // Check missing critical parameters
   let query = supabase
     .from('stage_tasks')
-    .select('description, parameter:parameter_definitions(name, is_critical)')
+    .select('description, status, is_waived, parameter:parameter_definitions(name, is_critical)')
     .eq('review_cycle_id', params.reviewCycleId)
     .eq('task_type', 'scoring')
     .is('grade_value', null);
@@ -289,8 +289,10 @@ export async function checkAmbiguity(params: {
 
   if (incompleteError) throw new Error(incompleteError.message);
 
+  // Waived evidence is a deliberate decision, not a gap. Filtered in JS: is_waived is
+  // nullable, and PostgREST neq(true) would silently drop null rows.
   const missingCritical = (incompleteCritical || []).filter(
-    (t: any) => t.parameter?.is_critical
+    (t: any) => t.parameter?.is_critical && !t.is_waived && t.status !== 'Waived'
   );
 
   if (missingCritical.length > 0) {
@@ -374,11 +376,15 @@ export async function updateCycleScore(reviewCycleId: string) {
   const storedStage = cycle.required_stage == null ? 3 : Number(cycle.required_stage);
   const requiredStage = Math.max(storedStage, evaluatedStage);
 
+  // An approved cycle's credit days may be a founder/board override. Re-scoring
+  // (e.g. a grade edit in 'Approved') must not overwrite it; scores and band stay live.
+  const isApproved = cycle.decision === 'approved';
+
   await supabase.from('review_cycles').update({
     current_customer_score: result.customerScore,
     current_contractor_score: result.contractorScore,
     current_case_score: result.finalScore,
-    approved_credit_days: bandResult?.approvedDays ?? null,
+    ...(isApproved ? {} : { approved_credit_days: bandResult?.approvedDays ?? null }),
     score_band_name: bandResult?.bandName ?? null,
     is_ambiguous: ambiguity.isAmbiguous,
     ...(requiredStage > storedStage ? { required_stage: requiredStage } : {}),

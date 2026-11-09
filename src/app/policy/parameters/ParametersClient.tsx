@@ -1,18 +1,20 @@
 "use client";
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { ConfirmDialog } from '@/components/creditflow/ConfirmDialog';
 import { upsertParameter, deleteParameter } from '../actions';
 import { Pencil, Trash2, Plus, ChevronLeft, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
-import { policyVersionQuery } from '../PolicyContextBar';
+import { policyStatusVariant, policyVersionQuery } from '../PolicyContextBar';
+import { InlineError, ReadOnlyNotice, Receipt } from '../PolicyFeedback';
+import { PERSISTENCE_LABELS, type ActionResult } from '../policy-parsing';
 
 interface Parameter {
   id: string;
@@ -25,25 +27,37 @@ interface Parameter {
   signal_cost: string;
   signal_lag: string;
   weight: number;
-  sla_days?: number;
+  sla_days?: number | null;
   require_reasoning?: boolean;
   is_critical?: boolean;
   is_stable?: boolean;
+  persistence_scope?: string;
   rubric_guidance: string;
   auto_band_config?: any;
   is_active: boolean;
   policy_version_id: string;
 }
 
-export default function ParametersClient({ initialParams, activePolicy }: { initialParams: Parameter[], activePolicy: any }) {
-  const [params, setParams] = useState(initialParams);
+export default function ParametersClient({ initialParams, activePolicy, readOnlyReason }: {
+  initialParams: Parameter[];
+  activePolicy: any;
+  readOnlyReason: string | null;
+}) {
+  // Rows render straight from props so revalidated server data shows after save or delete.
+  const params = initialParams;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Parameter | null>(null);
   const [inputType, setInputType] = useState('grade_select');
+  const [persistence, setPersistence] = useState('none');
   const [autoBandRules, setAutoBandRules] = useState<any[]>([]);
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [stageFilter, setStageFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Parameter, direction: 'asc' | 'desc' } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [tableError, setTableError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [isSaving, startSave] = useTransition();
+  const [pendingDelete, setPendingDelete] = useState<Parameter | null>(null);
 
   const handleSort = (key: keyof Parameter) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -67,7 +81,9 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
   const openNew = () => {
     setEditing(null);
     setInputType('grade_select');
+    setPersistence('none');
     setAutoBandRules([]);
+    setFormError(null);
     setOpen(true);
   };
   const openEdit = (p: Parameter) => {
@@ -75,11 +91,35 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
     // Handle legacy 'dropdown' value that was previously allowed in UI but rejected by DB
     const mappedType = p.input_type === 'dropdown' ? 'link_list' : (p.input_type || 'grade_select');
     setInputType(mappedType);
+    setPersistence(p.persistence_scope ?? 'none');
     const existingRules = p.auto_band_config?.bands || p.auto_band_config?.mappings || [];
     setAutoBandRules(mappedType === 'yes_no'
       ? ['Yes', 'No'].map((value) => existingRules.find((rule: any) => String(rule.value).toLowerCase() === value.toLowerCase()) || { value, grade: value === 'Yes' ? 5 : 1 })
       : existingRules);
+    setFormError(null);
     setOpen(true);
+  };
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    setFormError(null);
+    startSave(async () => {
+      const result: ActionResult = await upsertParameter(formData);
+      if (result.ok) {
+        setReceipt(result.message);
+        setOpen(false);
+      } else {
+        setFormError(result.error);
+      }
+    });
+  };
+
+  const confirmDelete = async (formData: FormData) => {
+    setTableError(null);
+    const result = await deleteParameter(formData);
+    if (result.ok) setReceipt(result.message);
+    else setTableError(result.error);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,10 +166,11 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
   };
 
   const updateRule = (idx: number, field: string, val: any) => {
-    const updated = [...autoBandRules];
-    updated[idx][field] = val;
+    const updated = autoBandRules.map((rule, i) => (i === idx ? { ...rule, [field]: val } : rule));
     setAutoBandRules(updated);
   };
+
+  const canEdit = readOnlyReason === null;
 
   return (
     <div className="space-y-6">
@@ -139,15 +180,23 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold">Scoring Parameters</h1>
             {activePolicy && (
-              <Badge variant="success" className="h-5">
+              <Badge variant={policyStatusVariant(activePolicy)} className="h-5">
                 {activePolicy.version_label}
               </Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground">Define and weight parameters used in scoring assessments</p>
         </div>
-        <Button size="sm" onClick={openNew}><Plus size={15} /> Add Parameter</Button>
+        {canEdit ? (
+          <Button size="sm" onClick={openNew}><Plus size={15} /> Add Parameter</Button>
+        ) : (
+          <Button size="sm" disabled title={readOnlyReason ?? undefined}><Plus size={15} /> Add Parameter</Button>
+        )}
       </div>
+
+      <ReadOnlyNotice reason={readOnlyReason} />
+      <Receipt message={receipt} />
+      <InlineError message={tableError} />
 
       {/* Filters */}
       <div className="flex gap-4 flex-wrap">
@@ -187,19 +236,19 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                 <div className="flex items-center gap-1">Weight <ArrowUpDown size={12} /></div>
               </TableHead>
               <TableHead>Flags</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {canEdit && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No parameters yet.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center text-muted-foreground py-8">No parameters yet.</TableCell></TableRow>
             ) : filtered.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell><Badge variant="outline">Stage {p.stage}</Badge></TableCell>
                 <TableCell className="text-muted-foreground capitalize">{p.subject_type}</TableCell>
                 <TableCell className="text-muted-foreground">{p.input_type}</TableCell>
-                <TableCell>{p.weight}</TableCell>
+                <TableCell className="tabular-nums">{p.weight}{p.weight === 0 && <span className="ml-1 text-tiny text-muted-foreground">excluded</span>}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Badge variant="secondary">{p.default_owning_role.toUpperCase()}</Badge>
@@ -215,22 +264,47 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                         S
                       </Badge>
                     )}
+                    {p.persistence_scope && p.persistence_scope !== 'none' && (
+                      <Badge
+                        variant="info"
+                        title={`Remembered: ${PERSISTENCE_LABELS[p.persistence_scope] ?? p.persistence_scope}`}
+                      >
+                        R
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil size={15} /></Button>
-                    <form action={deleteParameter}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <Button variant="ghost" size="icon" type="submit" className="text-destructive hover:text-destructive"><Trash2 size={15} /></Button>
-                    </form>
-                  </div>
-                </TableCell>
+                {canEdit && (
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" aria-label={`Edit ${p.name}`} onClick={() => openEdit(p)}><Pencil size={15} /></Button>
+                      <Button variant="ghost" size="icon" aria-label={`Delete ${p.name}`} type="button" className="text-destructive hover:text-destructive" onClick={() => setPendingDelete(p)}><Trash2 size={15} /></Button>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Card>
+
+      {pendingDelete && (
+        <ConfirmDialog
+          open
+          onOpenChange={(next) => { if (!next) setPendingDelete(null); }}
+          title={`Remove "${pendingDelete.name}"?`}
+          description={`It is archived in ${activePolicy?.version_label ?? 'this version'}. Drafts keep their own copy.`}
+          confirmLabel="Remove parameter"
+          tone="destructive"
+          reasonLabel=""
+          action={confirmDelete}
+          hiddenFields={{ id: pendingDelete.id }}
+          consequences={[
+            `Stage ${pendingDelete.stage} loses this parameter (weight ${pendingDelete.weight}) when scoring runs.`,
+            'Scoring capacity for the stage drops, so the stage max total may need review.',
+          ]}
+        />
+      )}
 
       {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
@@ -238,28 +312,30 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Parameter' : 'New Parameter'}</DialogTitle>
           </DialogHeader>
-          <form action={upsertParameter} onSubmit={() => setOpen(false)} className="space-y-4">
+          <form onSubmit={submit} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
-            <input type="hidden" name="policy_version_id" value={activePolicy?.id} />
+            <input type="hidden" name="policy_version_id" value={activePolicy?.id ?? ''} />
+            <input type="hidden" name="persistence_scope" value={persistence} />
+            <InlineError message={formError} />
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="col-span-2 space-y-1">
                 <Label>Parameter Name</Label>
-                <Input name="parameter_name" defaultValue={editing?.name} required />
+                <Input name="parameter_name" defaultValue={editing?.name ?? ''} required />
               </div>
               <div className="space-y-1">
                 <Label>Subject Type</Label>
-                <select name="applies_to_subject" defaultValue={editing?.subject_type || 'customer'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <select name="applies_to_subject" defaultValue={editing?.subject_type ?? 'customer'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                   <option value="customer">Customer</option>
                   <option value="contractor">Contractor</option>
                 </select>
               </div>
               <div className="space-y-1">
                 <Label>Stage (1-3)</Label>
-                <Input name="stage" type="number" min="1" max="3" defaultValue={editing?.stage || 1} required />
+                <Input name="stage" type="number" min="1" max="3" defaultValue={editing?.stage ?? 1} required />
               </div>
               <div className="space-y-1">
                 <Label>Owning Role</Label>
-                <select name="default_owning_role" defaultValue={editing?.default_owning_role || 'rm'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <select name="default_owning_role" defaultValue={editing?.default_owning_role ?? 'rm'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                   <option value="rm">RM</option>
                   <option value="kam">KAM</option>
                   <option value="bdo">BDO</option>
@@ -291,34 +367,54 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
               </div>
               <div className="space-y-1">
                 <Label>Weight</Label>
-                <Input name="weight" type="number" step="0.01" min="0" max="100" defaultValue={editing?.weight || 1} required />
+                <Input name="weight" type="number" step="0.01" min="0" max="100" defaultValue={editing ? String(editing.weight) : '1'} required />
+                <p className="text-tiny text-muted-foreground">0 excludes this parameter from scoring.</p>
               </div>
               <div className="col-span-2 flex items-start gap-2 rounded-md border border-warning/25 bg-warning/10 p-3">
-                <input type="checkbox" name="is_critical" id="is_critical" value="true" defaultChecked={editing?.is_critical || false} className="mt-0.5 h-4 w-4 rounded border-input" />
+                <input type="checkbox" name="is_critical" id="is_critical" value="true" defaultChecked={editing?.is_critical ?? false} className="mt-0.5 h-4 w-4 rounded border-input" />
                 <div>
                   <Label htmlFor="is_critical">Critical evidence</Label>
                   <p className="text-tiny text-muted-foreground">If unanswered when scoring runs, the case is flagged ambiguous and routed to board review.</p>
                 </div>
+              </div>
+              <div className="col-span-2 space-y-1 rounded-md border border-border p-3">
+                <Label htmlFor="persistence_select">Remember answer</Label>
+                <select
+                  id="persistence_select"
+                  value={persistence}
+                  onChange={(e) => setPersistence(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="none">{PERSISTENCE_LABELS.none}</option>
+                  <option value="party">{PERSISTENCE_LABELS.party}</option>
+                  {/* Rows saved with site or RM keep that value so saving does not wipe it; intake does not reuse it yet. */}
+                  {persistence !== 'none' && persistence !== 'party' && (
+                    <option value={persistence}>{`${PERSISTENCE_LABELS[persistence] ?? persistence} (not yet used at intake)`}</option>
+                  )}
+                </select>
+                <p className="text-tiny text-muted-foreground">
+                  Saved answers are reused at case intake for the same party. Per case only keeps the answer to one case.
+                </p>
               </div>
               <details className="col-span-2 rounded-md border border-border p-3">
                 <summary className="cursor-pointer text-xs font-semibold">Signal metadata — reserved for Phase 2 (not yet used in scoring)</summary>
                 <div className="mt-3 grid grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label>Lag Type</Label>
-                    <select name="signal_lag" defaultValue={editing?.signal_lag || 'Leading'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm">
+                    <select name="signal_lag" defaultValue={editing?.signal_lag ?? 'Leading'} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm">
                       <option value="Leading">Leading</option><option value="Lagging">Lagging</option>
                     </select>
                   </div>
-                  <div className="space-y-1"><Label>Strength (1-5)</Label><Input name="signal_strength" type="number" min="1" max="5" defaultValue={editing?.signal_strength || 3} /></div>
-                  <div className="space-y-1"><Label>Cost (1-5)</Label><Input name="signal_cost" type="number" min="1" max="5" defaultValue={editing?.signal_cost || 3} /></div>
+                  <div className="space-y-1"><Label>Strength (1-5)</Label><Input name="signal_strength" type="number" min="1" max="5" defaultValue={editing?.signal_strength ?? '3'} /></div>
+                  <div className="space-y-1"><Label>Cost (1-5)</Label><Input name="signal_cost" type="number" min="1" max="5" defaultValue={editing?.signal_cost ?? '3'} /></div>
                 </div>
               </details>
               <div className="space-y-1">
                 <Label>SLA Days</Label>
-                <Input name="sla_days" type="number" min="0" max="30" defaultValue={editing?.sla_days || ''} placeholder="Leave empty for no SLA" />
+                <Input name="sla_days" type="number" min="0" max="30" defaultValue={editing?.sla_days ?? ''} placeholder="Leave empty for no SLA" />
               </div>
               <div className="flex items-center gap-2 pt-6">
-                <input type="checkbox" name="require_reasoning" id="require_reasoning" value="true" defaultChecked={editing?.require_reasoning || false} className="w-4 h-4 rounded border-input" />
+                <input type="checkbox" name="require_reasoning" id="require_reasoning" value="true" defaultChecked={editing?.require_reasoning ?? false} className="w-4 h-4 rounded border-input" />
                 <Label htmlFor="require_reasoning">Require Mandatory Reasoning</Label>
               </div>
               <div className="col-span-2 flex items-start gap-2 p-3 border rounded-md bg-info/5">
@@ -327,7 +423,7 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
                   name="is_stable"
                   id="is_stable"
                   value="true"
-                  defaultChecked={editing?.is_stable || false}
+                  defaultChecked={editing?.is_stable ?? false}
                   className="w-4 h-4 rounded border-input mt-0.5"
                 />
                 <div>
@@ -341,7 +437,7 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
               </div>
               <div className="col-span-2 space-y-1">
                 <Label>Rubric Guidance (Description & Ratings)</Label>
-                <Textarea name="description" defaultValue={editing?.rubric_guidance} rows={4} className="text-xs" />
+                <Textarea name="description" defaultValue={editing?.rubric_guidance ?? ''} rows={4} className="text-xs" />
               </div>
 
               {(inputType === 'numeric' || inputType === 'link_list' || inputType === 'yes_no') && (
@@ -423,7 +519,7 @@ export default function ParametersClient({ initialParams, activePolicy }: { init
             </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? 'Save Changes' : 'Create'}</Button>
+              <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : editing ? 'Save Changes' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

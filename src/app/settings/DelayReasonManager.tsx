@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import { addDelayReason, deleteDelayReason, toggleDelayReason } from './actions';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/creditflow/ConfirmDialog';
 
 import { useRouter } from 'next/navigation';
 
@@ -14,6 +15,7 @@ export default function DelayReasonManager({ reasons }: Props) {
   const [newReason, setNewReason] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Props['reasons'][number] | null>(null);
   const addLock = useRef(false);
   const router = useRouter();
 
@@ -39,11 +41,9 @@ export default function DelayReasonManager({ reasons }: Props) {
     }
   };
 
-  const handleDelete = async (reason: Props['reasons'][number]) => {
-    if (!window.confirm(`Delete “${reason.value}”? This removes it from future selections.`)) return;
-    setDeletingId(reason.id);
-    const fd = new FormData();
-    fd.set('id', reason.id);
+  const handleDelete = async (fd: FormData) => {
+    const id = fd.get('id') as string;
+    setDeletingId(id);
     try {
       const res = await deleteDelayReason(fd);
       if (res?.success) {
@@ -70,7 +70,7 @@ export default function DelayReasonManager({ reasons }: Props) {
                 {r.is_active ? 'Deactivate' : 'Activate'}
               </Button>
             </form>
-            <Button type="button" size="icon" variant="ghost" aria-label={`Delete ${r.value}`} className="h-8 w-8 text-muted-foreground hover:text-destructive" disabled={deletingId === r.id} onClick={() => handleDelete(r)}>
+            <Button type="button" size="icon" variant="ghost" aria-label={`Delete ${r.value}`} className="h-8 w-8 text-muted-foreground hover:text-destructive" disabled={deletingId === r.id} onClick={() => setPendingDelete(r)}>
               <Trash2 size={14} aria-hidden="true" />
             </Button>
           </div>
@@ -80,6 +80,20 @@ export default function DelayReasonManager({ reasons }: Props) {
         <Input value={newReason} onChange={e => setNewReason(e.target.value)} placeholder="Add new delay reason..." required />
         <Button type="submit" size="sm" disabled={isAdding}><Plus size={14} /> {isAdding ? 'Adding…' : 'Add'}</Button>
       </form>
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+        title={`Delete “${pendingDelete?.value ?? ''}”?`}
+        consequences={[
+          'It stops appearing as a choice for new selections.',
+          'This cannot be undone. Re-add it manually if you need it again.',
+        ]}
+        tone="destructive"
+        confirmLabel="Delete delay reason"
+        reasonLabel=""
+        hiddenFields={pendingDelete ? { id: pendingDelete.id } : {}}
+        action={(fd) => handleDelete(fd)}
+      />
     </div>
   );
 }

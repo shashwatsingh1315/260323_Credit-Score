@@ -1,6 +1,6 @@
 "use server";
 import { createClient } from '@/utils/supabase/server';
-import { getCurrentUser, logAuditEvent } from '@/utils/auth';
+import { getCurrentUser, logAuditEvent, isAdmin } from '@/utils/auth';
 import { revalidatePath } from 'next/cache';
 import { calculateCompositeDays } from '@/utils/engine';
 
@@ -35,6 +35,9 @@ function parseGrandfatheredTranches(raw: unknown): GrandfatheredTranche[] {
 }
 
 export async function fetchImportJobs() {
+  const user = await getCurrentUser();
+  if (!isAdmin(user)) throw new Error('Only Admin can view import jobs');
+
   const supabase = await createClient();
   const { data } = await supabase
     .from('import_jobs')
@@ -46,6 +49,7 @@ export async function fetchImportJobs() {
 export async function processImportJob(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
+  if (!isAdmin(user)) throw new Error('Only Admin can run data imports');
 
   const supabase = await createClient();
   const importType = formData.get('import_type') as string;

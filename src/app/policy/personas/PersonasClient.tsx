@@ -1,7 +1,7 @@
 "use client";
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,13 +11,25 @@ import { upsertPersona } from '../actions';
 import { Pencil, Plus, ChevronLeft, Users2, GitBranch, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { InlineError, ReadOnlyNotice, Receipt } from '../PolicyFeedback';
+import type { ActionResult } from '../policy-parsing';
 
 interface Persona { id: string; name: string; description: string; minimum_score: number | null; }
 
-export default function PersonasClient({ initialPersonas, policyVersionId, backHref = '/policy' }: { initialPersonas: Persona[], policyVersionId?: string | null, backHref?: string }) {
+export default function PersonasClient({ initialPersonas, policyVersionId, backHref = '/policy', readOnlyReason = null }: {
+  initialPersonas: Persona[];
+  policyVersionId?: string | null;
+  backHref?: string;
+  readOnlyReason?: string | null;
+}) {
+  // Render from props so revalidated server data shows after save.
+  const personas = initialPersonas;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Persona | null>(null);
   const [gateEnabled, setGateEnabled] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [isSaving, startSave] = useTransition();
   const [sortConfig, setSortConfig] = useState<{ key: keyof Persona, direction: 'asc' | 'desc' } | null>(null);
 
   const handleSort = (key: keyof Persona) => {
@@ -28,7 +40,7 @@ export default function PersonasClient({ initialPersonas, policyVersionId, backH
     setSortConfig({ key, direction });
   };
 
-  const sortedPersonas = [...initialPersonas].sort((a, b) => {
+  const sortedPersonas = [...personas].sort((a, b) => {
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
     const aValue = a[key] ?? '';
@@ -38,6 +50,30 @@ export default function PersonasClient({ initialPersonas, policyVersionId, backH
     return 0;
   });
 
+  const openDialog = (persona: Persona | null) => {
+    setEditing(persona);
+    setGateEnabled(persona ? persona.minimum_score != null : false);
+    setFormError(null);
+    setOpen(true);
+  };
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    setFormError(null);
+    startSave(async () => {
+      const result: ActionResult = await upsertPersona(formData);
+      if (result.ok) {
+        setReceipt(result.message);
+        setOpen(false);
+      } else {
+        setFormError(result.error);
+      }
+    });
+  };
+
+  const canEdit = readOnlyReason === null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -46,8 +82,15 @@ export default function PersonasClient({ initialPersonas, policyVersionId, backH
           <h1 className="text-xl font-bold">Persona Models</h1>
           <p className="text-sm text-muted-foreground">Configure scoring persona templates by entity type</p>
         </div>
-        <Button size="sm" onClick={() => { setEditing(null); setGateEnabled(false); setOpen(true); }}><Plus size={15} /> New Persona</Button>
+        {canEdit ? (
+          <Button size="sm" onClick={() => openDialog(null)}><Plus size={15} /> New Persona</Button>
+        ) : (
+          <Button size="sm" disabled title={readOnlyReason ?? undefined}><Plus size={15} /> New Persona</Button>
+        )}
       </div>
+
+      <ReadOnlyNotice reason={readOnlyReason} />
+      <Receipt message={receipt} />
 
       <Card>
         <Table>
@@ -60,13 +103,13 @@ export default function PersonasClient({ initialPersonas, policyVersionId, backH
                 <div className="flex items-center gap-1">Gate <ArrowUpDown size={12} /></div>
               </TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Edit</TableHead>
+              {canEdit && <TableHead className="text-right">Edit</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedPersonas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={canEdit ? 4 : 3} className="text-center py-12 text-muted-foreground">
                   <GitBranch size={40} className="mx-auto mb-3 opacity-30" />
                   <p>No personas defined yet. Create one to get started.</p>
                 </TableCell>
@@ -89,11 +132,13 @@ export default function PersonasClient({ initialPersonas, policyVersionId, backH
                 <TableCell className="text-muted-foreground text-sm max-w-md truncate">
                   {p.description || 'No description'}
                 </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => { setEditing(p); setGateEnabled(p.minimum_score != null); setOpen(true); }}>
-                    <Pencil size={15} />
-                  </Button>
-                </TableCell>
+                {canEdit && (
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" aria-label={`Edit ${p.name}`} onClick={() => openDialog(p)}>
+                      <Pencil size={15} />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -103,28 +148,29 @@ export default function PersonasClient({ initialPersonas, policyVersionId, backH
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? 'Edit Persona' : 'New Persona'}</DialogTitle></DialogHeader>
-          <form action={upsertPersona} onSubmit={() => setOpen(false)} className="space-y-4">
+          <form onSubmit={submit} className="space-y-4">
             {editing && <input type="hidden" name="id" value={editing.id} />}
             <input type="hidden" name="policy_version_id" value={policyVersionId || ''} />
+            <InlineError message={formError} />
             <div className="space-y-1">
               <Label>Persona Name</Label>
-              <Input name="persona_name" defaultValue={editing?.name} placeholder="e.g. Large Enterprise" required />
+              <Input name="persona_name" defaultValue={editing?.name ?? ''} placeholder="e.g. Large Enterprise" required />
             </div>
             <div className="space-y-2 rounded-md border border-border p-3">
               <label className="flex items-center gap-2 text-sm font-medium">
                 <input type="checkbox" name="minimum_score_enabled" value="true" checked={gateEnabled} onChange={(event) => setGateEnabled(event.target.checked)} />
                 Enforce a minimum case score
               </label>
-              {gateEnabled && <Input name="minimum_score" type="number" min="0" max="100" defaultValue={editing?.minimum_score ?? 60} required />}
+              {gateEnabled && <Input name="minimum_score" type="number" min="0" max="100" defaultValue={editing?.minimum_score != null ? String(editing.minimum_score) : '60'} required />}
               <p className="text-xs text-muted-foreground">Below this score the case is flagged ambiguous and routed to board review.</p>
             </div>
             <div className="space-y-1">
               <Label>Description</Label>
-              <Textarea name="description" defaultValue={editing?.description} rows={3} />
+              <Textarea name="description" defaultValue={editing?.description ?? ''} rows={3} />
             </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? 'Save' : 'Create'}</Button>
+              <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : editing ? 'Save' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

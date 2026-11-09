@@ -1,15 +1,18 @@
-import { fetchGradeScales, fetchParameters, fetchStageMaxTotals, resolvePolicyVersion } from '../actions';
-import PolicyContextBar from '../PolicyContextBar';
+import { fetchGradeScales, fetchParameters, fetchStageMaxTotals, resolvePolicyVersionState } from '../actions';
+import PolicyContextBar, { policyEditBlockedReason } from '../PolicyContextBar';
 import StagesClient from './StagesClient';
 
 export default async function StagesPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
   const { v } = await searchParams;
-  const version = await resolvePolicyVersion(v);
-  const [totals, parameters, grades] = await Promise.all([
-    fetchStageMaxTotals(version?.id),
-    fetchParameters(version?.id),
-    fetchGradeScales(version?.id),
-  ]);
+  const state = await resolvePolicyVersionState(v);
+  const version = state.version;
+  const [totals, parameters, grades] = version
+    ? await Promise.all([
+      fetchStageMaxTotals(version.id),
+      fetchParameters(version.id),
+      fetchGradeScales(version.id),
+    ])
+    : [[], [], []];
   const topGrade = Math.max(0, ...grades.map((grade: any) => Number(grade.grade_value) || 0));
   const impliedTotals = [1, 2, 3].map((stage) => ({
     stage,
@@ -20,8 +23,13 @@ export default async function StagesPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-4">
-      <PolicyContextBar version={version} />
-      <StagesClient totals={totals} impliedTotals={impliedTotals} activePolicyId={version?.id} />
+      <PolicyContextBar version={version} requestedNotFound={state.requestedNotFound} draftCount={state.draftCount} latestDraft={state.latestDraft} />
+      <StagesClient
+        totals={totals}
+        impliedTotals={impliedTotals}
+        activePolicyId={version?.id}
+        readOnlyReason={policyEditBlockedReason(version, state.requestedNotFound)}
+      />
     </div>
   );
 }

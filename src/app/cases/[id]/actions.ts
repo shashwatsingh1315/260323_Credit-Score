@@ -9,6 +9,27 @@ import { assertCanCastBoardVote, BOARD_VOTE_DECISIONS } from '@/utils/boardGuard
 import { fetchLedgerData } from './billing-actions';
 import { calculateValidityExpiry, selectValidityRule } from '@/utils/validity';
 
+// Default board vote window; the board_round is created with the approval round.
+const BOARD_VOTE_WINDOW_DAYS = 3;
+
+// Decision packet freeze: once an approval round is open the evidence and the
+// recommendation the approver reads must not change under them. Status-based
+// lock only; no snapshot columns.
+const DECISION_FROZEN_STATUSES = ['Awaiting Approval', 'Appealed'];
+const DECISION_LOCKED_MESSAGE = 'This case is locked while a decision round is open.';
+
+async function assertDecisionNotFrozen(supabase: Awaited<ReturnType<typeof createClient>>, cycleId: string) {
+  const { data: cycle, error } = await supabase
+    .from('review_cycles')
+    .select('credit_cases(status)')
+    .eq('id', cycleId)
+    .maybeSingle();
+  if (error || !cycle) throw new Error('Could not verify the decision status of this case.');
+  const status = (cycle.credit_cases as { status?: string } | null)?.status;
+  if (!status) throw new Error('Could not verify the decision status of this case.');
+  if (DECISION_FROZEN_STATUSES.includes(status)) throw new Error(DECISION_LOCKED_MESSAGE);
+}
+
 export async function fetchCaseCore(caseId: string) {
   const supabase = await createClient({ next: { tags: [`case-${caseId}`] } });
 
@@ -215,6 +236,7 @@ export async function handleSubmitStage(formData: FormData) {
   const currentStage = parseInt(formData.get('currentStage') as string);
   const caseId = formData.get('caseId') as string;
   const supabase = await createClient();
+  await assertDecisionNotFrozen(supabase, cycleId);
   const { data: cycle } = await supabase.from('review_cycles').select('required_stage').eq('id', cycleId).maybeSingle();
   const requiredStage = cycle?.required_stage ?? 3;
 
@@ -293,6 +315,7 @@ export async function handleCompleteTask(formData: FormData) {
     .single();
 
   if (!task) throw new Error('Task not found');
+  await assertDecisionNotFrozen(supabase, task.review_cycle_id);
 
   const isAdmin = checkIsAdmin(user);
   const hasCorrectRole = !task.param?.default_owning_role || user.roles.includes(task.param.default_owning_role);
@@ -332,24 +355,25 @@ export async function handleCompleteTask(formData: FormData) {
     }
   }
 
-  const ops = [
-    supabase.from('stage_tasks').update({
-      status: 'Completed',
-      completed_by: user.id,
-      completed_at: now.toISOString(),
-      grade_value: gradeValue,
-      reason,
-      raw_input_value: rawInput,
-      delay_reason: delayReason,
-    }).eq('id', taskId),
-    logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}${delayReason ? ` Delay reason: ${delayReason}.` : ''}` })
-  ];
+  const { error: updateError } = await supabase.from('stage_tasks').update({
+    status: 'Completed',
+    completed_by: user.id,
+    completed_at: now.toISOString(),
+    grade_value: gradeValue,
+    reason,
+    raw_input_value: rawInput,
+    delay_reason: delayReason,
+  }).eq('id', taskId);
+  if (updateError) throw new Error(updateError.message);
 
-  if (gradeValue != null && task?.review_cycle_id) {
-    ops.push(updateCycleScore(task.review_cycle_id));
+  await logAuditEvent({ case_id: caseId, event_type: 'task_completed', actor_id: user.id, description: `Task completed.${gradeValue != null ? ` Grade: ${gradeValue}.` : ''}${delayReason ? ` Delay reason: ${delayReason}.` : ''}` });
+
+  // Re-derive the cycle score after ANY scoring-task update, including one that
+  // clears the grade (a re-answer that maps to no band). Runs after the write so
+  // the recompute reads the new row.
+  if (task.review_cycle_id && (task.task_type === 'scoring' || gradeValue != null)) {
+    await updateCycleScore(task.review_cycle_id);
   }
-
-  await Promise.all(ops);
 
   revalidatePath(`/cases/${caseId}`);
 }
@@ -446,6 +470,8 @@ export async function handleChangePersona(formData: FormData) {
   const caseId = formData.get('caseId') as string;
   const cycleId = formData.get('cycleId') as string;
 
+  await assertDecisionNotFrozen(supabase, cycleId);
+
   const customerPersonaId = formData.get('customerPersonaId') as string || null;
   const contractorPersonaId = formData.get('contractorPersonaId') as string || null;
   const domCategoryId = formData.get('dominanceCategoryId') as string || null;
@@ -494,22 +520,102 @@ export async function handleCreateApprovalRound(formData: FormData) {
 
   const roundType = formData.get('roundType') as string || 'ordinary';
 
+  if (!['ordinary', 'appeal', 'ambiguity_board'].includes(roundType)) {
+    throw new Error('Unknown decision round type.');
+  }
   if (roundType === 'ordinary' && !hasAnyRole(user, ['kam', 'founder_admin'])) {
     throw new Error('Only KAM or Admin can request ordinary approval');
   }
   if (roundType === 'appeal' && !hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) {
     throw new Error('Only RM, KAM or Admin can initiate appeal');
   }
+  if (roundType === 'ambiguity_board' && !hasAnyRole(user, ['kam', 'founder_admin'])) {
+    throw new Error('Only KAM or Admin can convene the ambiguity board');
+  }
 
   const supabase = await createClient();
   const caseId = formData.get('caseId') as string;
   const cycleId = formData.get('cycleId') as string;
   const stage = parseInt(formData.get('stage') as string);
+  const isBoardRound = roundType === 'appeal' || roundType === 'ambiguity_board';
 
-  await supabase.from('approval_rounds').insert({ review_cycle_id: cycleId, stage, round_type: roundType, status: 'open' });
+  // One open decision round per cycle — guards against double-submits.
+  // Array result (not maybeSingle): a cycle with 2+ open rounds must still block, and a query error must fail closed.
+  const { data: existingOpenRounds, error: openRoundError } = await supabase
+    .from('approval_rounds')
+    .select('id')
+    .eq('review_cycle_id', cycleId)
+    .eq('status', 'open')
+    .limit(1);
+  if (openRoundError) {
+    throw new Error(`Could not verify open decision rounds: ${openRoundError.message}`);
+  }
+  if (existingOpenRounds && existingOpenRounds.length > 0) {
+    throw new Error('This case already has an open decision round.');
+  }
+
+  // Board rounds freeze the active committee roster at the moment they open.
+  let rosterSnapshot: string[] = [];
+  if (isBoardRound) {
+    const { data: roster, error: rosterError } = await supabase
+      .from('committee_rosters')
+      .select('member_ids')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+    if (rosterError) {
+      throw new Error(`Could not read the committee roster: ${rosterError.message}`);
+    }
+    rosterSnapshot = roster?.member_ids ?? [];
+    if (rosterSnapshot.length === 0) {
+      throw new Error('No active committee roster — a board round cannot be convened.');
+    }
+  }
+
+  const { data: newRound, error: roundError } = await supabase
+    .from('approval_rounds')
+    .insert({ review_cycle_id: cycleId, stage, round_type: roundType, status: 'open' })
+    .select('id')
+    .single();
+  if (roundError || !newRound) {
+    throw new Error(roundError?.message || 'Could not open the decision round.');
+  }
+
+  // Board rounds are created with the approval round, never on page load, so
+  // board members see the ballot in their queue immediately.
+  if (isBoardRound) {
+    const windowEnd = new Date();
+    windowEnd.setDate(windowEnd.getDate() + BOARD_VOTE_WINDOW_DAYS);
+    const { error: boardError } = await supabase.from('board_rounds').insert({
+      approval_round_id: newRound.id,
+      roster_snapshot: rosterSnapshot,
+      vote_window_end: windowEnd.toISOString(),
+      status: 'open',
+    });
+    if (boardError) {
+      // Roll back the approval round so the case is not left with a ballot-less board round.
+      const { error: rollbackError } = await supabase.from('approval_rounds').delete().eq('id', newRound.id);
+      if (rollbackError) {
+        // Orphaned open round with no board round: surface it loudly and leave an audit trace.
+        await logAuditEvent({
+          case_id: caseId,
+          review_cycle_id: cycleId,
+          event_type: 'approval_round_rollback_failed',
+          actor_id: user.id,
+          description: `Board round insert failed (${boardError.message}) and the approval round ${newRound.id} could not be rolled back (${rollbackError.message}).`,
+          metadata: { approval_round_id: newRound.id, board_error: boardError.message, rollback_error: rollbackError.message },
+        });
+        throw new Error(`Board round could not be created and the decision round could not be rolled back: ${boardError.message}; ${rollbackError.message}`);
+      }
+      throw new Error(boardError.message);
+    }
+  }
+
   await supabase.from('credit_cases').update({ status: roundType === 'appeal' ? 'Appealed' : 'Awaiting Approval' }).eq('id', caseId);
-  await logAuditEvent({ case_id: caseId, review_cycle_id: cycleId, event_type: roundType === 'appeal' ? 'appeal_started' : 'approval_round_started', actor_id: user.id, description: `${roundType === 'appeal' ? 'Appeal' : 'Approval'} round started for Stage ${stage}.` });
+  const label = roundType === 'appeal' ? 'Appeal' : roundType === 'ambiguity_board' ? 'Ambiguity board' : 'Approval';
+  await logAuditEvent({ case_id: caseId, review_cycle_id: cycleId, event_type: roundType === 'appeal' ? 'appeal_started' : roundType === 'ambiguity_board' ? 'ambiguity_board_convened' : 'approval_round_started', actor_id: user.id, description: `${label} round started for Stage ${stage}.` });
   revalidatePath(`/cases/${caseId}`);
+  revalidatePath(`/cases/${caseId}/board`);
 }
 
 export async function handleApprovalDecision(formData: FormData) {
@@ -537,11 +643,41 @@ export async function handleApprovalDecision(formData: FormData) {
     reason: string;
   } | null = null;
 
-  if (wantsFounderOverride) {
-    if (decision !== 'approve' || !checkIsAdmin(user)) {
-      throw new Error('Only Founder Admin can approve credit days above the policy recommendation.');
-    }
+  if (wantsFounderOverride && (decision !== 'approve' || !checkIsAdmin(user))) {
+    throw new Error('Only Founder Admin can approve credit days above the policy recommendation.');
+  }
 
+  // Ordinary approvals only: appeal and ambiguity rounds are decided on the board ballot.
+  // One decision per approver per round.
+  const { data: targetRound, error: targetRoundError } = await supabase
+    .from('approval_rounds')
+    .select('review_cycle_id, status, round_type')
+    .eq('id', roundId)
+    .maybeSingle();
+  if (targetRoundError) {
+    throw new Error(`Could not load the approval round: ${targetRoundError.message}`);
+  }
+  if (!targetRound || targetRound.status !== 'open') {
+    throw new Error('The approval round is no longer open.');
+  }
+  if (targetRound.round_type !== 'ordinary') {
+    throw new Error('Appeal and ambiguity rounds are decided by the board ballot, not an ordinary approval.');
+  }
+  // limit(1) + error check: duplicate rows must not make the check pass, and a query failure must fail closed.
+  const { data: ownDecisions, error: ownDecisionError } = await supabase
+    .from('approval_decisions')
+    .select('id')
+    .eq('approval_round_id', roundId)
+    .eq('approver_id', user.id)
+    .limit(1);
+  if (ownDecisionError) {
+    throw new Error(`Could not verify your existing decisions: ${ownDecisionError.message}`);
+  }
+  if (ownDecisions && ownDecisions.length > 0) {
+    throw new Error('You have already recorded a decision on this round.');
+  }
+
+  if (wantsFounderOverride) {
     const overrideDays = Number(overrideDaysRaw);
     if (!Number.isInteger(overrideDays) || overrideDays <= 0) {
       throw new Error('Override credit days must be a positive whole number.');
@@ -550,20 +686,15 @@ export async function handleApprovalDecision(formData: FormData) {
       throw new Error('A reason is required for a Founder Admin credit-days override.');
     }
 
-    const [{ data: overrideRound, error: roundError }, { data: priorOverride }] = await Promise.all([
-      supabase.from('approval_rounds').select('review_cycle_id, status').eq('id', roundId).maybeSingle(),
-      supabase
-        .from('audit_events')
-        .select('metadata')
-        .eq('case_id', caseId)
-        .eq('event_type', 'founder_credit_days_override')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-    if (roundError || !overrideRound || overrideRound.status !== 'open') {
-      throw new Error('The approval round is no longer open.');
-    }
+    const { data: priorOverride } = await supabase
+      .from('audit_events')
+      .select('metadata')
+      .eq('case_id', caseId)
+      .eq('event_type', 'founder_credit_days_override')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const overrideRound = targetRound;
 
     const { data: overrideCycle, error: cycleError } = await supabase
       .from('review_cycles')
