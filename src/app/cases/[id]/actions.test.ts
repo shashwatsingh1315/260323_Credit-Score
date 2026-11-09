@@ -5,6 +5,7 @@ import {
   handleWithdraw,
   handleCompleteTask,
   handleForceReadyStage,
+  handleSubmitStage,
   handleToggleWaiting,
   handleChangePersona,
   handleCreateApprovalRound,
@@ -30,11 +31,20 @@ vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
 }));
 
+// Test-only cast for mock return values. The mocked Supabase, auth and engine
+// results are partial fixtures, so each stub is deliberately not the full type.
+const stub = (value: object) => value as never;
+
 const mockUpdate = vi.fn();
 const mockSelect = vi.fn();
 const mockEq = vi.fn();
 const mockSingle = vi.fn();
 const mockInsert = vi.fn();
+// Result of an awaited `.limit(n)` query (array rows), e.g. the open-round and own-decision guards.
+const mockRows = vi.fn(() => ({ data: [], error: null }));
+const mockDelete = vi.fn(() => ({ error: null }));
+// Awaited result of an insert chain (e.g. board_rounds insert); the approval round insert chains on .select().single().
+const mockInsertResult = vi.fn(() => ({ error: null }));
 
 vi.mock('@/utils/supabase/server', () => ({
   createClient: vi.fn(() => ({
@@ -55,7 +65,15 @@ vi.mock('@/utils/supabase/server', () => ({
           return builder;
         }),
         order: vi.fn().mockImplementation(() => builder),
-        limit: vi.fn().mockImplementation(() => builder),
+        // Returns a limited builder: further chaining (.maybeSingle) still goes to mockSingle,
+        // while awaiting it directly resolves to the array result from mockRows.
+        limit: vi.fn().mockImplementation(() => ({
+          ...builder,
+          then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(mockRows()).then(resolve, reject),
+        })),
+        delete: vi.fn().mockImplementation(() => ({
+          eq: vi.fn().mockImplementation(() => mockDelete()),
+        })),
         single: vi.fn().mockImplementation((...args) => {
           return mockSingle(...args);
         }),
@@ -64,7 +82,10 @@ vi.mock('@/utils/supabase/server', () => ({
         }),
         insert: vi.fn().mockImplementation((...args) => {
           mockInsert(...args);
-          return builder;
+          return {
+            ...builder,
+            then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(mockInsertResult()).then(resolve, reject),
+          };
         }),
       };
       return builder;
@@ -99,6 +120,12 @@ describe('cases/[id]/actions.ts', () => {
     mockEq.mockReset();
     mockSingle.mockReset();
     mockInsert.mockReset();
+    mockRows.mockReset();
+    mockRows.mockImplementation(() => ({ data: [], error: null }));
+    mockDelete.mockReset();
+    mockDelete.mockImplementation(() => ({ error: null }));
+    mockInsertResult.mockReset();
+    mockInsertResult.mockImplementation(() => ({ error: null }));
   });
 
   const formData = (data: Record<string, string>) => {
@@ -118,7 +145,7 @@ describe('cases/[id]/actions.ts', () => {
     });
 
     it('progresses stage successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['founder_admin'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['founder_admin'] }));
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
       await handleProgressStage(formData({ caseId: 'c1', cycleId: 'cy1', currentStage: '1' }));
@@ -130,7 +157,7 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleWithdraw', () => {
     it('withdraws successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
       vi.mocked(redirect).mockImplementationOnce(() => { throw new Error('redirected'); });
 
       await expect(handleWithdraw(formData({ caseId: 'c1', reason: 'Lost', note: 'Note' }))).rejects.toThrow('redirected');
@@ -146,10 +173,10 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleToggleWaiting', () => {
     it('sets waiting on case', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue(stub({ eq: mockEq }));
       mockEq.mockReturnValue(undefined);
 
       await handleToggleWaiting(formData({ caseId: 'c1', isWaiting: 'false', reason: 'input needed' }));
@@ -164,10 +191,10 @@ describe('cases/[id]/actions.ts', () => {
     });
 
     it('stops waiting on case', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue(stub({ eq: mockEq }));
       mockEq.mockResolvedValue({ error: null });
 
       await handleToggleWaiting(formData({ caseId: 'c1', isWaiting: 'true' }));
@@ -178,9 +205,9 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleCompleteTask', () => {
     it('completes task and updates score', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
 
-      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      mockEq.mockReturnValueOnce(stub({ single: mockSingle }));
       mockSingle.mockResolvedValueOnce({
         data: {
           id: 't1',
@@ -188,8 +215,11 @@ describe('cases/[id]/actions.ts', () => {
           param: { default_owning_role: 'rm' }
         }
       });
+      // decision-freeze status read (review_cycles -> credit_cases)
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { credit_cases: { status: 'In Review' } }, error: null });
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue(stub({ eq: mockEq }));
       mockEq.mockResolvedValue({ error: null });
 
       await handleCompleteTask(formData({
@@ -210,7 +240,7 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleApprovalDecision founder credit-days override', () => {
     it('rejects override fields from a non-founder approver', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['ordinary_approver'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['ordinary_approver'] }));
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
       vi.spyOn(auth, 'isAdmin').mockReturnValue(false);
 
@@ -226,11 +256,11 @@ describe('cases/[id]/actions.ts', () => {
     });
 
     it('requires the founder override to exceed the policy recommendation', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'founder-1', roles: ['founder_admin'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'founder-1', roles: ['founder_admin'] }));
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
       vi.spyOn(auth, 'isAdmin').mockReturnValue(true);
       mockSingle
-        .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open' }, error: null })
+        .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open', round_type: 'ordinary' }, error: null })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: { id: 'cy1', case_id: 'c1', approved_credit_days: 30 }, error: null });
 
@@ -246,12 +276,16 @@ describe('cases/[id]/actions.ts', () => {
     });
 
     it('records and audits a valid founder override', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'founder-1', roles: ['founder_admin'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'founder-1', roles: ['founder_admin'] }));
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
       vi.spyOn(auth, 'isAdmin').mockReturnValue(true);
-      mockEq.mockImplementation((column) => column === 'approval_round_id' ? { data: [{ decision: 'approve' }] } : undefined);
+      const approvedDecisions = {
+        data: [{ decision: 'approve' }],
+        eq: vi.fn(() => ({ maybeSingle: mockSingle, limit: vi.fn(() => Promise.resolve({ data: [], error: null })) })),
+      };
+      mockEq.mockImplementation((column) => column === 'approval_round_id' ? approvedDecisions : undefined);
       mockSingle
-        .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open' }, error: null })
+        .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open', round_type: 'ordinary' }, error: null })
         .mockResolvedValueOnce({ data: null, error: null })
         .mockResolvedValueOnce({ data: { id: 'cy1', case_id: 'c1', approved_credit_days: 30 }, error: null })
         .mockResolvedValueOnce({ data: { review_cycle_id: 'cy1' }, error: null })
@@ -284,19 +318,23 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleChangePersona', () => {
     it('changes persona successfully', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
       vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
 
+      // decision-freeze status read (review_cycles -> credit_cases)
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { credit_cases: { status: 'In Review' } }, error: null });
+
       // mock the review_cycles single fetch
-      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      mockEq.mockReturnValueOnce(stub({ single: mockSingle }));
       mockSingle.mockResolvedValueOnce({ data: { policy_snapshot_id: 'pol1', current_case_score: 62, score_band_name: 'B' } });
 
       // mock the persona single fetch
-      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      mockEq.mockReturnValueOnce(stub({ single: mockSingle }));
       mockSingle.mockResolvedValueOnce({ data: { policy_version_id: 'pol1' } });
       mockSingle.mockResolvedValueOnce({ data: { current_case_score: 71, score_band_name: 'A' } });
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      mockUpdate.mockReturnValue(stub({ eq: mockEq }));
       mockEq.mockReturnValue(undefined);
 
       await handleChangePersona(formData({
@@ -312,13 +350,16 @@ describe('cases/[id]/actions.ts', () => {
 
   describe('handleCompleteTask yes/no mapping', () => {
     it('maps the raw Yes value through the configured parameter mapping', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['rm'] } as any);
-      mockEq.mockReturnValueOnce({ single: mockSingle } as any);
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      mockEq.mockReturnValueOnce(stub({ single: mockSingle }));
       mockSingle.mockResolvedValueOnce({ data: {
         id: 't1', review_cycle_id: 'cy1',
         param: { default_owning_role: 'rm', input_type: 'yes_no', auto_band_config: { mappings: [{ value: 'Yes', grade: 5 }, { value: 'No', grade: 1 }] } },
       } });
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+      // decision-freeze status read
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { credit_cases: { status: 'In Review' } }, error: null });
+      mockUpdate.mockReturnValue(stub({ eq: mockEq }));
       mockEq.mockResolvedValue({ error: null });
 
       await handleCompleteTask(formData({ caseId: 'c1', taskId: 't1', rawInput: 'Yes' }));
@@ -327,14 +368,109 @@ describe('cases/[id]/actions.ts', () => {
     });
   });
 
-  describe('handleCreateApprovalRound', () => {
-    it('creates approval round', async () => {
-      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue({ id: 'u1', roles: ['kam'] } as any);
+  describe('decision packet freeze', () => {
+    const queueTaskAndStatus = (status: string) => {
+      mockEq.mockReturnValueOnce(stub({ single: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { id: 't1', review_cycle_id: 'cy1', task_type: 'scoring', param: { default_owning_role: 'rm' } } });
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { credit_cases: { status } }, error: null });
+    };
 
-      mockUpdate.mockReturnValue({ eq: mockEq } as any);
+    it('rejects grading a task while the case awaits a decision', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      queueTaskAndStatus('Awaiting Approval');
+
+      await expect(handleCompleteTask(formData({
+        caseId: 'c1', taskId: 't1', rawInput: '5', gradeValue: '5',
+      }))).rejects.toThrow(/locked while a decision round is open/);
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(scoring.updateCycleScore).not.toHaveBeenCalled();
+    });
+
+    it('rejects grading a task while the case is under appeal', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      queueTaskAndStatus('Appealed');
+
+      await expect(handleCompleteTask(formData({
+        caseId: 'c1', taskId: 't1', rawInput: '5', gradeValue: '5',
+      }))).rejects.toThrow(/locked while a decision round is open/);
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects a persona change while the case awaits a decision', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { credit_cases: { status: 'Awaiting Approval' } }, error: null });
+
+      await expect(handleChangePersona(formData({
+        caseId: 'c1', cycleId: 'cy1', customerPersonaId: 'p1',
+      }))).rejects.toThrow(/locked while a decision round is open/);
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(scoring.updateCycleScore).not.toHaveBeenCalled();
+    });
+
+    it('rejects stage submission while the case awaits a decision', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { credit_cases: { status: 'Awaiting Approval' } }, error: null });
+
+      await expect(handleSubmitStage(formData({
+        caseId: 'c1', cycleId: 'cy1', currentStage: '3',
+      }))).rejects.toThrow(/locked while a decision round is open/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when the decision status cannot be read', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: null, error: { message: 'db down' } });
+
+      await expect(handleChangePersona(formData({
+        caseId: 'c1', cycleId: 'cy1', customerPersonaId: 'p1',
+      }))).rejects.toThrow(/Could not verify the decision status/);
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleCompleteTask cycle score recompute', () => {
+    it('recomputes the cycle score after a re-answer clears the grade', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      mockEq.mockReturnValueOnce(stub({ single: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: {
+        id: 't1', review_cycle_id: 'cy1', task_type: 'scoring',
+        param: { default_owning_role: 'rm', input_type: 'numeric' },
+      } });
+      mockEq.mockReturnValueOnce(stub({ maybeSingle: mockSingle }));
+      mockSingle.mockResolvedValueOnce({ data: { credit_cases: { status: 'In Review' } }, error: null });
+      mockUpdate.mockReturnValue(stub({ eq: mockEq }));
       mockEq.mockResolvedValue({ error: null });
 
-      mockInsert.mockResolvedValueOnce({ error: null });
+      // Empty numeric answer: no grade, so the saved row drops out of scoring.
+      await handleCompleteTask(formData({ caseId: 'c1', taskId: 't1', rawInput: '', gradeValue: '' }));
+
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ grade_value: null }));
+      expect(scoring.updateCycleScore).toHaveBeenCalledWith('cy1');
+      // The recompute must read the new row, so it runs after the write.
+      expect(vi.mocked(scoring.updateCycleScore).mock.invocationCallOrder[0])
+        .toBeGreaterThan(mockUpdate.mock.invocationCallOrder[0]);
+    });
+  });
+
+  describe('handleCreateApprovalRound', () => {
+    it('creates approval round', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+
+      mockUpdate.mockReturnValue(stub({ eq: mockEq }));
+      mockSingle.mockResolvedValueOnce({ data: { id: 'r1' }, error: null });
 
       await handleCreateApprovalRound(formData({
         caseId: 'c1', cycleId: 'cy1', stage: '2', roundType: 'ordinary'
@@ -344,6 +480,122 @@ describe('cases/[id]/actions.ts', () => {
       expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
         review_cycle_id: 'cy1', stage: 2, round_type: 'ordinary'
       }));
+    });
+
+    it('opens the board round eagerly when an appeal is started', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockSingle
+        .mockResolvedValueOnce({ data: { member_ids: ['m1', 'm2'] }, error: null }) // active roster
+        .mockResolvedValueOnce({ data: { id: 'r1' }, error: null });              // approval round
+
+      await handleCreateApprovalRound(formData({
+        caseId: 'c1', cycleId: 'cy1', stage: '3', roundType: 'appeal'
+      }));
+
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ review_cycle_id: 'cy1', round_type: 'appeal' }));
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+        approval_round_id: 'r1',
+        roster_snapshot: ['m1', 'm2'],
+        status: 'open',
+        vote_window_end: expect.any(String),
+      }));
+      expect(mockUpdate).toHaveBeenCalledWith({ status: 'Appealed' });
+    });
+
+    it('convenes the ambiguity board with round_type ambiguity_board', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['kam'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockSingle
+        .mockResolvedValueOnce({ data: { member_ids: ['m1'] }, error: null })
+        .mockResolvedValueOnce({ data: { id: 'r2' }, error: null });
+
+      await handleCreateApprovalRound(formData({
+        caseId: 'c1', cycleId: 'cy1', stage: '2', roundType: 'ambiguity_board'
+      }));
+
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ round_type: 'ambiguity_board' }));
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ approval_round_id: 'r2', roster_snapshot: ['m1'] }));
+    });
+
+    it('rejects a new round while another round is open', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockRows.mockResolvedValueOnce(stub({ data: [{ id: 'open-round' }, { id: 'open-round-2' }], error: null }));
+
+      await expect(handleCreateApprovalRound(formData({
+        caseId: 'c1', cycleId: 'cy1', stage: '3', roundType: 'appeal'
+      }))).rejects.toThrow(/already has an open decision round/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when the open-round query errors', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockRows.mockResolvedValueOnce(stub({ data: null, error: { message: 'db down' } }));
+
+      await expect(handleCreateApprovalRound(formData({
+        caseId: 'c1', cycleId: 'cy1', stage: '3', roundType: 'appeal'
+      }))).rejects.toThrow(/Could not verify open decision rounds/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('fails when the committee roster read errors', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockSingle.mockResolvedValueOnce({ data: null, error: { message: 'roster down' } });
+
+      await expect(handleCreateApprovalRound(formData({
+        caseId: 'c1', cycleId: 'cy1', stage: '3', roundType: 'appeal'
+      }))).rejects.toThrow(/Could not read the committee roster/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('reports both failures when the board insert and the rollback delete fail', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['rm'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      mockSingle
+        .mockResolvedValueOnce({ data: { member_ids: ['m1'] }, error: null })
+        .mockResolvedValueOnce({ data: { id: 'r3' }, error: null });
+      // Second insert (board_rounds) fails; the rollback delete also fails.
+      mockInsertResult.mockReturnValueOnce(stub({ error: { message: 'board insert failed' } }));
+      mockDelete.mockReturnValueOnce(stub({ error: { message: 'delete blocked' } }));
+
+      await expect(handleCreateApprovalRound(formData({
+        caseId: 'c1', cycleId: 'cy1', stage: '3', roundType: 'appeal'
+      }))).rejects.toThrow(/could not be rolled back/);
+    });
+  });
+
+  describe('handleApprovalDecision round rules', () => {
+    it('rejects an ordinary decision on a board-decided round', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['ordinary_approver'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      vi.spyOn(auth, 'isAdmin').mockReturnValue(false);
+      mockSingle.mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open', round_type: 'appeal' }, error: null });
+
+      await expect(handleApprovalDecision(formData({
+        caseId: 'c1', roundId: 'r1', decision: 'approve', comment: 'ok',
+      }))).rejects.toThrow(/board ballot/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('rejects a second decision by the same approver on the same round', async () => {
+      vi.spyOn(auth, 'getCurrentUser').mockResolvedValue(stub({ id: 'u1', roles: ['ordinary_approver'] }));
+      vi.spyOn(auth, 'hasAnyRole').mockReturnValue(true);
+      vi.spyOn(auth, 'isAdmin').mockReturnValue(false);
+      mockSingle.mockResolvedValueOnce({ data: { review_cycle_id: 'cy1', status: 'open', round_type: 'ordinary' }, error: null });
+      mockRows.mockResolvedValueOnce(stub({ data: [{ id: 'd1' }], error: null }));
+
+      await expect(handleApprovalDecision(formData({
+        caseId: 'c1', roundId: 'r1', decision: 'approve', comment: 'ok',
+      }))).rejects.toThrow(/already recorded a decision/);
+
+      expect(mockInsert).not.toHaveBeenCalled();
     });
   });
 });

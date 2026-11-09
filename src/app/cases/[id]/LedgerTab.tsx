@@ -1,4 +1,5 @@
 "use client";
+import { formatDateTimeIST } from '@/lib/format';
 import { useState, useTransition } from 'react';
 import {
   CheckCircle, Clock, AlertCircle, Plus, Pencil, Trash2,
@@ -27,6 +28,7 @@ import {
 } from './billing-actions';
 import { cn } from '@/lib/utils';
 import { ValueProgression } from '@/components/creditflow/TermsLadder';
+import { ConfirmDialog } from '@/components/creditflow/ConfirmDialog';
 import { GLOSSARY } from '@/lib/vocabulary';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -69,8 +71,11 @@ interface LedgerData {
     actualAmount: number;
     isLocked: boolean;
     billFileUrl?: string | null;
+    lastAccountsReminderAt?: string | null;
   };
   tranches: Tranche[];
+  /** True when no decided amount / schedule exists and a single estimated tranche is shown. */
+  tranchesEstimated?: boolean;
   prefillAmount: number;
   repayments: Repayment[];
   creditNotes: CreditNote[];
@@ -89,7 +94,12 @@ const fmt = (n: number | null | undefined) =>
   n != null ? `₹${n.toLocaleString('en-IN')}` : '—';
 
 const fmtDate = (d: string | Date | null | undefined) =>
-  d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '—';
+
+const fmtTime = (d: string | Date) =>
+  new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+
+const REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 const TRANCHE_COLORS: Record<string, string> = {
   Paid:     'bg-success',
@@ -117,7 +127,12 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
   const isKam     = activeRole === 'kam' || isAdmin;
   const isRm      = activeRole === 'rm' || isAdmin;
 
-  const { billing, tranches, prefillAmount, repayments, creditNotes, status } = ledger;
+  // Capabilities mirror the server actions in billing-actions.ts.
+  const canLogPayment = activeRole === 'accounts' || isKam;   // handleLogPayment: kam, accounts, founder_admin
+  const canAttachBill = activeRole === 'accounts' || isKam;   // saveBillUrl: accounts, kam, founder_admin
+  const canEditPayment = isKam;                               // handleEditPayment / handleDeletePayment: kam, founder_admin
+
+  const { billing, tranches, tranchesEstimated, prefillAmount, repayments, creditNotes, status } = ledger;
 
   const billingActive         = status === 'Billing Active';
   const pendingWriteOff       = status === 'Pending Write-Off Approval';
@@ -150,6 +165,13 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
 
   // ── Bill Document State ─────────────────────────────────────────
   const [newBillUrl, setNewBillUrl]           = useState('');
+  const [remindResult, setRemindResult]       = useState<{ recipients: number; sentAt: string } | null>(null);
+
+  // ── Approval Dialog State (consequence preview before confirming) ──
+  const [writeOffDecision, setWriteOffDecision]     = useState<'approve' | 'reject' | null>(null);
+  const [creditNoteDecision, setCreditNoteDecision] = useState<{
+    id: string; decision: 'approved' | 'rejected'; amount: number;
+  } | null>(null);
 
   // ── Cancel State ────────────────────────────────────────────────
   const [showCancel, setShowCancel]           = useState(false);
@@ -180,6 +202,17 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
   const collectPct = billing.promisedAmount && billing.promisedAmount > 0
     ? Math.min(100, (billing.actualAmount / billing.promisedAmount) * 100)
     : null;
+
+  // ── Accounts reminder (one per case per 24h) ───────────────────
+  const lastRemindAt = remindResult?.sentAt ?? billing.lastAccountsReminderAt ?? null;
+  // Snapshot the clock once per mount (lazy state init keeps it out of the render path).
+  const [mountedAt] = useState(() => Date.now());
+  const remindedRecently = lastRemindAt != null
+    && mountedAt - new Date(lastRemindAt).getTime() < REMINDER_COOLDOWN_MS;
+
+  // ── Approval consequence previews ──────────────────────────────
+  const shortfall = (billing.promisedAmount ?? 0) - billing.actualAmount;
+  const cnPromisedAfter = Math.max(0, (billing.promisedAmount ?? 0) - (creditNoteDecision?.amount ?? 0));
 
   return (
     <div className="space-y-5">
@@ -333,21 +366,15 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                   Shortfall: {fmt((billing.promisedAmount ?? 0) - billing.actualAmount)}
                 </p>
                 <div className="flex gap-2">
-                  <form action={handleWriteOffApproval}>
-                    <input type="hidden" name="caseId" value={caseId} />
-                    <input type="hidden" name="decision" value="approve" />
-                    <Button type="submit" size="sm" className="bg-success hover:bg-success/90">
-                      Approve Write-Off
-                    </Button>
-                  </form>
-                  <form action={handleWriteOffApproval}>
-                    <input type="hidden" name="caseId" value={caseId} />
-                    <input type="hidden" name="decision" value="reject" />
-                    <Button type="submit" size="sm" variant="outline"
-                      className="border-destructive text-destructive hover:bg-destructive/10">
-                      Reject — Return to KAM
-                    </Button>
-                  </form>
+                  <Button type="button" size="sm" className="bg-success hover:bg-success/90"
+                    disabled={isPending} onClick={() => setWriteOffDecision('approve')}>
+                    Approve Write-Off
+                  </Button>
+                  <Button type="button" size="sm" variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive/10"
+                    disabled={isPending} onClick={() => setWriteOffDecision('reject')}>
+                    Reject — Return to KAM
+                  </Button>
                 </div>
               </div>
             </>
@@ -365,24 +392,40 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                   </a>
                 ) : (
                   <div className="bg-muted/30 border rounded p-3">
-                    <p className="text-sm mb-2 text-muted-foreground">No bill uploaded yet.</p>
-                    {isKam ? (
+                    <p className="text-sm mb-2 text-muted-foreground">
+                      {canAttachBill ? 'No bill uploaded yet. Attach the invoice link to complete the handoff.' : 'No bill uploaded yet.'}
+                    </p>
+                    {canAttachBill ? (
                       <form action={async (fd) => {
                         fd.set('caseId', caseId);
                         fd.set('billFileUrl', newBillUrl);
                         wrap(() => saveBillUrl(fd));
                       }} className="flex items-center gap-2">
                         <Input placeholder="Enter Bill File URL..." value={newBillUrl} onChange={e => setNewBillUrl(e.target.value)} className="h-8 text-sm max-w-xs" required />
-                        <Button type="submit" size="sm" disabled={isPending}>{isPending ? 'Saving...' : 'Save Bill Link'}</Button>
+                        <Button type="submit" size="sm" disabled={isPending}>{isPending ? 'Saving...' : 'Attach invoice'}</Button>
                       </form>
                     ) : isRm ? (
-                      <form action={async (fd) => {
-                        fd.set('caseId', caseId);
-                        wrap(() => remindAccounts(fd));
-                        alert('Reminder sent to Accounts team.');
-                      }}>
-                        <Button type="submit" size="sm" variant="outline" disabled={isPending}>Remind Accounts</Button>
-                      </form>
+                      <div className="space-y-1.5">
+                        <form action={async (fd) => {
+                          fd.set('caseId', caseId);
+                          wrap(async () => {
+                            const result = await remindAccounts(fd);
+                            setRemindResult(result);
+                          });
+                        }}>
+                          <Button type="submit" size="sm" variant="outline"
+                            disabled={isPending || remindedRecently}>
+                            {remindedRecently ? 'Accounts reminded' : 'Remind Accounts'}
+                          </Button>
+                        </form>
+                        {remindedRecently && lastRemindAt && (
+                          <p className="text-xs text-success-strong">
+                            Reminder sent to Accounts
+                            {remindResult ? ` (${remindResult.recipients} ${remindResult.recipients === 1 ? 'person' : 'people'})` : ''}
+                            {' · '}{fmtTime(lastRemindAt)}
+                          </p>
+                        )}
+                      </div>
                     ) : null}
                   </div>
                 )}
@@ -398,7 +441,12 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Tranche Waterfall</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            {tranchesEstimated && (
+              <p className="text-xs text-warning-strong bg-warning/10 border border-warning/25 rounded px-2 py-1.5">
+                Estimated: decided amount or tranche schedule not set yet. Showing the full amount due after credit terms.
+              </p>
+            )}
             <div className="space-y-3">
               {tranches.map((t) => {
                 const fillPct = t.expectedAmount > 0
@@ -438,7 +486,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Payment Log</CardTitle>
-            {isKam && (billingActive || pendingWriteOff) && (
+            {canLogPayment && (billingActive || pendingWriteOff) && (
               <Button size="sm" onClick={() => setShowAddPayment(v => !v)}>
                 <Plus size={14} className="mr-1.5" />
                 Log Payment
@@ -448,7 +496,7 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Add Payment Form */}
-          {showAddPayment && isKam && (
+          {showAddPayment && canLogPayment && (
             <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-3">
               <p className="text-sm font-semibold">New Payment Entry</p>
               <form
@@ -565,10 +613,10 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                         )}
                         <p className="text-xs text-muted-foreground ml-5 mt-0.5">
                           Logged by {p.logged_by_profile?.full_name ?? 'Unknown'} ·{' '}
-                          {new Date(p.created_at).toLocaleString('en-IN')}
+                          {formatDateTimeIST(p.created_at)}
                         </p>
                       </div>
-                      {isKam && !isClosed && (
+                      {canEditPayment && !isClosed && (
                         <div className="flex items-center gap-1 shrink-0">
                           <Button variant="ghost" size="sm" onClick={() => startEditPayment(p)}>
                             <Pencil size={13} />
@@ -694,23 +742,17 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
                   {/* Approval actions for admin */}
                   {isAdmin && cn.status === 'pending' && (
                     <div className="flex gap-1 shrink-0">
-                      <form action={handleCreditNoteApproval}>
-                        <input type="hidden" name="creditNoteId" value={cn.id} />
-                        <input type="hidden" name="caseId" value={caseId} />
-                        <input type="hidden" name="decision" value="approved" />
-                        <Button type="submit" size="sm" className="bg-success hover:bg-success/90">
-                          Approve
-                        </Button>
-                      </form>
-                      <form action={handleCreditNoteApproval}>
-                        <input type="hidden" name="creditNoteId" value={cn.id} />
-                        <input type="hidden" name="caseId" value={caseId} />
-                        <input type="hidden" name="decision" value="rejected" />
-                        <Button type="submit" size="sm" variant="outline"
-                          className="border-destructive text-destructive hover:bg-destructive/10">
-                          Reject
-                        </Button>
-                      </form>
+                      <Button type="button" size="sm" className="bg-success hover:bg-success/90"
+                        disabled={isPending}
+                        onClick={() => setCreditNoteDecision({ id: cn.id, decision: 'approved', amount: cn.reduction_amount })}>
+                        Approve
+                      </Button>
+                      <Button type="button" size="sm" variant="outline"
+                        className="border-destructive text-destructive hover:bg-destructive/10"
+                        disabled={isPending}
+                        onClick={() => setCreditNoteDecision({ id: cn.id, decision: 'rejected', amount: cn.reduction_amount })}>
+                        Reject
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -763,6 +805,54 @@ export default function LedgerTab({ caseId, activeRole, ledger }: LedgerTabProps
           </div>
         </CardContent>
       </Card>
+
+      {/* ── APPROVAL CONFIRMATIONS (consequence preview) ───────── */}
+      <ConfirmDialog
+        open={writeOffDecision !== null}
+        onOpenChange={(o) => { if (!o) setWriteOffDecision(null); }}
+        title={writeOffDecision === 'approve' ? 'Approve write-off?' : 'Return write-off to KAM?'}
+        description={writeOffDecision === 'approve'
+          ? 'The case will be closed with the remaining shortfall written off.'
+          : 'The case goes back to Billing Active for the KAM to keep collecting.'}
+        consequences={writeOffDecision === 'approve'
+          ? [
+              `Case closes with a shortfall of ${fmt(shortfall)} written off.`,
+              'The case leaves the Collections queue.',
+              'The approval is recorded in the audit log under your name.',
+            ]
+          : [
+              'The shortfall stays open on the ledger.',
+              'The case stays in the Collections queue for the KAM.',
+            ]}
+        tone={writeOffDecision === 'approve' ? 'destructive' : 'default'}
+        confirmLabel={writeOffDecision === 'approve' ? 'Approve write-off' : 'Return to KAM'}
+        reasonLabel=""
+        hiddenFields={{ caseId, decision: writeOffDecision ?? 'reject' }}
+        action={(fd) => wrap(() => handleWriteOffApproval(fd))}
+      />
+      <ConfirmDialog
+        open={creditNoteDecision !== null}
+        onOpenChange={(o) => { if (!o) setCreditNoteDecision(null); }}
+        title={creditNoteDecision?.decision === 'approved' ? 'Approve credit note?' : 'Reject credit note?'}
+        description={creditNoteDecision?.decision === 'approved'
+          ? 'Approving applies the reduction to the Promised Amount.'
+          : 'The credit note is closed and the Promised Amount is not changed.'}
+        consequences={creditNoteDecision?.decision === 'approved'
+          ? [
+              `Promised Amount falls by ${fmt(creditNoteDecision.amount)}, from ${fmt(billing.promisedAmount)} to ${fmt(cnPromisedAfter)}.`,
+              'Collection progress and the shortfall are recalculated.',
+            ]
+          : ['No change to the Promised Amount or the collection progress.']}
+        tone={creditNoteDecision?.decision === 'approved' ? 'destructive' : 'default'}
+        confirmLabel={creditNoteDecision?.decision === 'approved' ? 'Approve credit note' : 'Reject credit note'}
+        reasonLabel=""
+        hiddenFields={{
+          creditNoteId: creditNoteDecision?.id ?? '',
+          caseId,
+          decision: creditNoteDecision?.decision ?? 'rejected',
+        }}
+        action={(fd) => wrap(() => handleCreditNoteApproval(fd))}
+      />
 
       {/* ── CANCEL BILLING ─────────────────────────────────────── */}
       {isKam && billingActive && repayments.length === 0 && (

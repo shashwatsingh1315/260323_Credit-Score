@@ -244,6 +244,32 @@ describe('scoring.ts', () => {
       expect(res.isAmbiguous).toBe(true);
       expect(res.reasons[0]).toMatch(/1 critical parameter\(s\) are incomplete/);
     });
+
+    it('does not count waived critical tasks as missing', async () => {
+      mockIs.mockResolvedValueOnce({
+        data: [
+          { status: 'Waived', is_waived: false, parameter: { is_critical: true } },
+          { status: 'Pending', is_waived: true, parameter: { is_critical: true } },
+        ]
+      });
+
+      const res = await checkAmbiguity({ reviewCycleId: '1', policyVersionId: 'pol1', score: 50, precomputedBand: null });
+      expect(res.isAmbiguous).toBe(false);
+      expect(res.reasons).toHaveLength(0);
+    });
+
+    it('still counts unwaived critical tasks whose is_waived flag is null', async () => {
+      mockIs.mockResolvedValueOnce({
+        data: [
+          { status: 'Waived', is_waived: false, parameter: { is_critical: true } },
+          { status: 'Pending', is_waived: null, parameter: { is_critical: true } },
+        ]
+      });
+
+      const res = await checkAmbiguity({ reviewCycleId: '1', policyVersionId: 'pol1', score: 50, precomputedBand: null });
+      expect(res.isAmbiguous).toBe(true);
+      expect(res.reasons[0]).toMatch(/1 critical parameter\(s\) are incomplete/);
+    });
   });
 
   describe('updateCycleScore', () => {

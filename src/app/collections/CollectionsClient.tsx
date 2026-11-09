@@ -1,4 +1,5 @@
 "use client";
+import { formatDateTimeIST } from '@/lib/format';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,11 +16,20 @@ import {
 import { handleEscalateCase, bulkAssignRMs, addHqCollectionLog, setBoardStatus } from './actions';
 import { handleLogPayment } from '@/app/cases/[id]/billing-actions';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { LoadFailed } from '@/components/creditflow/LoadFailed';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 interface Party { legal_name: string }
+
+interface HqLog {
+  id: string;
+  case_id: string;
+  message: string;
+  created_at: string;
+  logged_by_user?: { full_name: string } | null;
+}
 
 interface Case {
   id: string;
@@ -39,6 +49,8 @@ interface Case {
   rm?: { full_name: string }[] | { full_name: string } | null;
   case_attributes?: any;
   escalations?: { id: string; status: string; ptp_date: string | null; level: number; tranche_index: number }[];
+  /** True when the tranche schedule is a single estimate (no decided amount or schedule yet). */
+  _estimatedSchedule?: boolean;
 }
 
 interface RelatedCase {
@@ -104,13 +116,16 @@ function displayCaseNumber(c: { case_number?: string }): string | null {
   return n;
 }
 
-function computeOverdueTranches(c: { billing_date?: string | null; proposed_tranches?: any; decided_bill_amount?: number | null; actual_bill_amount?: number | null }) {
+type UnpaidTranche = { trancheIndex: number; expectedAmount: number; paidAmount: number; dueDate: Date; daysOverdue: number; outstanding: number };
+
+// Every tranche with money still owed, in schedule order (the waterfall fills them in this order).
+function computeUnpaidTranches(c: { billing_date?: string | null; proposed_tranches?: any; decided_bill_amount?: number | null; actual_bill_amount?: number | null }): UnpaidTranche[] {
   if (!c.billing_date || !c.proposed_tranches || !c.decided_bill_amount) return [];
   const billingDate = new Date(c.billing_date);
   const billAmt = c.decided_bill_amount;
   let remaining = c.actual_bill_amount ?? 0;
   const now = new Date();
-  const result: { trancheIndex: number; expectedAmount: number; paidAmount: number; dueDate: Date; daysOverdue: number; outstanding: number }[] = [];
+  const result: UnpaidTranche[] = [];
   for (let i = 0; i < c.proposed_tranches.length; i++) {
     const t = c.proposed_tranches[i];
     const amt = t.type === 'percentage' ? Math.round((t.value / 100) * billAmt) : Math.round(t.value);
@@ -121,16 +136,51 @@ function computeOverdueTranches(c: { billing_date?: string | null; proposed_tran
       const due = new Date(billingDate);
       due.setDate(due.getDate() + (t.days_after_billing ?? 0));
       const daysOverdue = Math.floor((now.getTime() - due.getTime()) / 86400000);
-      if (daysOverdue > 0) {
-        result.push({ trancheIndex: i, expectedAmount: amt, paidAmount: fill, dueDate: due, daysOverdue, outstanding: unpaid });
-      }
+      result.push({ trancheIndex: i, expectedAmount: amt, paidAmount: fill, dueDate: due, daysOverdue, outstanding: unpaid });
     }
   }
   return result;
 }
 
+function computeOverdueTranches(c: { billing_date?: string | null; proposed_tranches?: any; decided_bill_amount?: number | null; actual_bill_amount?: number | null }) {
+  return computeUnpaidTranches(c).filter(t => t.daysOverdue > 0);
+}
+
 function getOutstanding(c: { decided_bill_amount?: number | null; bill_amount?: number; actual_bill_amount?: number | null }): number {
   return Math.max(0, (c.decided_bill_amount || c.bill_amount || 0) - (c.actual_bill_amount ?? 0));
+}
+
+// Read-only preview of how a payment is applied. The server waterfall fills unpaid
+// tranches oldest-first, so this shows the same outcome before the user saves.
+function allocationPreview(amount: number, tranches: { trancheIndex: number; outstanding: number }[]) {
+  const steps: string[] = [];
+  let remaining = amount;
+  for (const t of tranches) {
+    if (remaining <= 0) break;
+    const pay = Math.min(remaining, t.outstanding);
+    if (pay <= 0) continue;
+    remaining -= pay;
+    steps.push(pay >= t.outstanding
+      ? `clears T${t.trancheIndex + 1} (${formatINR(t.outstanding)})`
+      : `pays ${formatINR(pay)} of T${t.trancheIndex + 1} (${formatINR(t.outstanding)} due)`);
+  }
+  const totalOutstanding = tranches.reduce((sum, t) => sum + t.outstanding, 0);
+  return {
+    steps,
+    excess: Math.max(0, remaining),
+    stillOutstanding: Math.max(0, totalOutstanding - (amount - Math.max(0, remaining))),
+  };
+}
+
+function AllocationNote({ allocation }: { allocation: ReturnType<typeof allocationPreview> }) {
+  return (
+    <p className="text-[11px] rounded bg-muted/50 border px-2 py-1.5 text-muted-foreground">
+      <span className="font-semibold text-foreground">Applies to: </span>
+      {allocation.steps.length > 0 ? allocation.steps.join(', then ') : 'no unpaid tranche'}
+      {allocation.stillOutstanding > 0 && <span> · {formatINR(allocation.stillOutstanding)} still outstanding</span>}
+      {allocation.excess > 0 && <span className="text-warning-strong"> · {formatINR(allocation.excess)} is more than what is owed</span>}
+    </p>
+  );
 }
 
 function getBucket(days: number): BucketKey {
@@ -167,7 +217,7 @@ function parseLog(message: string): { type: 'call' | 'visit' | 'note'; text: str
 }
 
 const shortDate = (d: string | Date) =>
-  new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' });
 
 interface Derived {
   worstDpd: number;
@@ -199,8 +249,120 @@ interface UpcomingCase extends Case {
   _trancheIndex: number;
 }
 
+function UpcomingCaseRow({ c, canLogPayment }: { c: UpcomingCase; canLogPayment: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(istToday());
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const customer = getCustomerName(c);
+  const due = new Date(c._dueDate);
+  const allocation = amount ? allocationPreview(Number(amount) || 0, computeUnpaidTranches(c)) : null;
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+    const fd = new FormData();
+    fd.set('caseId', c.id);
+    fd.set('amount', amount);
+    fd.set('paymentDate', date);
+    fd.set('description', note || 'Logged from Collections (upcoming)');
+    try {
+      await handleLogPayment(fd);
+      setSuccess(`Payment of ${formatINR(parseInt(amount, 10) || 0)} recorded.`);
+      setAmount('');
+      setNote('');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card className="hover:border-primary/50 transition-colors">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-4">
+          <Link href={`/cases/${c.id}`} className="flex-1 min-w-0 flex items-center gap-4 group">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm">{displayCaseNumber(c) || c.case_number}</span>
+                <span className="text-xs text-muted-foreground truncate">{customer}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Tranche {c._trancheIndex + 1} of {(c.proposed_tranches || []).length} · RM {getRmName(c)}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-sm font-bold tabular-nums">{formatINR(c._amountDue)}</p>
+              <p className={`text-xs font-medium ${c._daysUntil <= 1 ? 'text-warning' : 'text-muted-foreground'}`}>
+                {c._daysUntil === 0 ? 'Due today' : c._daysUntil === 1 ? 'Due tomorrow' : `Due in ${c._daysUntil}d`} · {due.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}
+              </p>
+            </div>
+            <ChevronRight size={15} className="text-muted-foreground shrink-0 group-hover:text-foreground" />
+          </Link>
+          {canLogPayment && (
+            <Button
+              size="sm"
+              variant={open ? 'secondary' : 'outline'}
+              className="shrink-0"
+              aria-expanded={open}
+              onClick={() => setOpen(v => !v)}
+            >
+              Record payment
+            </Button>
+          )}
+        </div>
+        {canLogPayment && open && (
+          <div className="rounded-md border bg-background p-3 space-y-2">
+            <p className="text-xs font-semibold">Record an early payment</p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                placeholder="Amount ₹"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                className="flex-1 border rounded px-2 py-1.5 text-sm bg-background"
+              />
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="border rounded px-2 py-1.5 text-sm bg-background"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Reference / note (optional)"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+            />
+            {allocation && <AllocationNote allocation={allocation} />}
+            {error && <p className="text-xs text-destructive">{error}</p>}
+            {success && <p className="text-xs text-success-strong font-medium">✓ {success}</p>}
+            <Button
+              size="sm"
+              className="bg-success-strong hover:bg-success-strong/90"
+              onClick={submit}
+              disabled={!amount || submitting}
+            >
+              {submitting ? 'Saving…' : 'Save payment'}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CollectionsClient({
   collections, upcomingCases = [], escalations, rms = [], hqLogs = [], relatedCases = [], repayments7d = [], currentRole = 'viewer',
+  loadError = false, repaymentsError = false, escalationsError = false, hqLogsError = false, rmsError = false, relatedCasesError = false,
 }: {
   collections: Case[];
   upcomingCases?: UpcomingCase[];
@@ -210,6 +372,18 @@ export default function CollectionsClient({
   relatedCases?: RelatedCase[];
   repayments7d?: Repayment[];
   currentRole?: string;
+  /** The cases query failed: the queue is unknown, so no counts or 'All clear' may show. */
+  loadError?: boolean;
+  /** The 7-day repayments query failed: 'Recovered 7d' is unknown. */
+  repaymentsError?: boolean;
+  /** The escalation thresholds query failed: escalation targets are unknown, not defaulted. */
+  escalationsError?: boolean;
+  /** The HQ contact-log query failed: logs are unknown, not empty. */
+  hqLogsError?: boolean;
+  /** The profiles (RM) query failed: the RM list is unknown. */
+  rmsError?: boolean;
+  /** The related-cases query failed: the contractor roll-up is unknown. */
+  relatedCasesError?: boolean;
 }) {
   const canLogPayment = ['kam', 'accounts', 'founder_admin'].includes(currentRole);
   const canEscalate = ['rm', 'kam', 'founder_admin'].includes(currentRole);
@@ -491,6 +665,18 @@ export default function CollectionsClient({
     </div>
   );
 
+  // ── Load failed: the queue is unknown, so no count, total or "All clear" may show ──
+  if (loadError) {
+    return (
+      <div className="space-y-5 pb-24">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Collections</h1>
+        </div>
+        <LoadFailed what="the collections queue" />
+      </div>
+    );
+  }
+
   // ── Upcoming mode: proactive queue for payments due soon ────────────────
   if (horizon !== 'overdue') {
     const horizonDays = parseInt(horizon, 10);
@@ -510,34 +696,9 @@ export default function CollectionsClient({
           </CardContent></Card>
         ) : (
           <div className="space-y-2">
-            {items.map(c => {
-              const customer = getCustomerName(c);
-              const due = new Date(c._dueDate);
-              return (
-                <Link key={c.id} href={`/cases/${c.id}`} className="block group">
-                  <Card className="hover:border-primary/50 transition-colors">
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-sm">{displayCaseNumber(c) || c.case_number}</span>
-                          <span className="text-xs text-muted-foreground truncate">{customer}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Tranche {c._trancheIndex + 1} of {(c.proposed_tranches || []).length} · RM {getRmName(c)}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold tabular-nums">{formatINR(c._amountDue)}</p>
-                        <p className={`text-xs font-medium ${c._daysUntil <= 1 ? 'text-warning' : 'text-muted-foreground'}`}>
-                          {c._daysUntil === 0 ? 'Due today' : c._daysUntil === 1 ? 'Due tomorrow' : `Due in ${c._daysUntil}d`} · {due.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}
-                        </p>
-                      </div>
-                      <ChevronRight size={15} className="text-muted-foreground shrink-0 group-hover:text-foreground" />
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
+            {items.map(c => (
+              <UpcomingCaseRow key={c.id} c={c} canLogPayment={canLogPayment} />
+            ))}
           </div>
         )}
       </div>
@@ -558,8 +719,11 @@ export default function CollectionsClient({
       canHqChat={canHqChat}
       canLogPayment={canLogPayment}
       escalationThresholds={escalations}
+      escalationsError={escalationsError}
       hqLogs={hqLogs.filter(l => l.case_id === c.id)}
+      hqLogsError={hqLogsError}
       relatedCases={relatedCases}
+      relatedCasesError={relatedCasesError}
       onOpenChat={() => setChatOpenForCase(c.id)}
     />
   );
@@ -664,8 +828,8 @@ export default function CollectionsClient({
         <StatTile
           icon={<TrendingUp size={14} />}
           label="Recovered 7d"
-          value={formatCompactINR(stats.recovered7d)}
-          sublabel={`${stats.recoveredCount7d} payment${stats.recoveredCount7d !== 1 ? 's' : ''}`}
+          value={repaymentsError ? 'Unavailable' : formatCompactINR(stats.recovered7d)}
+          sublabel={repaymentsError ? 'could not be loaded' : `${stats.recoveredCount7d} payment${stats.recoveredCount7d !== 1 ? 's' : ''}`}
           tone="success"
           active={false}
         />
@@ -840,11 +1004,15 @@ export default function CollectionsClient({
             className="flex items-center gap-2"
           >
             <input type="hidden" name="caseIds" value={JSON.stringify(Array.from(selectedCaseIds))} />
+            {rmsError ? (
+              <LoadFailed variant="inline" what="the RM list" />
+            ) : (
             <select name="rmId" value={selectedRm} onChange={e => setSelectedRm(e.target.value)} className="text-sm border rounded px-2 py-1 h-8 bg-background" required>
               <option value="">Assign to RM…</option>
               {rms.map(rm => <option key={rm.id} value={rm.id}>{rm.full_name}</option>)}
             </select>
-            <SubmitButton type="submit" size="sm" disabled={!selectedRm}>
+            )}
+            <SubmitButton type="submit" size="sm" disabled={!selectedRm || rmsError}>
               <Users size={13} className="mr-1.5" /> Assign
             </SubmitButton>
           </form>
@@ -865,6 +1033,7 @@ export default function CollectionsClient({
           c={chatCase}
           dv={d(chatCase)}
           logs={hqLogs.filter(l => l.case_id === chatCase.id)}
+          logsError={hqLogsError}
           canWrite={canHqChat}
           onClose={() => setChatOpenForCase(null)}
         />
@@ -1053,7 +1222,7 @@ function BoardView({ cases, d, boardColOf, moveCard, canHqChat, onOpenChat, paid
 // ─────────────────────────────────────────────────────────────────────────────
 // Case row (list view)
 // ─────────────────────────────────────────────────────────────────────────────
-function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, showSelect, canEscalate, canHqChat, canLogPayment, escalationThresholds, hqLogs, relatedCases, onOpenChat }: {
+function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, showSelect, canEscalate, canHqChat, canLogPayment, escalationThresholds, escalationsError, hqLogs, hqLogsError, relatedCases, relatedCasesError, onOpenChat }: {
   c: Case;
   dv: Derived;
   expanded: boolean;
@@ -1065,8 +1234,11 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   canHqChat: boolean;
   canLogPayment: boolean;
   escalationThresholds: any[];
+  escalationsError: boolean;
   hqLogs: any[];
+  hqLogsError: boolean;
   relatedCases: RelatedCase[];
+  relatedCasesError: boolean;
   onOpenChat: () => void;
 }) {
   // Payment form state is local to the row — no cross-row resets.
@@ -1077,11 +1249,12 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   const [paymentError, setPaymentError] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState('');
   const [confirmEscalate, setConfirmEscalate] = useState(false);
-  const [payTrancheIdx, setPayTrancheIdx] = useState<number | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
 
-  // Payment allocation: oldest overdue tranche by default, user can choose.
-  const payTranche = dv.overdueTranches.find(t => t.trancheIndex === payTrancheIdx) || dv.overdueTranches[0];
+  // Oldest overdue tranche: the waterfall pays it first, so Settle targets it.
+  const payTranche = dv.overdueTranches[0];
+  // Read-only preview of how this amount will be applied (server allocates oldest-first).
+  const allocation = paymentAmount ? allocationPreview(Number(paymentAmount) || 0, computeUnpaidTranches(c)) : null;
 
   const isEscalated = (c.escalation_level ?? 0) > 0;
   const nextLevel = (c.escalation_level ?? 0) + 1;
@@ -1105,17 +1278,12 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
   const submitPayment = async () => {
     setPaymentSubmitting(true);
     setPaymentError('');
-    if (!payTranche) {
-      setPaymentError('No overdue tranches found for this case.');
-      setPaymentSubmitting(false);
-      return;
-    }
+    setPaymentSuccess('');
     const fd = new FormData();
     fd.set('caseId', c.id);
     fd.set('amount', paymentAmount);
     fd.set('paymentDate', paymentDate);
     fd.set('description', paymentNote || 'Logged from Collections dashboard');
-    fd.set('trancheIndex', payTranche.trancheIndex.toString());
     try {
       await handleLogPayment(fd);
       setPaymentSuccess(`Payment of ${formatINR(parseInt(paymentAmount, 10) || 0)} recorded.`);
@@ -1241,6 +1409,12 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                   <p className="text-[11px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
                     Overdue tranches
                   </p>
+                  {c._estimatedSchedule && (
+                    <p className="text-xs text-warning-strong bg-warning/10 border border-warning/25 rounded px-2 py-1.5 mb-2">
+                      Decided amount or tranche schedule missing — DPD estimated from credit terms.{' '}
+                      <Link href={`/cases/${c.id}`} className="underline font-medium">Fix in Ledger</Link>
+                    </p>
+                  )}
                   <div className="rounded-md border bg-background overflow-hidden">
                     <table className="w-full text-xs">
                       <thead className="bg-muted/40">
@@ -1257,7 +1431,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                         {dv.overdueTranches.map(t => (
                           <tr key={t.trancheIndex} className="border-t">
                             <td className="px-3 py-2 font-mono">T{t.trancheIndex + 1}</td>
-                            <td className="px-3 py-2">{t.dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</td>
+                            <td className="px-3 py-2">{t.dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'Asia/Kolkata' })}</td>
                             <td className="px-3 py-2 text-right tabular-nums">{formatINR(t.expectedAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatINR(t.paidAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums font-semibold">{formatINR(t.outstanding)}</td>
@@ -1273,7 +1447,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                   </div>
                   {c.billing_date && (
                     <p className="text-[11px] text-muted-foreground mt-2">
-                      Billing date: {new Date(c.billing_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      Billing date: {new Date(c.billing_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}
                       {' · '}Credit terms: {c.composite_credit_days || 0} days
                     </p>
                   )}
@@ -1281,7 +1455,12 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
               )}
 
               {/* Contractor exposure roll-up */}
-              {related.length > 0 && (
+              {relatedCasesError && (
+                <div className="rounded-md border bg-background p-3">
+                  <LoadFailed variant="inline" what="other billed cases for this party" />
+                </div>
+              )}
+              {!relatedCasesError && related.length > 0 && (
                 <div className="rounded-md border bg-background p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <Building2 size={14} className="text-muted-foreground" />
@@ -1329,24 +1508,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     <div className="flex items-center gap-2">
                       <IndianRupee size={14} className="text-success-strong" />
                       <p className="text-xs font-semibold">Record payment</p>
-                      {dv.overdueTranches.length > 1 ? (
-                        <select
-                          value={payTranche?.trancheIndex ?? 0}
-                          onChange={e => setPayTrancheIdx(parseInt(e.target.value, 10))}
-                          className="text-[11px] border rounded px-1.5 py-0.5 bg-background ml-auto"
-                          aria-label="Apply payment to tranche"
-                        >
-                          {dv.overdueTranches.map(t => (
-                            <option key={t.trancheIndex} value={t.trancheIndex}>
-                              T{t.trancheIndex + 1} · due {shortDate(t.dueDate)} · {formatCompactINR(t.outstanding)}
-                            </option>
-                          ))}
-                        </select>
-                      ) : payTranche && (
-                        <span className="text-[11px] text-muted-foreground ml-auto">
-                          applies to T{payTranche.trancheIndex + 1}
-                        </span>
-                      )}
+                      <span className="text-[11px] text-muted-foreground ml-auto">oldest tranche first</span>
                     </div>
                     <div className="flex gap-2">
                       <input
@@ -1364,6 +1526,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                         className="border rounded px-2 py-1.5 text-sm bg-background"
                       />
                     </div>
+                    {allocation && <AllocationNote allocation={allocation} />}
                     <input
                       type="text"
                       placeholder="Reference / note (optional)"
@@ -1423,7 +1586,9 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                       Missed promise{dv.brokenPtp.amount ? ` of ${formatINR(dv.brokenPtp.amount)}` : ''} — was due {shortDate(dv.brokenPtp.date)}
                     </p>
                   )}
-                  {hqLogs.length === 0 ? (
+                  {hqLogsError ? (
+                    <LoadFailed variant="inline" what="the contact log" />
+                  ) : hqLogs.length === 0 ? (
                     <p className="text-xs text-muted-foreground italic">No interactions logged yet.</p>
                   ) : (
                     <div className="space-y-2">
@@ -1451,7 +1616,10 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     <ExternalLink size={13} className="mr-1.5" /> Open case
                   </Button>
                 </Link>
-                {canEscalate && !confirmEscalate && (
+                {canEscalate && escalationsError && (
+                  <LoadFailed variant="inline" what="escalation levels" />
+                )}
+                {canEscalate && !escalationsError && !confirmEscalate && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1462,7 +1630,7 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
                     {isEscalated ? `Escalate to L${Math.min(3, nextLevel)}` : 'Escalate'}
                   </Button>
                 )}
-                {canEscalate && confirmEscalate && (
+                {canEscalate && !escalationsError && confirmEscalate && (
                   <form action={handleEscalateCase} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="caseId" value={c.id} />
                     <input type="hidden" name="trancheIndex" value={worstTranche?.trancheIndex ?? 0} />
@@ -1502,10 +1670,11 @@ function CaseRow({ c, dv, expanded, onToggleExpand, selected, onToggleSelect, sh
 // ─────────────────────────────────────────────────────────────────────────────
 const LOG_TYPE_ICONS = { call: Phone, visit: MapPin, note: FileText } as const;
 
-function LogDrawer({ c, dv, logs, canWrite, onClose }: {
+function LogDrawer({ c, dv, logs, logsError, canWrite, onClose }: {
   c: Case;
   dv: Derived;
-  logs: any[];
+  logs: HqLog[];
+  logsError: boolean;
   canWrite: boolean;
   onClose: () => void;
 }) {
@@ -1548,8 +1717,8 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
       setPtpDate('');
       setPtpAmount('');
       setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }), 300);
-    } catch (e: any) {
-      setError(e?.message || 'Could not save the log.');
+    } catch (e: unknown) {
+      setError((e instanceof Error && e.message) || 'Could not save the log.');
     } finally {
       setSubmitting(false);
     }
@@ -1584,7 +1753,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
             <CalendarClock size={14} className="shrink-0" />
             <span>
               Promised{dv.activePtp.amount ? ` ${formatINR(dv.activePtp.amount)}` : ''} by{' '}
-              <span className="font-semibold">{new Date(dv.activePtp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+              <span className="font-semibold">{new Date(dv.activePtp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}</span>
               {dv.activePtp.date === istToday() && ' — follow up today'}
             </span>
           </div>
@@ -1594,7 +1763,7 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
             <AlertTriangle size={14} className="shrink-0" />
             <span>
               Missed promise{dv.brokenPtp.amount ? ` of ${formatINR(dv.brokenPtp.amount)}` : ''} — was due{' '}
-              <span className="font-semibold">{new Date(dv.brokenPtp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>.
+              <span className="font-semibold">{new Date(dv.brokenPtp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' })}</span>.
               Get a fresh commitment below.
             </span>
           </div>
@@ -1602,7 +1771,9 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
 
         {/* Timeline */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-          {logs.length === 0 ? (
+          {logsError ? (
+            <LoadFailed variant="inline" what="the contact log" />
+          ) : logs.length === 0 ? (
             <div className="text-center py-12">
               <MessageSquare size={32} className="mx-auto text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground">No interactions logged yet.</p>
@@ -1620,13 +1791,13 @@ function LogDrawer({ c, dv, logs, canWrite, onClose }: {
                       {log.logged_by_user?.full_name || 'System'}
                       <span className="font-normal text-muted-foreground capitalize">· {parsed.type}</span>
                     </span>
-                    <span>{new Date(log.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    <span>{formatDateTimeIST(log.created_at)}</span>
                   </div>
                   {parsed.text && <p className="text-sm leading-relaxed">{parsed.text}</p>}
                   {parsed.ptp && (
                     <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold rounded border bg-warning/10 border-warning/25 text-warning-strong px-2 py-0.5">
                       <CalendarClock size={11} />
-                      PTP {new Date(parsed.ptp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                      PTP {new Date(parsed.ptp.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' })}
                       {parsed.ptp.amount ? ` · ${formatINR(parsed.ptp.amount)}` : ''}
                     </p>
                   )}

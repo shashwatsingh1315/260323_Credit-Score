@@ -34,6 +34,10 @@ const AuditTab = dynamic(() => import('./AuditTab'));
 
 function StagesTabWrapper({ coreData, promises, activeRole }: any) {
   const { tasks, stageSummaries, users, rcaReasons, delayReasons, gradeScale } = use(promises.tasksPromise as Promise<any>);
+  const { approvalRounds } = use(promises.approvalsPromise as Promise<{ approvalRounds: { status: string; round_type: string }[] }>);
+  const hasOpenBoardRound = (approvalRounds || []).some(
+    (r) => r.status === 'open' && (r.round_type === 'appeal' || r.round_type === 'ambiguity_board'),
+  );
 
   const [optimisticTasks, addOptimisticTask] = useOptimistic(
     tasks,
@@ -55,6 +59,7 @@ function StagesTabWrapper({ coreData, promises, activeRole }: any) {
       optimisticTasks={optimisticTasks}
       addOptimisticTask={addOptimisticTask}
       stageScore={stageScore}
+      hasOpenBoardRound={hasOpenBoardRound}
     />
   );
 }
@@ -84,6 +89,8 @@ function DecisionCountBadge({ promise }: { promise: Promise<any> }) {
 }
 
 const TERMINAL = ['Closed', 'Expired', 'Withdrawn', 'Rejected'];
+// Must match DECISION_FROZEN_STATUSES in actions.ts.
+const DECISION_FROZEN_STATUSES = ['Awaiting Approval', 'Appealed'];
 
 export default function CaseWorkspace({ coreData, promises, initialActiveRole = 'viewer', receipt }: any) {
   const c = coreData.case;
@@ -100,6 +107,8 @@ export default function CaseWorkspace({ coreData, promises, initialActiveRole = 
   const liveScore = cycle?.current_case_score;
   const isBillingOrLater = ['Accepted', 'Billing Active', 'Pending Write-Off Approval', 'Closed'].includes(c.status);
   const isTerminal = TERMINAL.includes(c.status);
+  // Decision packet frozen while an approval round is open (server enforces the same rule).
+  const isDecisionFrozen = DECISION_FROZEN_STATUSES.includes(c.status);
   const isApprovalExpired = !!cycle?.validity_expires_at
     && new Date(cycle.validity_expires_at).getTime() < new Date(coreData.renderedAt).getTime()
     && ['Approved'].includes(c.status);
@@ -211,7 +220,7 @@ export default function CaseWorkspace({ coreData, promises, initialActiveRole = 
             {!isTerminal && (
               <>
                 <Button onClick={() => setShowUnlock(true)} variant="outline" size="sm">Unlock / reopen</Button>
-                {cycle && cycle.is_active && (
+                {cycle && cycle.is_active && !isDecisionFrozen && (
                   <Button onClick={() => setShowPersonaChange(true)} variant="outline" size="sm">Change personas</Button>
                 )}
                 <Button onClick={() => setShowWithdrawConfirm(true)} variant="outline" size="sm" className="border-destructive/40 text-destructive hover:bg-destructive/10">

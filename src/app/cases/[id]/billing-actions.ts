@@ -30,10 +30,11 @@ export async function fetchLedgerData(caseId: string) {
     { data: caseData },
     { data: repayments },
     { data: creditNotes },
+    { data: lastReminder },
   ] = await Promise.all([
     supabase
       .from('credit_cases')
-      .select('id, status, billing_date, bill_amount, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, bill_file_url')
+      .select('id, status, billing_date, bill_amount, decided_bill_amount, promised_bill_amount, actual_bill_amount, proposed_tranches, bill_file_url, composite_credit_days')
       .eq('id', caseId)
       .single(),
     supabase
@@ -46,6 +47,14 @@ export async function fetchLedgerData(caseId: string) {
       .select('*, logged_by_profile:profiles!credit_notes_logged_by_fkey(full_name), approved_by_profile:profiles!credit_notes_approved_by_fkey(full_name)')
       .eq('case_id', caseId)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('audit_events')
+      .select('created_at')
+      .eq('case_id', caseId)
+      .eq('event_type', 'accounts_reminded')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (!caseData) return null;
@@ -61,21 +70,43 @@ export async function fetchLedgerData(caseId: string) {
     status: 'Paid' | 'Partial' | 'Delayed' | 'Upcoming' | 'No Billing';
   }[] = [];
 
-  if (caseData.billing_date && caseData.proposed_tranches && caseData.decided_bill_amount) {
+  // Raw tranche schedule in rupees + due dates, before the waterfall runs.
+  let rawTranches: { expectedAmount: number; dueDate: Date }[] = [];
+  // True when there is no decided amount / tranche schedule and a single
+  // estimated tranche (promised or bill amount, due after credit terms) is used.
+  let tranchesEstimated = false;
+
+  if (
+    caseData.billing_date &&
+    Array.isArray(caseData.proposed_tranches) &&
+    caseData.proposed_tranches.length > 0 &&
+    caseData.decided_bill_amount
+  ) {
     const billingDate = new Date(caseData.billing_date);
     const billAmt = caseData.decided_bill_amount;
 
     // Map raw DB tranches to rupee amounts + due dates
-    const rawTranches: { expectedAmount: number; dueDate: Date }[] =
-      (caseData.proposed_tranches as any[]).map((t: any) => {
-        const amt = t.type === 'percentage'
-          ? Math.round((t.value / 100) * billAmt)
-          : Math.round(t.value);
-        const due = new Date(billingDate);
-        due.setDate(due.getDate() + (t.days_after_billing || 0));
-        return { expectedAmount: amt, dueDate: due };
-      });
+    rawTranches = (caseData.proposed_tranches as any[]).map((t: any) => {
+      const amt = t.type === 'percentage'
+        ? Math.round((t.value / 100) * billAmt)
+        : Math.round(t.value);
+      const due = new Date(billingDate);
+      due.setDate(due.getDate() + (t.days_after_billing || 0));
+      return { expectedAmount: amt, dueDate: due };
+    });
+  } else if (caseData.billing_date) {
+    // Fallback: no decided amount or schedule yet. A single tranche for the
+    // promised (or bill) amount, due after the composite credit terms.
+    const amt = Math.round(caseData.decided_bill_amount || caseData.promised_bill_amount || caseData.bill_amount || 0);
+    if (amt > 0) {
+      const due = new Date(caseData.billing_date);
+      due.setDate(due.getDate() + (caseData.composite_credit_days || 0));
+      rawTranches = [{ expectedAmount: amt, dueDate: due }];
+      tranchesEstimated = true;
+    }
+  }
 
+  if (rawTranches.length > 0) {
     // Waterfall: allocate repayments sequentially by DB creation order
     let remainingPaid = repayments?.reduce((s, r) => s + r.amount, 0) ?? 0;
     const now = new Date();
@@ -118,8 +149,10 @@ export async function fetchLedgerData(caseId: string) {
       actualAmount: caseData.actual_bill_amount,
       isLocked: (repayments?.length ?? 0) > 0,
       billFileUrl: caseData.bill_file_url,
+      lastAccountsReminderAt: (lastReminder?.created_at as string | undefined) ?? null,
     },
     tranches,
+    tranchesEstimated,
     prefillAmount,
     repayments: repayments ?? [],
     creditNotes: creditNotes ?? [],
@@ -818,25 +851,99 @@ export async function saveBillUrl(fd: FormData) {
   }
 
   const caseId = fd.get('caseId') as string;
-  const billFileUrl = fd.get('billFileUrl') as string;
+  const billFileUrl = ((fd.get('billFileUrl') as string) ?? '').trim();
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(billFileUrl);
+  } catch {
+    throw new Error('Bill document must be a valid http or https URL.');
+  }
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    throw new Error('Bill document must be a valid http or https URL.');
+  }
   const supabase = await createClient();
-  await supabase.from('credit_cases').update({ bill_file_url: billFileUrl }).eq('id', caseId);
+  const { error } = await supabase.from('credit_cases').update({ bill_file_url: billFileUrl }).eq('id', caseId);
+  if (error) throw new Error(error.message);
   revalidatePath(`/cases/${caseId}`);
 }
 
-export async function remindAccounts(fd: FormData) {
+const REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * RM / KAM asks Accounts to attach the bill document.
+ * Creates one notification per active Accounts user (deep-linked to the case),
+ * writes an audit event, and reports the real outcome to the caller.
+ * Throws on any failure so the UI shows an error instead of a false success.
+ */
+export async function remindAccounts(fd: FormData): Promise<{ recipients: number; sentAt: string }> {
   const caseId = fd.get('caseId') as string;
-  const supabase = await createClient();
   const user = await getCurrentUser();
-  if (!user) return;
-  if (!hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) return;
-  
-  await supabase.from('escalation_logs').insert({
+  if (!user) redirect('/login');
+  if (!hasAnyRole(user, ['rm', 'kam', 'founder_admin'])) {
+    throw new Error('Only RM, KAM, or Admin can remind Accounts.');
+  }
+
+  const supabase = await createClient();
+
+  const { data: caseRow, error: caseError } = await supabase
+    .from('credit_cases')
+    .select('case_number, bill_file_url')
+    .eq('id', caseId)
+    .maybeSingle();
+  if (caseError) throw new Error(`Could not load the case: ${caseError.message}`);
+  if (!caseRow) throw new Error('Case not found.');
+  if (caseRow.bill_file_url) throw new Error('The bill document is already attached.');
+
+  // One reminder per case per 24 hours.
+  const { data: lastReminder } = await supabase
+    .from('audit_events')
+    .select('created_at')
+    .eq('case_id', caseId)
+    .eq('event_type', 'accounts_reminded')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastReminder && Date.now() - new Date(lastReminder.created_at as string).getTime() < REMINDER_COOLDOWN_MS) {
+    throw new Error('Accounts was already reminded about this bill in the last 24 hours.');
+  }
+
+  // Active users holding the Accounts role.
+  const { data: roleRows, error: rolesError } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'accounts');
+  if (rolesError) throw new Error(`Could not look up Accounts users: ${rolesError.message}`);
+
+  const candidateIds = (roleRows ?? []).map(r => r.user_id as string);
+  const { data: activeProfiles, error: profilesError } = candidateIds.length > 0
+    ? await supabase.from('profiles').select('id').in('id', candidateIds).eq('is_active', true)
+    : { data: [], error: null };
+  if (profilesError) throw new Error(`Could not look up Accounts users: ${profilesError.message}`);
+
+  const recipientIds = (activeProfiles ?? []).map(p => p.id as string);
+  if (recipientIds.length === 0) {
+    throw new Error('No active Accounts users to notify. Ask an admin to assign the Accounts role.');
+  }
+
+  const sentAt = new Date().toISOString();
+  const { error: notifyError } = await supabase.from('notifications').insert(
+    recipientIds.map(id => ({
+      user_id: id,
+      title: 'Bill document needed',
+      message: `${user.full_name} asked Accounts to attach the bill document for ${caseRow.case_number}.`,
+      link_url: `/cases/${caseId}`,
+    }))
+  );
+  if (notifyError) throw new Error(`Reminder could not be sent: ${notifyError.message}`);
+
+  await logAuditEvent({
     case_id: caseId,
-    logged_by: user.id,
-    action_type: 'note',
-    outcome: 'RM requested Accounts to upload bill document.',
-    escalation_id: null
+    event_type: 'accounts_reminded',
+    actor_id: user.id,
+    description: `Accounts reminded to attach the bill document (${recipientIds.length} recipient${recipientIds.length === 1 ? '' : 's'}).`,
+    metadata: { recipients: recipientIds.length },
   });
+
   revalidatePath(`/cases/${caseId}`);
+  return { recipients: recipientIds.length, sentAt };
 }

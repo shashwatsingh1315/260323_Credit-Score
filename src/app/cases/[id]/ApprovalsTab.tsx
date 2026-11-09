@@ -1,5 +1,6 @@
 "use client";
 import { use, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,9 +22,9 @@ import { cn } from '@/lib/utils';
 
 const DECISION_CONSEQUENCES: Record<string, string[]> = {
   approve: [
-    'Your approval will be recorded with your name and timestamp.',
-    'If all required approvers approve, the case moves to Approved and the RM is notified to negotiate with the customer.',
-    'The credit days shown in this confirmation become governing terms only when the round fully approves.',
+    'Your approval is recorded with your name and timestamp.',
+    'Your approval finalizes this round: the case moves to Approved and the RM is notified to negotiate with the customer.',
+    'No other approver is needed. The first approval closes the round, and the terms below become governing.',
   ],
   reject: [
     'The case will immediately move to Rejected and the round will close.',
@@ -99,15 +100,20 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
             <h3 className="font-semibold text-sm text-attention">Ambiguous case — board review required</h3>
           </div>
           <p className="text-xs text-foreground/80">
-            This case was force-readied with missing items, so an ordinary deterministic decision is not safe.
+            The scoring engine flagged this case as ambiguous, so an ordinary deterministic decision is not safe.
             A board round must be convened before a final decision.
           </p>
-          {(activeRole === 'founder_admin' || activeRole === 'kam') && (
+          {openRound && openRound.round_type === 'ordinary' && (
+            <p className="mt-2 text-xs font-medium text-attention-strong">
+              An ordinary approval round is already open for this case, so the ambiguity board cannot be convened from here. An approver or Admin must return the open round for revision first; then convene the board.
+            </p>
+          )}
+          {!openRound && (activeRole === 'founder_admin' || activeRole === 'kam') && (
             <form action={handleCreateApprovalRound} className="mt-3">
               <input type="hidden" name="caseId" value={c.id} />
               <input type="hidden" name="cycleId" value={cycle.id} />
               <input type="hidden" name="stage" value={cycle.active_stage} />
-              <input type="hidden" name="roundType" value="appeal" />
+              <input type="hidden" name="roundType" value="ambiguity_board" />
               <Button type="submit" size="sm" variant="outline" className="border-attention text-attention">
                 Convene ambiguity board
               </Button>
@@ -249,6 +255,11 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
             const canDecide = ['ordinary_approver', 'board_member', 'founder_admin'].includes(activeRole);
             const canBoardVote = ['board_member', 'founder_admin'].includes(activeRole);
             const isOpen = round.status === 'open';
+            const isOrdinary = round.round_type === 'ordinary';
+            const isBoardDecided = round.round_type === 'appeal' || round.round_type === 'ambiguity_board';
+            const myDecision = currentUserId ? round.decisions?.find((d: any) => d.approver_id === currentUserId) : null;
+            // Only ordinary rounds take approver decisions here; board rounds go through the ballot.
+            const canOrdinaryDecide = isOpen && isOrdinary && canDecide && !myDecision;
 
             return (
               <Card key={round.id} className={cn(isOpen && 'border-primary/30')}>
@@ -285,8 +296,29 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                     </div>
                   ))}
 
+                  {/* ── Board rounds: decided on the ballot, not the approver form ── */}
+                  {isOpen && isBoardDecided && (
+                    <div className="flex items-center justify-between gap-3 flex-wrap rounded-lg border border-border bg-muted/30 p-3">
+                      <p className="text-sm text-foreground/85">
+                        {round.round_type === 'appeal' ? 'This appeal' : 'This case'} is decided by the board. Ordinary approvers cannot settle it.
+                      </p>
+                      {canBoardVote && (
+                        <Button asChild size="sm">
+                          <Link href={`/cases/${c.id}/board`}>Go to board ballot</Link>
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Already decided: show receipt instead of the form */}
+                  {isOpen && isOrdinary && myDecision && (
+                    <p className="text-xs text-muted-foreground border-t border-border pt-3">
+                      You recorded <span className="font-medium capitalize">{myDecision.decision?.replace(/_/g, ' ')}</span> on {formatDateIST(myDecision.decided_at)}. This round closes on the first approval.
+                    </p>
+                  )}
+
                   {/* ── Structured decision form with consequence preview ── */}
-                  {isOpen && round.round_type !== 'ambiguity_board' && canDecide && (
+                  {canOrdinaryDecide && (
                     <div className="space-y-3 pt-3 border-t border-border">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your decision</p>
 
@@ -342,6 +374,11 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Confirm: {pendingDecision.replace(/_/g, ' ')}
                           </p>
+                          {pendingDecision === 'approve' && (
+                            <p className="text-sm font-medium text-foreground">
+                              Approving these terms: {useFounderOverride && founderOverrideDays ? founderOverrideDays : (Number.isFinite(policyRecommendedDays) ? policyRecommendedDays : '—')} credit days · {formatCompactINR(c.requested_exposure_amount || c.bill_amount)} requested exposure · {tranches.length} tranche{tranches.length === 1 ? '' : 's'}.
+                            </p>
+                          )}
                           <ul className="text-sm space-y-1 list-disc pl-4 text-foreground/90">
                             {DECISION_CONSEQUENCES[pendingDecision].map((x, i) => <li key={i}>{x}</li>)}
                             {useFounderOverride && (
@@ -432,7 +469,7 @@ export default function ApprovalsTab({ coreData, promises, activeRole }: any) {
                   )}
 
                   {/* ── Board voting — independence preserved while open ── */}
-                  {round.round_type === 'ambiguity_board' && boardRound && (
+                  {isBoardDecided && boardRound && (
                     <BoardSection
                       boardRound={boardRound}
                       caseId={c.id}
@@ -486,7 +523,7 @@ function BoardSection({ boardRound, caseId, canBoardVote, currentUserId }: any) 
       ) : (
         /* After closure: the permitted vote record and the computed outcome. */
         <div className="space-y-2">
-          {votes.map((v: any) => (
+          {votes.map((v: { id: string; decision: string; comment?: string | null; voter?: { full_name?: string | null } | null }) => (
             <div key={v.id} className="flex items-center gap-2 text-sm flex-wrap">
               <span className="font-medium">{v.voter?.full_name}</span>
               <Badge variant={v.decision === 'approve' ? 'success' : v.decision === 'reject' ? 'destructive' : 'secondary'} className="text-xs capitalize">

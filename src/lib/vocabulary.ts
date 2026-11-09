@@ -210,7 +210,9 @@ export const GLOSSARY: Record<string, string> = {
   'Decided amount': 'The final commercial amount used as the margin baseline.',
   'Promised amount': 'The amount the customer commits to pay; collections measure against it.',
   'Collected amount': 'The sum of valid payment entries received.',
-  Outstanding: 'Promised amount minus valid collected amount, adjusted by approved credit notes.',
+  Outstanding: 'Amount still to be collected on billed cases: promised amount (or decided/bill amount where none was promised) minus collections, after approved credit notes.',
+  'Collection realisation': 'Collected amount as a share of the decided amount, for closed cases only. In-progress collection is not counted.',
+  'Approval success': 'Approved cases as a share of decided cases (approved or rejected) among cases submitted in the last 90 days. In-review cases are not counted.',
 };
 
 /** Scenario values → plain "Billed to / payment from" language. */

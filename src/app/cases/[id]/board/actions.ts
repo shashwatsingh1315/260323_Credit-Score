@@ -35,33 +35,11 @@ export async function fetchBoardDetails(caseId: string) {
 
   if (!approvalRound) return { caseData, boardRound: null, votes: [] };
 
-  // Get the actual board round
-  let { data: boardRound } = await supabase
-    .from('board_rounds')
-    .select('*')
-    .eq('approval_round_id', approvalRound.id)
-    .single();
-
-  // Auto-create board round if it doesn't exist yet but approval round does
-  if (!boardRound) {
-    // Get default committee roster
-    const { data: roster } = await supabase.from('committee_rosters').select('member_ids').eq('is_active', true).limit(1).single();
-    const members = roster?.member_ids || [];
-    
-    // Set a default 3-day vote window
-    const windowEnd = new Date();
-    windowEnd.setDate(windowEnd.getDate() + 3);
-
-    // Use upsert to address race condition
-    const { data: newBoardRound } = await supabase.from('board_rounds').upsert({
-      approval_round_id: approvalRound.id,
-      roster_snapshot: members,
-      vote_window_end: windowEnd.toISOString(),
-      status: 'open'
-    }, { onConflict: 'approval_round_id' }).select().single();
-
-    boardRound = newBoardRound;
-  }
+  // The board round is normally created together with the appeal / ambiguity
+  // approval round (see handleCreateApprovalRound). This lookup only falls back
+  // to creating it for rounds that predate that change.
+  const boardRound = await findOrCreateBoardRound(supabase, approvalRound.id);
+  if (!boardRound) return { caseData, approvalRound, boardRound: null, votes: [], rosterMembers: [] };
 
   // Get all votes with voter info
   const { data: votes } = await supabase
@@ -76,6 +54,54 @@ export async function fetchBoardDetails(caseId: string) {
     .in('id', boardRound.roster_snapshot || []);
 
   return { caseData, approvalRound, boardRound, votes: votes || [], rosterMembers: rosterMembers || [] };
+}
+
+const BOARD_VOTE_WINDOW_DAYS = 3;
+
+/**
+ * Idempotent fallback for the board round of an appeal / ambiguity round.
+ * Returns the existing round when present; otherwise creates it from the
+ * active committee roster. Returns null when no roster is configured.
+ * There is no unique index on board_rounds.approval_round_id yet, so a
+ * concurrent insert is resolved by re-reading the round.
+ */
+async function findOrCreateBoardRound(supabase: Awaited<ReturnType<typeof createClient>>, approvalRoundId: string) {
+  const { data: existing } = await supabase
+    .from('board_rounds')
+    .select('*')
+    .eq('approval_round_id', approvalRoundId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (existing) return existing;
+
+  const { data: roster } = await supabase.from('committee_rosters').select('member_ids').eq('is_active', true).limit(1).maybeSingle();
+  const members: string[] = roster?.member_ids ?? [];
+  if (members.length === 0) return null;
+
+  const windowEnd = new Date();
+  windowEnd.setDate(windowEnd.getDate() + BOARD_VOTE_WINDOW_DAYS);
+
+  const { data: created, error } = await supabase
+    .from('board_rounds')
+    .insert({
+      approval_round_id: approvalRoundId,
+      roster_snapshot: members,
+      vote_window_end: windowEnd.toISOString(),
+      status: 'open',
+    })
+    .select('*')
+    .single();
+  if (!error && created) return created;
+
+  const { data: raced } = await supabase
+    .from('board_rounds')
+    .select('*')
+    .eq('approval_round_id', approvalRoundId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return raced ?? null;
 }
 
 export async function submitBoardVote(formData: FormData) {
@@ -99,13 +125,14 @@ export async function submitBoardVote(formData: FormData) {
   await assertCanCastBoardVote(user, boardRoundId);
 
   // Upsert vote (users can change vote until window closes)
-  await supabase.from('board_votes').upsert({
+  const { error: voteError } = await supabase.from('board_votes').upsert({
     board_round_id: boardRoundId,
     voter_id: user.id,
     decision,
     comment,
     updated_at: new Date().toISOString()
   }, { onConflict: 'board_round_id,voter_id' });
+  if (voteError) throw new Error(voteError.message);
 
   await logAuditEvent({
     case_id: caseId,

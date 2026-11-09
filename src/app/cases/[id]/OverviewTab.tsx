@@ -263,7 +263,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                             <p className="text-xs text-muted-foreground mt-0.5">{e.description}</p>
                           </div>
                           <span className="text-xs text-muted-foreground shrink-0 ml-4">
-                            {new Date(e.created_at).toLocaleDateString('en-IN')}
+                            {formatDateIST(e.created_at)}
                           </span>
                         </div>
                       ))}
@@ -307,7 +307,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                           </div>
                         </>
                       )}
-                      <p className="text-tiny text-muted-foreground pt-1">Data as of: {new Date(c.customer_exposure.data_as_of).toLocaleDateString()}</p>
+                      <p className="text-tiny text-muted-foreground pt-1">Data as of: {formatDateIST(c.customer_exposure.data_as_of)}</p>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">No imported exposure for this party — absence of data is itself a risk signal.</p>
@@ -346,7 +346,7 @@ export default function OverviewTab({ coreData, promises, activeRole, liveScore,
                             </div>
                           </>
                         )}
-                        <p className="text-tiny text-muted-foreground pt-1">Data as of: {new Date(c.contractor_exposure.data_as_of).toLocaleDateString()}</p>
+                        <p className="text-tiny text-muted-foreground pt-1">Data as of: {formatDateIST(c.contractor_exposure.data_as_of)}</p>
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground italic">No historical exposure found.</p>

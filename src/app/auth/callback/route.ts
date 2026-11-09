@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
+/** Only allow same-origin relative paths as the post-auth destination. */
+function safeNext(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/';
+  return raw;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/';
+  const next = safeNext(searchParams.get('next'));
 
   if (code) {
     const supabase = await createClient();
@@ -24,6 +29,8 @@ export async function GET(request: Request) {
     }
   }
 
-  // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/login?error=Could not authenticate with Google`);
+  // Password-reset links come through this route too, so the failure copy depends on the destination.
+  const isReset = next.startsWith('/reset-password');
+  const errorCode = isReset ? 'reset_link_expired' : 'google_sign_in_failed';
+  return NextResponse.redirect(`${origin}/login?error=${errorCode}`);
 }

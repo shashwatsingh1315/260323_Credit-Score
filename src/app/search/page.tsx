@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/creditflow/StatusBadge';
 import { formatCompactINR, relativeDays } from '@/lib/format';
 import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
+import { LoadFailed } from '@/components/creditflow/LoadFailed';
 
 /**
  * Global search — doctrine §11.3: find cases and parties with the identifiers
@@ -35,8 +36,8 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
   // Find matching parties (name OR code) and matching users (RM/KAM) first,
   // then include their cases — one round trip each, no row caps hidden.
   const [
-    { data: parties },
-    { data: matchedUsers },
+    { data: parties, error: partiesError },
+    { data: matchedUsers, error: usersError },
   ] = await Promise.all([
     supabase.from('parties')
       .select('id, legal_name, customer_code, party_type, is_active')
@@ -74,15 +75,18 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
   }
   if (!includeArchived) caseQuery = caseQuery.is('archived_at', null);
 
-  const { data: cases } = await caseQuery;
+  const { data: cases, error: casesError } = await caseQuery;
+  const casesFailed = !!casesError;
 
   // Case counts per matched party so results are actionable.
   const partyCaseCounts: Record<string, number> = {};
+  let partyCountsFailed = false;
   if (partyIds.length > 0) {
-    const { data: partyCases } = await supabase.from('credit_cases')
+    const { data: partyCases, error: partyCountsError } = await supabase.from('credit_cases')
       .select('customer_party_id, contractor_party_id')
       .or(partyIds.map((id: string) => `customer_party_id.eq.${id},contractor_party_id.eq.${id}`).join(','))
       .limit(200);
+    partyCountsFailed = !!partyCountsError;
     for (const pc of partyCases || []) {
       if (pc.customer_party_id && partyIds.includes(pc.customer_party_id)) {
         partyCaseCounts[pc.customer_party_id] = (partyCaseCounts[pc.customer_party_id] || 0) + 1;
@@ -93,12 +97,18 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
     }
   }
 
+  // A failed parties or people lookup means the case query ran with a shortened ID list,
+  // so the case list is incomplete even when the case query itself succeeded.
+  const scopeIncomplete = !!(partiesError || usersError);
+  const casesIncomplete = casesFailed || scopeIncomplete;
+  const partiesFailed = !!(partiesError || partyCountsFailed);
+
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold">Search Results</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          {(cases?.length || 0)} case{(cases?.length || 0) !== 1 ? 's' : ''} and {parties?.length || 0} part{(parties?.length || 0) !== 1 ? 'ies' : 'y'} matching <strong>&ldquo;{term}&rdquo;</strong>
+          {casesFailed ? 'Cases could not be loaded' : scopeIncomplete ? 'Some matching cases may be missing' : <>{cases?.length || 0} case{(cases?.length || 0) !== 1 ? 's' : ''}</>} and {partiesFailed ? 'parties could not be loaded' : <>{parties?.length || 0} part{(parties?.length || 0) !== 1 ? 'ies' : 'y'}</>} matching <strong>&ldquo;{term}&rdquo;</strong>
           {includeArchived ? (
             <> · including archived · <Link href={`/search?q=${encodeURIComponent(term)}`} className="underline underline-offset-2">hide archived</Link></>
           ) : (
@@ -110,9 +120,12 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <section aria-label="Matching cases">
           <h2 className="text-lg font-semibold flex items-center gap-2 mb-3">
-            <Briefcase size={18} className="text-primary" aria-hidden="true" /> Cases ({cases?.length || 0})
+            <Briefcase size={18} className="text-primary" aria-hidden="true" /> Cases ({casesIncomplete ? '—' : cases?.length || 0})
           </h2>
-          {cases && cases.length > 0 ? (
+          {casesFailed ? <LoadFailed what="matching cases" /> : (
+            <>
+            {scopeIncomplete && <LoadFailed variant="inline" what="cases linked to matching parties or people" />}
+            {cases && cases.length > 0 ? (
             <div className="space-y-2">
               {cases.map((c: any) => (
                 <Link key={c.id} href={`/cases/${c.id}`} className="block group">
@@ -134,16 +147,18 @@ export default async function SearchResultsPage({ searchParams }: { searchParams
                 </Link>
               ))}
             </div>
-          ) : (
+            ) : scopeIncomplete ? null : (
             <p className="text-sm text-muted-foreground bg-card rounded-lg border p-4">No matching cases.</p>
+            )}
+            </>
           )}
         </section>
 
         <section aria-label="Matching parties">
           <h2 className="text-lg font-semibold flex items-center gap-2 mb-3">
-            <Building2 size={18} className="text-primary" aria-hidden="true" /> Parties ({parties?.length || 0})
+            <Building2 size={18} className="text-primary" aria-hidden="true" /> Parties ({partiesFailed ? '—' : parties?.length || 0})
           </h2>
-          {parties && parties.length > 0 ? (
+          {partiesFailed ? <LoadFailed what="matching parties" /> : parties && parties.length > 0 ? (
             <div className="space-y-2">
               {parties.map((p: any) => (
                 <Link key={p.id} href={`/cases?party=${p.id}`} className="block group" title={`View all cases for ${p.legal_name}`}>

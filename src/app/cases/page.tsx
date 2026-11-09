@@ -7,6 +7,7 @@ import { getImpersonationRole } from '@/utils/auth-actions';
 import { getCurrentUser } from '@/utils/auth';
 import { StatusBadge } from '@/components/creditflow/StatusBadge';
 import { EmptyState } from '@/components/creditflow/EmptyState';
+import { LoadFailed } from '@/components/creditflow/LoadFailed';
 import { CaseLifecycleActions } from '@/components/creditflow/CaseLifecycleActions';
 import { PHASE_FILTERS, getStatusMeta, describeScenario } from '@/lib/vocabulary';
 import { formatCompactINR, formatDateIST, relativeDays } from '@/lib/format';
@@ -39,14 +40,16 @@ export default async function CasesPage({
 
   // Broad search: match case number OR party legal name / code (two-step).
   let partyIdsFromSearch: string[] = [];
+  let partySearchFailed = false;
   let searchParty: any = null;
   if (q) {
-    const { data: matchedParties } = await supabase
+    const { data: matchedParties, error: partySearchError } = await supabase
       .from('parties')
       .select('id')
       .or(`legal_name.ilike.%${q}%,customer_code.ilike.%${q}%`)
       .limit(50);
     partyIdsFromSearch = (matchedParties || []).map((p: any) => p.id);
+    partySearchFailed = !!partySearchError;
   }
   if (partyFilter) {
     const { data: p } = await supabase.from('parties').select('id, legal_name, customer_code').eq('id', partyFilter).single();
@@ -152,7 +155,7 @@ export default async function CasesPage({
         <div>
           <h1 className="text-2xl font-bold">Cases</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {total} {archivedMode === 'only' ? 'archived ' : ''}case{total !== 1 ? 's' : ''}
+            {queryError ? 'Case count unavailable' : <>{total} {archivedMode === 'only' ? 'archived ' : ''}case{total !== 1 ? 's' : ''}</>}
             {archivedMode === 'include' && ' (including archived)'}
             {searchParty && <> for <strong>{searchParty.legal_name}</strong> ({searchParty.customer_code})</>}
             {q && <> matching <strong>&ldquo;{q}&rdquo;</strong></>}
@@ -226,16 +229,21 @@ export default async function CasesPage({
 
       {/* A failed query must never masquerade as an empty list (doctrine: tell the truth) */}
       {queryError && (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm">
-          <p className="font-semibold text-destructive-strong">The case list could not be loaded</p>
-          <p className="text-foreground/80 mt-0.5">
-            Database error: {queryError.message}
-            {queryError.message.includes('archived_at') && (
-              <> — the case-archival migration (<span className="font-mono">20260721000000_case_archival.sql</span>) has not been applied to this database yet.</>
-            )}
-          </p>
+        <div className="space-y-2">
+          <LoadFailed what="the case list" />
+          {isAdminRole && (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer">Technical details</summary>
+              <p className="mt-1 font-mono break-all">{queryError.message}</p>
+              {queryError.message.includes('archived_at') && (
+                <p className="mt-1">The case-archival migration (20260721000000_case_archival.sql) has not been applied to this database yet.</p>
+              )}
+            </details>
+          )}
         </div>
       )}
+
+      {partySearchFailed && <LoadFailed what="party matches for this search" />}
 
       {/* Rows */}
       {queryError ? null : !cases || cases.length === 0 ? (

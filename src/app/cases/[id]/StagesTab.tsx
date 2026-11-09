@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, AlertCircle, Award, ChevronDown, PauseCircle, Send } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Award, ChevronDown, PauseCircle, Send, Lock } from 'lucide-react';
 import { handleSubmitStage, handleCreateApprovalRound, handleAssignTask } from './actions';
 import TaskCompleteForm from './TaskCompleteForm';
 import { cn } from '@/lib/utils';
@@ -17,12 +17,15 @@ import { formatDateIST, daysUntil } from '@/lib/format';
  * lets the system decide the next valid transition (Principle 3).
  */
 
+// Must match DECISION_FROZEN_STATUSES in actions.ts (server enforces the same rule).
+const DECISION_FROZEN_STATUSES = ['Awaiting Approval', 'Appealed'];
+
 const isTaskOverdue = (task: any) => {
   if (!task.sla_deadline || task.status === 'Completed') return false;
   return new Date(task.sla_deadline) < new Date();
 };
 
-export default function StagesTab({ coreData, tasksData, activeRole, optimisticTasks, addOptimisticTask, stageScore }: any) {
+export default function StagesTab({ coreData, tasksData, activeRole, optimisticTasks, addOptimisticTask, stageScore, hasOpenBoardRound }: any) {
   const c = coreData.case;
   const cycle = coreData.cycle;
 
@@ -62,9 +65,26 @@ export default function StagesTab({ coreData, tasksData, activeRole, optimisticT
 
   const canSubmit = activeRole === 'kam' || activeRole === 'founder_admin';
   const requiredStage = cycle.required_stage ?? 3;
+  const decisionFrozen = DECISION_FROZEN_STATUSES.includes(c.status);
+  // Appeal and ambiguity board rounds are decided only by the board ballot, so
+  // the "return for revision" path does not apply. Appealed cases are always board.
+  const boardDecision = c.status === 'Appealed' || !!hasOpenBoardRound;
 
   return (
     <div className="space-y-4 mt-4">
+      {decisionFrozen && (
+        <div role="status" className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+          <Lock size={15} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <div>
+            <p className="font-semibold text-foreground">Locked for decision</p>
+            <p className="text-muted-foreground mt-0.5">
+              {boardDecision
+                ? 'The board is deciding this case. Grades and personas stay frozen until an Admin finalizes the board decision.'
+                : 'An approval round is open, so grades and personas are frozen. Return the case for revision to make changes.'}
+            </p>
+          </div>
+        </div>
+      )}
       {[1, 2, 3].map(stage => {
         const st = stageTasks(stage);
         const isCurrent = cycle.active_stage === stage;
@@ -130,7 +150,7 @@ export default function StagesTab({ coreData, tasksData, activeRole, optimisticT
                 )}
 
                 {/* One canonical CTA: Submit Stage — system decides the transition */}
-                {isCurrent && complete && canSubmit && (
+                {isCurrent && complete && canSubmit && !decisionFrozen && (
                   <form action={handleSubmitStage}>
                     <input type="hidden" name="cycleId" value={cycle.id} />
                     <input type="hidden" name="currentStage" value={stage} />
@@ -141,11 +161,11 @@ export default function StagesTab({ coreData, tasksData, activeRole, optimisticT
                     </SubmitButton>
                   </form>
                 )}
-                {isCurrent && complete && !canSubmit && (
+                {isCurrent && complete && !canSubmit && !decisionFrozen && (
                   <p className="text-xs text-muted-foreground">All required tasks complete — the KAM submits this stage.</p>
                 )}
                 {/* Early approval is an exception path, visually secondary */}
-                {isCurrent && complete && stage < requiredStage && canSubmit && (
+                {isCurrent && complete && stage < requiredStage && canSubmit && !decisionFrozen && (
                   <form action={handleCreateApprovalRound}>
                     <input type="hidden" name="cycleId" value={cycle.id} />
                     <input type="hidden" name="stage" value={stage} />
@@ -256,7 +276,7 @@ export default function StagesTab({ coreData, tasksData, activeRole, optimisticT
                         </div>
                       </div>
                       {['Pending', 'Completed'].includes(task.status) && isCurrent && (activeRole === 'founder_admin' || activeRole === 'kam' || !task.param?.default_owning_role || task.param.default_owning_role === activeRole) && (
-                        <TaskCompleteForm task={task} c={c} data={data} addOptimisticTask={addOptimisticTask} />
+                        <TaskCompleteForm task={task} c={c} data={data} addOptimisticTask={addOptimisticTask} hasOpenBoardRound={hasOpenBoardRound} />
                       )}
                     </div>
                   ))}

@@ -1,4 +1,5 @@
-import { fetchPolicyVersions, createNewDraft, fetchPolicyVersionCounts, resolvePolicyVersion } from './actions';
+import { formatDateIST } from '@/lib/format';
+import { fetchPolicyVersions, createNewDraft, fetchPolicyVersionCounts, resolvePolicyVersionState } from './actions';
 import PolicyContextBar, { policyVersionQuery } from './PolicyContextBar';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -7,14 +8,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { ShieldCheck, Sliders, GitBranch, BarChart3, CircleDot, CheckCircle2, Archive, FolderOpen } from 'lucide-react';
 import PolicyVersionActions from './PolicyVersionActions';
+import { createClient } from '@/utils/supabase/server';
+import { LoadFailed } from '@/components/creditflow/LoadFailed';
 
 export default async function PolicyPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
   const { v } = await searchParams;
-  const [versions, version] = await Promise.all([fetchPolicyVersions(), resolvePolicyVersion(v)]);
+  const [versions, state] = await Promise.all([fetchPolicyVersions(), resolvePolicyVersionState(v)]);
+  const version = state.version;
   const countsByVersion = new Map(await Promise.all(versions.map(async (policyVersion: any) => [policyVersion.id, await fetchPolicyVersionCounts(policyVersion.id)] as const)));
   const activeVersion = versions.find((policyVersion: any) => policyVersion.is_active);
   const emptyCounts = { parameters: 0, bands: 0, personas: 0, weights: 0 };
   const vq = policyVersionQuery(version);
+  // fetchPolicyVersions and resolvePolicyVersionState report "no version" when a read fails,
+  // so probe the table here: a failed read must say so, never claim no version exists.
+  const supabase = await createClient();
+  const probe = await supabase.from('policy_versions').select('id', { count: 'exact', head: true });
+  // Short-term guard until fetchPolicyVersions reports its own errors: a table that has rows
+  // but returned none to the read is a failed read, never "no policy versions yet".
+  const versionsUnavailable = !!probe.error || (versions.length === 0 && (probe.count ?? 0) > 0);
 
   const pipelineSections = [
     { title: 'Evidence & measurement', description: 'What evidence is collected and how answers become grades.', pages: [
@@ -63,14 +74,16 @@ export default async function PolicyPage({ searchParams }: { searchParams: Promi
           </p>
         </div>
         <form action={createNewDraft}>
-          <Button type="submit" variant="outline" size="sm">
+          <Button type="submit" variant="outline" size="sm" disabled={versionsUnavailable}>
             + New Draft
           </Button>
         </form>
       </div>
 
       {/* Which version the config screens below will open */}
-      <PolicyContextBar version={version} />
+      {versionsUnavailable
+        ? <LoadFailed what="policy versions" />
+        : <PolicyContextBar version={version} requestedNotFound={state.requestedNotFound} draftCount={state.draftCount} latestDraft={state.latestDraft} />}
 
       {/* Sub-page Navigation Cards — carry the version context */}
       <div className="space-y-6">
@@ -113,7 +126,9 @@ export default async function PolicyPage({ searchParams }: { searchParams: Promi
           <CardDescription>Open a version to view or edit its configuration. Archived versions are read-only.</CardDescription>
         </CardHeader>
         <CardContent>
-          {versions.length === 0 ? (
+          {versionsUnavailable ? (
+            <LoadFailed what="policy version history" />
+          ) : versions.length === 0 ? (
             <p className="text-muted-foreground text-sm">No policy versions yet. Create a new draft above.</p>
           ) : (
             <div className="space-y-2">
@@ -129,7 +144,7 @@ export default async function PolicyPage({ searchParams }: { searchParams: Promi
                           {pv.version_label}
                           {isCurrentContext && <span className="ml-2 text-tiny font-semibold uppercase tracking-wider text-primary">Current context</span>}
                         </p>
-                        <p className="text-xs text-muted-foreground">{new Date(pv.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-muted-foreground">{formatDateIST(pv.created_at)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

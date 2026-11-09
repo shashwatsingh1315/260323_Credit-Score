@@ -1,53 +1,138 @@
 "use client";
-import { useState, useTransition } from 'react';
+import { formatDateTimeIST } from '@/lib/format';
+import { useEffect, useState, useTransition } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PartyDialog } from '@/components/admin/PartyDialog';
-import { deactivateParty, assignRole, revokeRole, importPartiesCsv, adminCreateUser, adminDeleteUser, updateCommitteeRoster, recomputePartyHistoryFromOutcomes } from './actions';
+import { ConfirmDialog } from '@/components/creditflow/ConfirmDialog';
+import { LoadFailed } from '@/components/creditflow/LoadFailed';
+import {
+  deactivateParty, reactivateParty, assignRole, revokeRole, adminCreateUser, adminDeleteUser,
+  fetchUserDeletionImpact, updateCommitteeRoster, recomputePartyHistoryFromOutcomes,
+} from './actions';
 import { SubmitButton } from '@/components/ui/submit-button';
 
-import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, UserCog, Building2, History, ShieldCheck, Upload, Users, Ban, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ROLES = ['rm', 'kam', 'accounts', 'bdo', 'ordinary_approver', 'board_member', 'founder_admin'];
 
+type UserRole = { role: string };
+
+type AdminUser = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  roles?: UserRole[] | null;
+};
+
+type AdminParty = {
+  id: string;
+  legal_name: string;
+  customer_code: string | null;
+  party_type: string | null;
+  influencer_subtype: string | null;
+  industry_category: string | null;
+  gst_number: string | null;
+  pan_number: string | null;
+  is_active: boolean;
+};
+
+type AuditEvent = {
+  id: string;
+  description: string | null;
+  event_type: string;
+  created_at: string;
+  actor?: { full_name: string | null; email: string | null } | null;
+};
+
 interface AdminClientProps {
-  users: any[];
-  parties: any[];
-  auditLog: any[];
-  activeRoster?: any;
+  users: AdminUser[];
+  parties: AdminParty[];
+  partiesError?: boolean;
+  auditLog: AuditEvent[];
+  auditError?: boolean;
+  activeRoster?: { member_ids: string[] | null } | null;
 }
 
-export default function AdminClient({ users, parties, auditLog, activeRoster }: AdminClientProps) {
+type DeletionImpact = {
+  isSelf: boolean;
+  ownedCases: number;
+  tasks: number;
+  auditRecords: number;
+  onRoster: boolean;
+};
+
+export default function AdminClient({ users, parties, partiesError = false, auditLog, auditError = false, activeRoster }: AdminClientProps) {
   const [partyOpen, setPartyOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [editingParty, setEditingParty] = useState<any>(null);
-  const [isImporting, setIsImporting] = useState(false);
+  const [editingParty, setEditingParty] = useState<AdminParty | null>(null);
   const [userOpen, setUserOpen] = useState(false);
   const [rosterMemberIds, setRosterMemberIds] = useState<string[]>(activeRoster?.member_ids || []);
   const [isSavingRoster, setIsSavingRoster] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const handleImportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsImporting(true);
-    const formData = new FormData(e.currentTarget);
-    const res = await importPartiesCsv(formData);
-    setIsImporting(false);
-    if (res?.success) {
-      toast.success('Parties imported successfully');
-      setImportOpen(false);
-    } else {
-      toast.error(res?.error || 'Import failed');
-    }
+  const [pendingDeactivate, setPendingDeactivate] = useState<AdminParty | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<DeletionImpact | null>(null);
+  const [impactError, setImpactError] = useState(false);
+  const [pendingRevoke, setPendingRevoke] = useState<{ user: AdminUser; role: string } | null>(null);
+
+  const founderCount = users.filter(u => u.roles?.some(r => r.role === 'founder_admin')).length;
+
+  const openDelete = (user: AdminUser) => {
+    setDeleteImpact(null);
+    setImpactError(false);
+    setPendingDelete(user);
   };
+
+  const closeDelete = () => {
+    setPendingDelete(null);
+    setDeleteImpact(null);
+    setImpactError(false);
+  };
+
+  // Load the consequence preview for the user being deleted. State is cleared in openDelete/closeDelete.
+  useEffect(() => {
+    if (!pendingDelete) return;
+    let cancelled = false;
+    fetchUserDeletionImpact(pendingDelete.id)
+      .then(res => {
+        if (cancelled) return;
+        if (res.success) setDeleteImpact(res.impact);
+        else setImpactError(true);
+      })
+      .catch(() => { if (!cancelled) setImpactError(true); });
+    return () => { cancelled = true; };
+  }, [pendingDelete]);
+
+  const deleteBlocked = !!deleteImpact && !deleteImpact.isSelf &&
+    deleteImpact.ownedCases + deleteImpact.tasks + deleteImpact.auditRecords > 0;
+
+  const deleteConsequences = (() => {
+    if (!pendingDelete) return [];
+    if (impactError) {
+      return [
+        'Their sign-in is permanently removed and they lose access immediately.',
+        "Couldn't load linked records. The server will still check before deleting.",
+      ];
+    }
+    if (!deleteImpact) return ['Checking linked cases, tasks and history…'];
+    if (deleteImpact.isSelf) return ['This is your own account. You cannot delete it.'];
+    const items: string[] = [];
+    items.push('Their sign-in is permanently removed and they lose access immediately.');
+    if (deleteBlocked) {
+      items.push(`Blocked: linked to ${deleteImpact.ownedCases} case(s), ${deleteImpact.tasks} task(s) (assigned or completed) and ${deleteImpact.auditRecords} audit record(s). Revoke their roles instead.`);
+    } else {
+      items.push('No open cases, tasks or audit records found. The delete may still be blocked if the user has other history.');
+    }
+    if (deleteImpact.onRoster) items.push('They are still on the committee roster and will show as Unknown User.');
+    return items;
+  })();
 
   const handleCreateUserSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,7 +148,11 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
     });
   };
 
-  const handleRoleAction = async (formData: FormData, action: (fd: FormData) => Promise<any>, successMsg: string) => {
+  const handleRoleAction = async (
+    formData: FormData,
+    action: (fd: FormData) => Promise<{ success?: boolean; error?: string } | undefined>,
+    successMsg: string,
+  ) => {
     startTransition(async () => {
       const res = await action(formData);
       if (res?.success) {
@@ -117,18 +206,18 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
         {/* ─── Party Master ─── */}
         <TabsContent value="parties" className="space-y-4">
           <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">{parties.length} parties registered</p>
+            <p className="text-sm text-muted-foreground">{partiesError ? 'Party master unavailable' : `${parties.length} parties registered`}</p>
             <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   startTransition(async () => {
                     try {
                       const res = await recomputePartyHistoryFromOutcomes();
                       toast.success(`Recomputed history for ${res.updated} parties.`);
-                    } catch (e: any) {
-                      toast.error(e.message || 'Failed to sync history');
+                    } catch (e) {
+                      toast.error((e instanceof Error && e.message) || 'Failed to sync history');
                     }
                   });
                 }}
@@ -136,14 +225,15 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
               >
                 <History size={15} className="mr-1" /> Sync Payment History
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-                <Upload size={15} /> Import CSV
+              <Button size="sm" variant="outline" asChild>
+                <a href="/admin/imports?type=party_master"><Upload size={15} /> Import CSV</a>
               </Button>
               <Button size="sm" onClick={() => { setEditingParty(null); setPartyOpen(true); }}>
                 <Plus size={15} /> Add Party
               </Button>
             </div>
           </div>
+          {partiesError ? <LoadFailed what="the party master" /> : (
           <Card>
             <Table>
               <TableHeader>
@@ -179,14 +269,28 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                       <Badge variant={p.is_active ? 'success' : 'secondary'}>{p.is_active ? 'Active' : 'Inactive'}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditingParty(p); setPartyOpen(true); }}>
+                      <div className="flex justify-end items-center gap-1">
+                        <Button variant="ghost" size="icon" aria-label={`Edit ${p.legal_name}`} onClick={() => { setEditingParty(p); setPartyOpen(true); }}>
                           <Pencil size={15} />
                         </Button>
-                        <form action={(fd) => handleRoleAction(fd, deactivateParty, 'Party deactivated')}>
-                          <input type="hidden" name="id" value={p.id} />
-                          <Button variant="ghost" size="icon" type="submit" className="text-destructive hover:text-destructive"><Trash2 size={15} /></Button>
-                        </form>
+                        {p.is_active ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            aria-label={`Deactivate ${p.legal_name}`}
+                            title="Deactivate party"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setPendingDeactivate(p)}
+                          >
+                            <Ban size={15} />
+                          </Button>
+                        ) : (
+                          <form action={(fd) => handleRoleAction(fd, reactivateParty, 'Party reactivated')}>
+                            <input type="hidden" name="id" value={p.id} />
+                            <Button variant="ghost" size="sm" type="submit">Reactivate</Button>
+                          </form>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -194,6 +298,7 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
               </TableBody>
             </Table>
           </Card>
+          )}
         </TabsContent>
 
         {/* ─── Users & Roles ─── */}
@@ -249,23 +354,32 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                 {users.length === 0 && (
                   <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users yet.</TableCell></TableRow>
                 )}
-                {users.map((u) => (
+                {users.map((u) => {
+                  const displayName = u.full_name || u.email;
+                  return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name || 'No name'}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {(u.roles || []).map((r: any) => (
-                          <form key={r.role} action={(fd) => handleRoleAction(fd, revokeRole, 'Role revoked')} className="inline">
-                            <input type="hidden" name="userId" value={u.id} />
-                            <input type="hidden" name="role" value={r.role} />
-                            <button type="submit" title="Click to revoke">
-                              <Badge variant="info" className="capitalize cursor-pointer hover:bg-destructive/20 hover:text-destructive">
-                                {r.role}
-                              </Badge>
-                            </button>
-                          </form>
-                        ))}
+                        {(u.roles || []).map((r) => {
+                          const lastFounder = r.role === 'founder_admin' && founderCount <= 1;
+                          return (
+                            <Badge key={r.role} variant="info" className="capitalize gap-1 pr-1">
+                              {r.role}
+                              <button
+                                type="button"
+                                aria-label={`Remove ${r.role} role from ${displayName}`}
+                                title={lastFounder ? 'The last Founder Admin cannot be removed' : `Remove ${r.role} role`}
+                                disabled={lastFounder}
+                                onClick={() => setPendingRevoke({ user: u, role: r.role })}
+                                className="rounded-full p-0.5 hover:bg-destructive/15 hover:text-destructive disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-current"
+                              >
+                                <X size={11} aria-hidden="true" />
+                              </button>
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -278,15 +392,21 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                       </form>
                     </TableCell>
                     <TableCell className="text-right">
-                      <form action={(fd) => handleRoleAction(fd, adminDeleteUser, 'User deleted')}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <Button type="submit" variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                          <Trash2 size={15} />
-                        </Button>
-                      </form>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete user ${displayName}`}
+                        title="Delete user permanently"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => openDelete(u)}
+                      >
+                        <Trash2 size={15} />
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
@@ -317,9 +437,9 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                             <p className="text-sm font-medium">{u?.full_name || 'Unknown User'}</p>
                             <p className="text-xs text-muted-foreground">{u?.email || mid}</p>
                           </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="text-destructive"
                             onClick={() => setRosterMemberIds(prev => prev.filter(id => id !== mid))}
                           >
@@ -345,7 +465,7 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                   <h3 className="text-sm font-semibold">Eligible Board Members</h3>
                   <div className="max-h-[400px] overflow-y-auto divide-y border rounded-lg">
                     {users
-                      .filter(u => u.roles?.some((r: any) => r.role === 'board_member' || r.role === 'founder_admin'))
+                      .filter(u => u.roles?.some(r => r.role === 'board_member' || r.role === 'founder_admin'))
                       .filter(u => !rosterMemberIds.includes(u.id))
                       .map(u => (
                         <div key={u.id} className="flex items-center justify-between p-3 hover:bg-muted/30 transition-colors">
@@ -353,9 +473,9 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                             <p className="text-sm font-medium">{u.full_name}</p>
                             <p className="text-xs text-muted-foreground">{u.email}</p>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="h-7 text-xs"
                             onClick={() => setRosterMemberIds(prev => [...prev, u.id])}
                           >
@@ -374,10 +494,11 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
         <TabsContent value="audit">
           <Card>
             <CardContent className="pt-4">
+              {auditError ? <LoadFailed what="the audit log" /> : (
               <div className="relative pl-6 space-y-0">
                 <div className="absolute left-2 top-0 bottom-0 w-px bg-border" />
                 {auditLog.length === 0 && <p className="text-muted-foreground text-sm">No audit events yet.</p>}
-                {auditLog.map((e: any) => (
+                {auditLog.map((e) => (
                   <div key={e.id} className="relative pb-4 last:pb-0">
                     <div className="absolute -left-4 top-1.5 w-2 h-2 rounded-full bg-muted-foreground" />
                     <div className="flex items-start justify-between gap-4">
@@ -387,11 +508,12 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
                           {e.actor?.full_name || e.actor?.email || 'System'} · {e.event_type}
                         </p>
                       </div>
-                      <span className="text-xs text-muted-foreground shrink-0">{new Date(e.created_at).toLocaleString()}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{formatDateTimeIST(e.created_at)}</span>
                     </div>
                   </div>
                 ))}
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -400,31 +522,63 @@ export default function AdminClient({ users, parties, auditLog, activeRoster }: 
       {/* Party Form Dialog */}
       <PartyDialog open={partyOpen} onOpenChange={setPartyOpen} editingParty={editingParty} />
 
-      {/* CSV Import Dialog */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Import Parties (CSV)</DialogTitle></DialogHeader>
-          <form onSubmit={handleImportSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Import Type</Label>
-              <select name="import_type" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
-                <option value="party_master">Party Master</option>
-                <option value="grandfathered_cases">Grandfathered Cases (Legacy Collections)</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Upload a CSV file. For Collections, headers should be: <code>customer_name, customer_id, contractor_id, rm_name, rm_id, overdue_date, bill_amount, remarks</code>
-              </p>
-              <Input type="file" name="file" accept=".csv" required className="cursor-pointer" />
-            </div>
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={() => setImportOpen(false)} disabled={isImporting}>Cancel</Button>
-              <Button type="submit" disabled={isImporting}>{isImporting ? 'Importing...' : 'Upload & Import'}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Party deactivation */}
+      <ConfirmDialog
+        open={!!pendingDeactivate}
+        onOpenChange={(open) => { if (!open) setPendingDeactivate(null); }}
+        title={`Deactivate ${pendingDeactivate?.legal_name ?? 'party'}?`}
+        description="Deactivation is reversible. Use Reactivate on the party row to restore it."
+        consequences={[
+          'The party is marked Inactive in the master list.',
+          'Existing cases and history linked to this party are kept unchanged.',
+        ]}
+        tone="destructive"
+        confirmLabel="Deactivate party"
+        reasonLabel=""
+        hiddenFields={pendingDeactivate ? { id: pendingDeactivate.id } : {}}
+        action={(fd) => handleRoleAction(fd, deactivateParty, 'Party deactivated')}
+      />
+
+      {/* User deletion: type-to-confirm with a consequence preview */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => { if (!open) closeDelete(); }}
+        title={`Permanently delete ${pendingDelete?.full_name || pendingDelete?.email || 'user'}?`}
+        description="Use this only when an account should never sign in again. To remove access only, revoke their roles."
+        consequences={deleteConsequences}
+        irreversible
+        tone="destructive"
+        confirmLabel="Delete user"
+        reasonLabel=""
+        requireMatchText={pendingDelete?.email}
+        hiddenFields={pendingDelete ? { userId: pendingDelete.id } : {}}
+        action={(fd) => {
+          if (deleteBlocked) {
+            toast.error('This user is still linked to cases, tasks or history. Revoke their roles instead.');
+            return;
+          }
+          return handleRoleAction(fd, adminDeleteUser, 'User deleted');
+        }}
+      />
+
+      {/* Role revocation */}
+      <ConfirmDialog
+        open={!!pendingRevoke}
+        onOpenChange={(open) => { if (!open) setPendingRevoke(null); }}
+        title={`Remove ${pendingRevoke?.role ?? ''} role?`}
+        description={pendingRevoke ? `${pendingRevoke.user.full_name || pendingRevoke.user.email} will lose this role.` : undefined}
+        consequences={pendingRevoke ? [
+          `They lose every permission granted by the ${pendingRevoke.role} role.`,
+          ...((pendingRevoke.user.roles || []).length <= 1
+            ? ['This is their only role. They will have no access until a role is assigned.']
+            : []),
+        ] : []}
+        tone="destructive"
+        confirmLabel="Remove role"
+        reasonLabel=""
+        hiddenFields={pendingRevoke ? { userId: pendingRevoke.user.id, role: pendingRevoke.role } : {}}
+        action={(fd) => handleRoleAction(fd, revokeRole, 'Role revoked')}
+      />
     </div>
   );
 }
